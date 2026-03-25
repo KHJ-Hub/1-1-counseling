@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset='utf-8' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        body { font-family: 'Nanum Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; }
+        #calendar { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .fc-day-disabled { background-color: #e9ecef !important; cursor: not-allowed; } /* 야자날 스타일 */
+    </style>
+</head>
+<body>
+
+    <h2 style="text-align: center;">🍎 1학년 1반 상담 신청 일정표</h2>
+    <div id='calendar'></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+
+            // 🚫 상담 불가일 (야자 감독, 출장 등) 설정 - 여기에 날짜를 추가하세요!
+            const disabledDates = ['2026-03-26', '2026-03-31', '2026-04-02'];
+
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ko',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek'
+                },
+                // 날짜 클릭 이벤트
+                dateClick: function(info) {
+                    if (disabledDates.includes(info.dateStr)) {
+                        alert("이날은 선생님 야자 감독(또는 일정)이 있어서 상담이 어렵습니다. 다른 날을 골라주세요!");
+                        return;
+                    }
+
+                    var name = prompt(info.dateStr + " 상담을 신청하시겠습니까?\n이름을 입력해주세요:");
+                    
+                    if (name) {
+                        // 실제로는 여기서 구글 시트로 데이터를 보내는 코드가 들어갑니다.
+                        alert(name + " 학생, 신청 완료되었습니다! (시트 연동 전)");
+                        
+                        // 화면에 즉시 표시 (테스트용)
+                        calendar.addEvent({
+                            title: name + ' 상담',
+                            start: info.dateStr,
+                            allDay: true,
+                            color: '#ffc107'
+                        });
+                    }
+                },
+                // 날짜 렌더링 시 야자날 스타일 적용
+                dayCellDidMount: function(info) {
+                    if (disabledDates.includes(info.dateStr)) {
+                        info.el.classList.add('fc-day-disabled');
+                    }
+                }
+            });
+
+            calendar.render();
+        });
+    </script>
+</body>
+</html>
