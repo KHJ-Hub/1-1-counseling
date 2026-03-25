@@ -18,12 +18,21 @@
         .fc-day-sat a { color: #74c0fc !important; }
         .fc-day-today { background-color: #fff9db !important; }
         
-        /* 모바일 최적화 */
-        @media (max-width: 768px) {
-            h2 { font-size: 1.2rem; }
-            #calendar { padding: 10px; }
-            .fc-toolbar-title { font-size: 1.1rem !important; }
-        }
+       /* 모바일 전용 설정 */
+@media (max-width: 768px) {
+    h2 { font-size: 1.2rem; }
+    #calendar { padding: 10px; }
+    .fc-toolbar-title { font-size: 1.1rem !important; }
+}
+
+/* PC와 모바일 모두에서 글자가 안 잘리게 설정 (핵심) */
+.fc-event-title {
+    font-size: 0.85em !important; 
+    white-space: nowrap !important; 
+    overflow: hidden !important; 
+    text-overflow: ellipsis !important; 
+    display: block !important; /* 한 줄 고정을 위한 추가 */
+}
     </style>
 </head>
 <body>
