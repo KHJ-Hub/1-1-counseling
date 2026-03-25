@@ -15,20 +15,14 @@
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
         
-        /* 🚫 상담 불가일 스타일 (빨간 파스텔 빗금) */
         .fc-day-disabled { 
             background: repeating-linear-gradient(45deg, var(--disabled-bg), var(--disabled-bg) 10px, var(--disabled-stripe) 10px, var(--disabled-stripe) 20px) !important;
             cursor: not-allowed !important;
         }
         
-        /* 이름표(이벤트) 스타일: 파스텔 톤 및 중앙 정렬 */
         .fc-event { border: none !important; border-radius: 6px; padding: 4px; font-weight: 600; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.03); font-size: 0.95em; }
-        
-        /* 주말 색상 */
         .fc-day-sun a { color: #ff8787 !important; }
         .fc-day-sat a { color: #74c0fc !important; }
-        
-        /* 오늘 날짜 표시 */
         .fc-day-today { background-color: #fff9db !important; }
     </style>
 </head>
@@ -38,12 +32,12 @@
     <div id='calendar'></div>
 
     <script>
-        // ✅ 선생님의 새로운 GAS URL로 업데이트 완료!
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxVoZA5b08rzzQe3zoW4jfil21XWECtfN9bw6BjQmq0Qg-Hk-0dMZP8CHq0w7FkfJfttw/exec";
+        // ✅ 새로 발급받으신 최신 구글 앱스 스크립트 주소로 교체 완료
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzUqhPTd31QPl9Zn23S7d1hQ2wZWFb31psVSUstMTKTNp1YIzaWCx3K29Y-eYadh5qbUQ/exec";
         
-        // 🚫 고정 야자 감독일 (4월 일정 수정 반영)
-        const fixedDisabled = ['2026-03-30', '2026-04-09', '2026-04-16', '2026-04-21', '2026-04-23']; 
-        let sheetHolidays = []; // 구글 시트 '학사일정'에서 가져올 날짜들
+        // 🚫 고정 날짜 비움 (모든 일정은 구글 시트 '학사일정' 탭에서 관리하세요!)
+        const fixedDisabled = []; 
+        let sheetHolidays = [];
 
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
@@ -52,19 +46,17 @@
                 locale: 'ko',
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
                 
-                // 1. 데이터 불러오기 (상담 내역 + 학사일정)
                 events: function(info, successCallback, failureCallback) {
                     fetch(GAS_URL)
                         .then(res => res.json())
                         .then(data => {
-                            sheetHolidays = data.holidays || []; // 시트에서 가져온 불가일 저장
-                            successCallback(data.events); // 달력에 상담자 이름 표시
-                            calendar.render(); // 불가일 빗금 처리를 위해 재렌더링
+                            sheetHolidays = data.holidays || [];
+                            successCallback(data.events);
+                            calendar.render(); 
                         })
                         .catch(err => console.error("데이터 로드 실패:", err));
                 },
                 
-                // 2. 상담 신청 로직
                 dateClick: function(info) {
                     if (fixedDisabled.includes(info.dateStr) || sheetHolidays.includes(info.dateStr)) {
                         alert("이날은 선생님 일정 또는 학사일정으로 인해 상담이 어렵습니다. 😊");
@@ -94,7 +86,6 @@
                     }
                 },
 
-                // 3. 상담 취소 및 강제 삭제 (비번 1234)
                 eventClick: function(info) {
                     var eventDate = info.event.startStr;
                     var eventSlot = info.event.extendedProps.slot;
@@ -110,7 +101,6 @@
                     }
                 },
 
-                // 4. 날짜 칸 디자인 (불가일 빗금 처리)
                 dayCellDidMount: function(info) {
                     if (fixedDisabled.includes(info.dateStr) || sheetHolidays.includes(info.dateStr)) {
                         info.el.classList.add('fc-day-disabled');
