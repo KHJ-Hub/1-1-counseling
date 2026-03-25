@@ -15,12 +15,15 @@
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
         
+        /* 🚫 상담 불가일 스타일 (빗금) */
         .fc-day-disabled { 
             background: repeating-linear-gradient(45deg, var(--disabled-bg), var(--disabled-bg) 10px, var(--disabled-stripe) 10px, var(--disabled-stripe) 20px) !important;
             cursor: not-allowed !important;
         }
         
+        /* 이름표(이벤트) 스타일 */
         .fc-event { border: none !important; border-radius: 6px; padding: 4px; font-weight: 600; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.03); font-size: 0.95em; }
+        
         .fc-day-sun a { color: #ff8787 !important; }
         .fc-day-sat a { color: #74c0fc !important; }
         .fc-day-today { background-color: #fff9db !important; }
@@ -28,14 +31,13 @@
 </head>
 <body>
 
-    <h2>🌿1학년 1반 상담 신청🌿</h2>
+    <h2>🌿 1학년 1반 상담 신청</h2>
     <div id='calendar'></div>
 
     <script>
-        // ✅ 새로 발급받으신 최신 구글 앱스 스크립트 주소로 교체 완료
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbzUqhPTd31QPl9Zn23S7d1hQ2wZWFb31psVSUstMTKTNp1YIzaWCx3K29Y-eYadh5qbUQ/exec";
+        // ✅ 새로 발급받으신 최신 URL로 업데이트 완료!
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbx2nhu7dmq58GWoCnh4vYqv50Qyu6o3aAVQcjVgOsdZNmcMLmPYtZB6d7_aAdtWQh-XKA/exec";
         
-        // 🚫 고정 날짜 비움 (모든 일정은 구글 시트 '학사일정' 탭에서 관리하세요!)
         const fixedDisabled = []; 
         let sheetHolidays = [];
 
@@ -46,20 +48,22 @@
                 locale: 'ko',
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
                 
+                // 1. 데이터 불러오기
                 events: function(info, successCallback, failureCallback) {
                     fetch(GAS_URL)
                         .then(res => res.json())
                         .then(data => {
                             sheetHolidays = data.holidays || [];
-                            successCallback(data.events);
+                            successCallback(data.events); // 파스텔 색상 포함된 데이터
                             calendar.render(); 
                         })
                         .catch(err => console.error("데이터 로드 실패:", err));
                 },
                 
+                // 2. 신청 로직
                 dateClick: function(info) {
                     if (fixedDisabled.includes(info.dateStr) || sheetHolidays.includes(info.dateStr)) {
-                        alert("해당 날짜는 상담이 어렵습니다. 😊");
+                        alert("이날은 선생님 일정 또는 학사일정으로 인해 상담이 어렵습니다. 😊");
                         return;
                     }
 
@@ -86,6 +90,7 @@
                     }
                 },
 
+                // 3. 취소 로직
                 eventClick: function(info) {
                     var eventDate = info.event.startStr;
                     var eventSlot = info.event.extendedProps.slot;
@@ -108,9 +113,20 @@
                 }
             });
 
+            // 데이터 전송 함수 (중복 체크 메시지 대응)
             function sendData(payload) {
                 fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
-                .then(() => { alert("처리가 완료되었습니다! ✨"); location.reload(); });
+                .then(response => response.text())
+                .then(result => {
+                    if (result === "DUPLICATE_WEEKLY") {
+                        alert("❌ 이미 이번 주에 상담 신청 내역이 있습니다.\n상담은 일주일에 한 번만 신청 가능합니다.");
+                    } else if (result === "Success") {
+                        alert("처리가 완료되었습니다! ✨");
+                        location.reload();
+                    } else {
+                        alert("오류가 발생했습니다. 다시 시도해 주세요.");
+                    }
+                });
             }
             calendar.render();
         });
