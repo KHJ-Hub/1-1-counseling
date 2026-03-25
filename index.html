@@ -6,22 +6,23 @@
     <title>1학년 1반 상담 신청</title>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     <style>
-        :root {
-            --bg-color: #f8f9fa;
-            --disabled-bg: #fff5f5;
-            --disabled-stripe: #ffe3e3;
+        :root { 
+            --disabled-bg: #fff5f5; 
+            --disabled-stripe: #ffe3e3; 
         }
-        body { font-family: 'Pretendard', sans-serif; padding: 10px; background-color: var(--bg-color); color: #495057; }
+        body { font-family: 'Pretendard', sans-serif; padding: 10px; background-color: #f8f9fa; color: #495057; }
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
         
-        /* 🚫 상담 불가일 스타일 (빨간 파스텔 빗금) - 우선순위 강화 */
+        /* 🚫 상담 불가일 스타일 (빨간 파스텔 빗금) */
         .fc-day-disabled { 
-            background: repeating-linear-gradient(45deg, #fff5f5, #fff5f5 10px, #ffe3e3 10px, #ffe3e3 20px) !important;
+            background: repeating-linear-gradient(45deg, var(--disabled-bg), var(--disabled-bg) 10px, var(--disabled-stripe) 10px, var(--disabled-stripe) 20px) !important;
             cursor: not-allowed !important;
         }
         
+        /* 이름표(이벤트) 스타일 */
         .fc-event { border: none !important; border-radius: 6px; padding: 4px; font-weight: 600; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.03); font-size: 0.95em; }
+        
         .fc-day-sun a { color: #ff8787 !important; }
         .fc-day-sat a { color: #74c0fc !important; }
         .fc-day-today { background-color: #fff9db !important; }
@@ -33,95 +34,91 @@
     <div id='calendar'></div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycb2nhu7dmq58GWoCnh4vYqv50Qyu6o3aAVQcjVgOsdZNmcMLmPYtZB6d7_aAdtWQh-XKA/exec";
+        // ✅ 선생님이 방금 주신 최신 URL로 업데이트 완료!
+        const GAS_URL = "https://script.google.com/macros/s/AKfycby7tS0dwvnN2KHB-u7NYtxao8x4NdHP-KXuFWdiyGOlTnhD5Tq0FC7qCOJ-jHxIOD3sqA/exec";
         
         let sheetHolidays = [];
-        let calendar;
 
-        // 1. 초기 실행: 데이터를 먼저 가져오고 달력을 시작합니다.
         document.addEventListener('DOMContentLoaded', async function() {
-            await fetchInitialData();
-        });
-
-        async function fetchInitialData() {
             try {
-                const res = await fetch(GAS_URL);
-                const data = await res.json();
+                // 1. 구글 시트에서 데이터를 먼저 완전히 가져옵니다.
+                const response = await fetch(GAS_URL);
+                const data = await response.json();
+                
                 sheetHolidays = data.holidays || [];
-                initCalendar(data.events); // 데이터 로드 후 달력 생성
-            } catch (err) {
-                console.error("초기 데이터 로드 실패:", err);
-                initCalendar([]); // 실패 시 빈 달력이라도 띄움
-            }
-        }
+                console.log("로드된 불가일:", sheetHolidays); // 확인용 로그
 
-        function initCalendar(initialEvents) {
-            var calendarEl = document.getElementById('calendar');
-            calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'ko',
-                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
-                
-                // 이벤트(상담자 이름) 설정
-                events: initialEvents,
+                // 2. 달력을 초기화하고 그립니다.
+                var calendarEl = document.getElementById('calendar');
+                var calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    locale: 'ko',
+                    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
+                    
+                    // 시트에서 가져온 상담 내역(이름표) 표시
+                    events: data.events,
 
-                // 빗금 처리 로직 (Class 부여)
-                dayCellClassNames: function(info) {
-                    if (sheetHolidays.includes(info.dateStr)) {
-                        return ['fc-day-disabled'];
-                    }
-                    return [];
-                },
-                
-                // 상담 신청 클릭
-                dateClick: function(info) {
-                    if (sheetHolidays.includes(info.dateStr)) {
-                        alert("해당 날짜는 상담이 어렵습니다. 😊");
-                        return;
-                    }
-
-                    var dayEvents = calendar.getEvents().filter(ev => ev.startStr === info.dateStr);
-                    var occupiedSlots = dayEvents.map(ev => ev.extendedProps.slot);
-
-                    var msg = info.dateStr + " [상담 시간 선택]\n";
-                    msg += "1. 야자 1차시 " + (occupiedSlots.includes("야자 1차시") ? "(마감)" : "") + "\n";
-                    msg += "2. 야자 2차시 " + (occupiedSlots.includes("야자 2차시") ? "(마감)" : "") + "\n";
-                    msg += "3. 야자 3차시 " + (occupiedSlots.includes("야자 3차시") ? "(마감)" : "") + "\n";
-                    msg += "\n번호(1, 2, 3)를 입력해주세요.";
-
-                    var num = prompt(msg);
-                    if (['1', '2', '3'].includes(num)) {
-                        var slotText = "야자 " + num + "차시";
-                        if (occupiedSlots.includes(slotText)) {
-                            alert("이미 예약된 시간입니다!");
+                    // 빗금 처리 로직 (가져온 날짜에 포함되면 클래스 부여)
+                    dayCellClassNames: function(info) {
+                        if (sheetHolidays.includes(info.dateStr)) {
+                            return ['fc-day-disabled'];
+                        }
+                    },
+                    
+                    // 날짜 클릭 시 상담 신청
+                    dateClick: function(info) {
+                        if (sheetHolidays.includes(info.dateStr)) {
+                            alert("해당 날짜는 상담이 어렵습니다. 😊");
                             return;
                         }
-                        var name = prompt(slotText + " 신청자 이름을 입력하세요:");
-                        if (name && name.trim() !== "") {
-                            sendData({ action: "save", date: info.dateStr, slot: slotText, name: name });
+
+                        var dayEvents = calendar.getEvents().filter(ev => ev.startStr === info.dateStr);
+                        var occupiedSlots = dayEvents.map(ev => ev.extendedProps.slot);
+
+                        var msg = info.dateStr + " [상담 시간 선택]\n";
+                        msg += "1. 야자 1차시 " + (occupiedSlots.includes("야자 1차시") ? "(마감)" : "") + "\n";
+                        msg += "2. 야자 2차시 " + (occupiedSlots.includes("야자 2차시") ? "(마감)" : "") + "\n";
+                        msg += "3. 야자 3차시 " + (occupiedSlots.includes("야자 3차시") ? "(마감)" : "") + "\n";
+                        msg += "\n번호(1, 2, 3)를 입력해주세요.";
+
+                        var num = prompt(msg);
+                        if (['1', '2', '3'].includes(num)) {
+                            var slotText = "야자 " + num + "차시";
+                            if (occupiedSlots.includes(slotText)) {
+                                alert("이미 예약된 시간입니다!");
+                                return;
+                            }
+                            var name = prompt(slotText + " 신청자 이름을 입력하세요:");
+                            if (name && name.trim() !== "") {
+                                sendData({ action: "save", date: info.dateStr, slot: slotText, name: name });
+                            }
+                        }
+                    },
+
+                    // 상담 내역 클릭 시 취소
+                    eventClick: function(info) {
+                        var eventDate = info.event.startStr;
+                        var eventSlot = info.event.extendedProps.slot;
+                        var eventName = info.event.extendedProps.name;
+
+                        if (confirm("[" + eventSlot + "] " + eventName + " 상담을 취소할까요?")) {
+                            var check = prompt("본인 확인용 이름 또는 관리자 비밀번호(1234) 입력:");
+                            if (check === eventName || check === "1234") {
+                                sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName });
+                            } else if (check !== null) {
+                                alert("권한이 없습니다.");
+                            }
                         }
                     }
-                },
+                });
+                calendar.render();
+            } catch (error) {
+                console.error("데이터 로드 실패:", error);
+                alert("데이터를 불러오지 못했습니다. 앱스 스크립트 배포 설정을 확인해 주세요.");
+            }
+        });
 
-                // 상담 취소
-                eventClick: function(info) {
-                    var eventDate = info.event.startStr;
-                    var eventSlot = info.event.extendedProps.slot;
-                    var eventName = info.event.extendedProps.name;
-
-                    if (confirm("[" + eventSlot + "] " + eventName + " 상담을 취소할까요?")) {
-                        var check = prompt("본인 확인용 이름 또는 관리자 비밀번호(1234) 입력:");
-                        if (check === eventName || check === "1234") {
-                            sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName });
-                        } else if (check !== null) {
-                            alert("권한이 없습니다.");
-                        }
-                    }
-                }
-            });
-            calendar.render();
-        }
-
+        // 데이터 서버 전송 함수
         function sendData(payload) {
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
             .then(response => response.text())
