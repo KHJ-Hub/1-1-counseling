@@ -7,62 +7,68 @@
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     <style>
         body { font-family: 'Nanum Gothic', sans-serif; padding: 10px; background-color: #f4f7f6; }
-        #calendar { max-width: 800px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
-        .fc-day-disabled { background-color: #f8d7da !important; cursor: not-allowed; opacity: 0.6; }
-        /* 일요일 빨간색, 토요일 파란색 (선택사항) */
-        .fc-day-sun a { color: red; }
-        .fc-day-sat a { color: blue; }
+        #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h2 { text-align: center; color: #34495e; margin-bottom: 25px; }
+        .fc-day-disabled { background-color: #fff5f5 !important; cursor: not-allowed; opacity: 0.7; }
+        .fc-event { cursor: pointer; border: none !important; border-radius: 5px; padding: 3px 7px; font-size: 0.9em; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
+        .fc-day-sun a { color: #e74c3c !important; }
+        .fc-day-sat a { color: #3498db !important; }
     </style>
 </head>
 <body>
 
-    <h2>🌿 1학년 1반 상담 신청 일정표</h2>
+    <h2>🌿 1학년 1반 상담 신청 (야자 1·2·3차시)</h2>
     <div id='calendar'></div>
 
     <script>
-        // 선생님의 새로운 GAS URL입니다.
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbyeaESOrmXQqqiGbmeJIVR2bw4paJCKoZjToVNokZ7XnmKA3tvvwHScP60p1nBkNmc0Ow/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxx_v1puoRam4lW90iP-9xuNdC9dSNl1Y5bQjAgyi6QTTn1SNHjCMSMph1y0EoomiRSkw/exec";
         
-        // 🚫 상담 불가일 (야자 감독 등) - 필요할 때마다 여기에 'YYYY-MM-DD' 형식으로 추가하세요.
-        const disabledDates = ['2026-03-26', '2026-03-31']; 
+        // 🚫 업데이트된 야자 감독 및 상담 불가일 목록
+        const disabledDates = [
+            '2026-03-30', 
+            '2026-04-12', 
+            '2026-04-19', 
+            '2026-04-24', 
+            '2026-04-26'
+        ]; 
 
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
-
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'ko',
-                // 1. 구글 시트에 저장된 상담 내역을 읽어와서 달력에 표시합니다.
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
                 events: function(info, successCallback, failureCallback) {
-                    fetch(GAS_URL)
-                        .then(res => res.json())
-                        .then(data => successCallback(data))
-                        .catch(err => console.error("데이터 로딩 실패:", err));
+                    fetch(GAS_URL).then(res => res.json()).then(data => successCallback(data));
                 },
-                // 2. 날짜 클릭 시 신청 팝업
                 dateClick: function(info) {
                     if (disabledDates.includes(info.dateStr)) {
                         alert("이날은 선생님 일정이 있어서 상담이 어렵습니다. 다른 날을 골라주세요! 😊");
                         return;
                     }
-
-                    var name = prompt(info.dateStr + " 상담을 신청하시겠습니까?\n본인의 이름을 입력해주세요:");
-                    
-                    if (name && name.trim() !== "") {
-                        // 구글 시트로 데이터 전송 (POST)
-                        fetch(GAS_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ date: info.dateStr, name: name })
-                        })
-                        .then(res => {
-                            alert(name + " 학생, 상담 신청이 완료되었습니다! 확인을 누르면 화면이 새로고침됩니다.");
-                            location.reload(); 
-                        })
-                        .catch(err => alert("신청 중 오류가 발생했습니다. 선생님께 말씀해 주세요."));
+                    var slot = prompt(info.dateStr + " [차시 선택]\n1. 야자 1차시\n2. 야자 2차시\n3. 야자 3차시\n\n번호(1, 2, 3)만 입력해주세요.");
+                    if (['1', '2', '3'].includes(slot)) {
+                        var slotText = "야자 " + slot + "차시";
+                        var name = prompt(slotText + " 상담 신청자의 이름을 입력해주세요:");
+                        if (name && name.trim() !== "") {
+                            sendData({ action: "save", date: info.dateStr, slot: slotText, name: name });
+                        }
                     }
                 },
-                // 3. 야자날 등 비활성화 날짜 스타일 적용
+                eventClick: function(info) {
+                    var eventDate = info.event.startStr;
+                    var eventSlot = info.event.extendedProps.slot;
+                    var eventName = info.event.extendedProps.name;
+
+                    if (confirm(eventDate + " " + eventSlot + " (" + eventName + ") 상담을 취소하시겠습니까?")) {
+                        var checkName = prompt("본인 확인을 위해 신청하셨던 이름을 다시 입력해주세요:");
+                        if (checkName === eventName) {
+                            sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName });
+                        } else if (checkName !== null) {
+                            alert("이름이 일치하지 않아 취소할 수 없습니다.");
+                        }
+                    }
+                },
                 dayCellDidMount: function(info) {
                     if (disabledDates.includes(info.dateStr)) {
                         info.el.classList.add('fc-day-disabled');
@@ -70,6 +76,13 @@
                 }
             });
 
+            function sendData(payload) {
+                fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
+                .then(() => {
+                    alert("성공적으로 처리되었습니다!");
+                    location.reload(); 
+                });
+            }
             calendar.render();
         });
     </script>
