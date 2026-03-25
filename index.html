@@ -9,26 +9,24 @@
         body { font-family: 'Nanum Gothic', sans-serif; padding: 10px; background-color: #f4f7f6; }
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         h2 { text-align: center; color: #34495e; margin-bottom: 25px; }
-        /* 🚫 야자 감독일 스타일: 빨간 빗금 */
-        .fc-day-disabled { 
-            background: repeating-linear-gradient(45deg, #fff5f5, #fff5f5 10px, #ffe0e0 10px, #ffe0e0 20px) !important;
-            cursor: not-allowed !important; 
-            opacity: 0.8;
-        }
-        .fc-event { cursor: pointer; border: none !important; border-radius: 5px; padding: 3px 7px; font-size: 0.9em; }
+        /* 🚫 야자 감독일 스타일 (빗금) */
+        .fc-day-disabled { background: repeating-linear-gradient(45deg, #fff5f5, #fff5f5 10px, #ffe0e0 10px, #ffe0e0 20px) !important; cursor: not-allowed !important; opacity: 0.8; }
+        /* 이벤트 스타일: 이름만 중앙에 표시 */
+        .fc-event { cursor: pointer; border: none !important; border-radius: 5px; padding: 2px 5px; font-weight: bold; text-align: center; font-size: 0.95em; }
         .fc-day-sun a { color: #e74c3c !important; }
         .fc-day-sat a { color: #3498db !important; }
     </style>
 </head>
 <body>
 
-    <h2>🌿 1학년 1반 상담 신청 (야자 1·2·3차시)</h2>
+    <h2>🌿 1학년 1반 상담 신청 사이트</h2>
     <div id='calendar'></div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxx_v1puoRam4lW90iP-9xuNdC9dSNl1Y5bQjAgyi6QTTn1SNHjCMSMph1y0EoomiRSkw/exec";
+        // 🔗 선생님의 최신 GAS URL 적용 완료!
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz1HeLfd3QixHPfKGHoxETZU11ICWJTN0Pg1SYIE1t8P9Yz0aL8AjfhXW0hSrPi1gBQQA/exec";
         
-        // 🚫 야자 감독일 목록 (날짜 형식을 엄격하게 맞췄습니다)
+        // 🚫 야자 감독일 (클릭 차단 목록)
         const disabledDates = ['2026-03-30', '2026-04-12', '2026-04-19', '2026-04-24', '2026-04-26']; 
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -37,21 +35,39 @@
                 initialView: 'dayGridMonth',
                 locale: 'ko',
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
+                
+                // 1. 데이터 불러오기
                 events: function(info, successCallback, failureCallback) {
                     fetch(GAS_URL).then(res => res.json()).then(data => successCallback(data));
                 },
                 
-                // [신청 로직]
+                // 2. 상담 신청 로직
                 dateClick: function(info) {
-                    // 클릭한 날짜가 감독일인지 확인
                     if (disabledDates.includes(info.dateStr)) {
                         alert("이날은 선생님 야자 감독일이라 상담이 불가능합니다! 😊");
                         return;
                     }
-                    
-                    var slot = prompt(info.dateStr + " [차시 선택]\n1. 야자 1차시\n2. 야자 2차시\n3. 야자 3차시\n\n번호(1, 2, 3)만 입력해주세요.");
-                    if (['1', '2', '3'].includes(slot)) {
-                        var slotText = "야자 " + slot + "차시";
+
+                    // 중복 체크를 위한 현재 날짜 예약 현황 파악
+                    var dayEvents = calendar.getEvents().filter(ev => ev.startStr === info.dateStr);
+                    var occupiedSlots = dayEvents.map(ev => ev.extendedProps.slot);
+
+                    var msg = info.dateStr + " [상담 시간 선택]\n";
+                    msg += "1. 야자 1차시 " + (occupiedSlots.includes("야자 1차시") ? "(마감)" : "") + "\n";
+                    msg += "2. 야자 2차시 " + (occupiedSlots.includes("야자 2차시") ? "(마감)" : "") + "\n";
+                    msg += "3. 야자 3차시 " + (occupiedSlots.includes("야자 3차시") ? "(마감)" : "") + "\n";
+                    msg += "\n신청할 번호(1, 2, 3)를 입력해주세요.";
+
+                    var slotNum = prompt(msg);
+                    if (['1', '2', '3'].includes(slotNum)) {
+                        var slotText = "야자 " + slotNum + "차시";
+                        
+                        // 이미 신청된 차시인지 다시 확인
+                        if (occupiedSlots.includes(slotText)) {
+                            alert("이미 다른 친구가 신청한 시간입니다. 다른 차시를 골라주세요!");
+                            return;
+                        }
+
                         var name = prompt(slotText + " 신청자의 이름을 입력해주세요:");
                         if (name && name.trim() !== "") {
                             sendData({ action: "save", date: info.dateStr, slot: slotText, name: name });
@@ -59,25 +75,23 @@
                     }
                 },
 
-                // [취소 및 강제 삭제 로직]
+                // 3. 상담 취소 및 강제 삭제 (비번 1234)
                 eventClick: function(info) {
                     var eventDate = info.event.startStr;
                     var eventSlot = info.event.extendedProps.slot;
                     var eventName = info.event.extendedProps.name;
 
-                    if (confirm(eventDate + " " + eventSlot + " (" + eventName + ") 상담을 취소하시겠습니까?")) {
-                        var checkName = prompt("본인 확인용 이름을 입력하거나,\n관리자 비밀번호를 입력해주세요:");
-                        
-                        // 🔑 관리자 비밀번호 '1234' 적용
-                        if (checkName === eventName || checkName === "1234") {
+                    if (confirm("[" + eventSlot + "] " + eventName + " 상담을 취소할까요?")) {
+                        var check = prompt("본인 확인용 이름을 입력하거나,\n관리자 비밀번호를 입력해주세요:");
+                        if (check === eventName || check === "1234") {
                             sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName });
-                        } else if (checkName !== null) {
+                        } else if (check !== null) {
                             alert("권한이 없습니다.");
                         }
                     }
                 },
 
-                // [날짜칸 렌더링] 감독일이면 빗금 스타일 적용
+                // 4. 날짜 칸 렌더링 (야자날 빗금 처리)
                 dayCellDidMount: function(info) {
                     if (disabledDates.includes(info.dateStr)) {
                         info.el.classList.add('fc-day-disabled');
@@ -87,10 +101,7 @@
 
             function sendData(payload) {
                 fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
-                .then(() => {
-                    alert("처리가 완료되었습니다!");
-                    location.reload(); 
-                });
+                .then(() => { alert("성공적으로 처리되었습니다!"); location.reload(); });
             }
             calendar.render();
         });
