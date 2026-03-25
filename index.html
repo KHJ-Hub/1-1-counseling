@@ -56,19 +56,21 @@
                     }
                 },
                 eventClick: function(info) {
-                    var eventDate = info.event.startStr;
-                    var eventSlot = info.event.extendedProps.slot;
-                    var eventName = info.event.extendedProps.name;
+    var eventDate = info.event.startStr;
+    var eventSlot = info.event.extendedProps.slot;
+    var eventName = info.event.extendedProps.name;
 
-                    if (confirm(eventDate + " " + eventSlot + " (" + eventName + ") 상담을 취소하시겠습니까?")) {
-                        var checkName = prompt("본인 확인을 위해 신청하셨던 이름을 다시 입력해주세요:");
-                        if (checkName === eventName) {
-                            sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName });
-                        } else if (checkName !== null) {
-                            alert("이름이 일치하지 않아 취소할 수 없습니다.");
-                        }
-                    }
-                },
+    if (confirm(eventDate + " " + eventSlot + " (" + eventName + ") 상담을 취소하시겠습니까?")) {
+        var checkName = prompt("본인 확인을 위해 신청하셨던 이름을 입력하거나,\n관리자 비밀번호를 입력해주세요:");
+        
+        // 🔑 선생님만의 비밀번호를 설정하세요 (예: 1101)
+        if (checkName === eventName || checkName === "1234") { 
+            sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName });
+        } else if (checkName !== null) {
+            alert("권한이 없습니다.");
+        }
+    }
+},
                 dayCellDidMount: function(info) {
                     if (disabledDates.includes(info.dateStr)) {
                         info.el.classList.add('fc-day-disabled');
