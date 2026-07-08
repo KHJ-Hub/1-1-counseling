@@ -13,69 +13,56 @@
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
         
-        .fc-event { border: none !important; border-radius: 6px; padding: 4px; font-weight: 600; text-align: center; font-size: 0.9em; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        /* 💡 위쪽 치우침 해결: 이름표 위아래를 통통하게 만들고 날짜에서 살짝 떨어뜨림 */
+        .fc-event { 
+            border: none !important; 
+            border-radius: 6px; 
+            padding: 5px 2px !important; 
+            margin-top: 3px !important; 
+            font-weight: 600; 
+            text-align: center; 
+            cursor: pointer; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+        }
         
-        .fc-daygrid-event-harness {
-            margin-top: 8px !important; 
-        }
-        .fc-event {
-            padding: 6px 4px !important; 
-        }
-
         .fc-day-sun a { color: #ff8787 !important; }
         .fc-day-sat a { color: #74c0fc !important; }
         .fc-day-today { background-color: #fff9db !important; }
         
-        @media (max-width: 768px) {
-            h2 { font-size: 1.2rem; }
-            #calendar { padding: 10px; }
-            .fc-event-title {
-                font-size: 0.75em !important; 
-            }
-        }
-
+        /* 💡 글자 잘림 해결: 자간을 좁히고 말줄임표를 없애서 한 줄에 꽉꽉 눌러담기 */
         .fc-event-title {
-            font-size: 0.85em !important; 
+            font-size: 0.8rem !important; 
+            letter-spacing: -0.5px !important; 
             white-space: nowrap !important; 
             overflow: hidden !important; 
-            text-overflow: ellipsis !important; 
+            text-overflow: clip !important; /* '...' 대신 그냥 끝까지 표시 */
             display: block !important; 
         }
 
-        .fc-header-toolbar {
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            margin-bottom: 1.5em !important;
-        }
-        
-        .fc-toolbar-chunk:nth-child(2) {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 5px; 
-        }
-
-        .fc-toolbar-title {
-            font-size: clamp(1.1rem, 4vw, 1.5rem) !important; 
-            white-space: nowrap !important; 
-            margin: 0 !important;
-        }
-        
-        .fc-button {
-            padding: 0.3em 0.5em !important;
+        @media (max-width: 768px) {
+            h2 { font-size: 1.2rem; }
+            #calendar { padding: 10px; }
+            
+            /* 모바일에서는 좁은 칸에 맞게 글씨를 더 작게, 간격을 더 좁게! */
+            .fc-event-title {
+                font-size: 0.65rem !important; 
+                letter-spacing: -1px !important;
+            }
+            .fc-event {
+                padding: 4px 1px !important; 
+            }
         }
 
-        /* 💡 로딩 화면 애니메이션 설정 */
-        @keyframes bounce {
-            from { transform: translateY(0); }
-            to { transform: translateY(-15px); }
-        }
+        .fc-header-toolbar { display: flex !important; flex-wrap: nowrap !important; align-items: center !important; margin-bottom: 1.5em !important; }
+        .fc-toolbar-chunk:nth-child(2) { display: flex !important; align-items: center !important; justify-content: center !important; gap: 5px; }
+        .fc-toolbar-title { font-size: clamp(1.1rem, 4vw, 1.5rem) !important; white-space: nowrap !important; margin: 0 !important; }
+        .fc-button { padding: 0.3em 0.5em !important; }
+
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
     </style>
 </head>
 <body>
 
-    <!-- 💡 로딩 화면 (데이터를 다 불러오면 자동으로 사라집니다) -->
     <div id="loading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
         <div style="font-size: 60px; animation: bounce 0.6s infinite alternate;">🌿</div>
         <div style="margin-top: 15px; font-size: 1.2rem; font-weight: 700; color: #5a5570;">달력 데이터를 불러오는 중입니다...</div>
@@ -201,24 +188,19 @@
                 });
                 calendar.render();
                 
-                // 💡 데이터 렌더링이 완료되면 로딩 화면을 숨김 처리합니다.
                 document.getElementById('loading').style.display = 'none';
                 
             } catch (error) {
                 console.error("데이터 로드 중 에러:", error);
-                document.getElementById('loading').style.display = 'none'; // 에러 시에도 로딩창 가리기
+                document.getElementById('loading').style.display = 'none'; 
                 alert("데이터 로딩에 실패했습니다. 잠시 후 다시 시도해주세요!");
             }
         });
 
         function sendData(payload) {
-            // 전송 버튼 누를 때 로딩창을 띄우고 싶다면 아래 주석을 해제하세요!
-            // document.getElementById('loading').style.display = 'flex';
-            
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
             .then(res => res.text())
             .then(result => {
-                // document.getElementById('loading').style.display = 'none';
                 if (result === "DUPLICATE_WEEKLY") {
                     alert("❌ 이미 이번 주에 상담 신청 내역이 있습니다.\n상담은 일주일에 한 번만 신청 가능합니다.");
                 } else if (result === "WRONG_PASSWORD") {
@@ -231,7 +213,6 @@
                 }
             })
             .catch(err => {
-                // document.getElementById('loading').style.display = 'none';
                 alert("오류가 발생했습니다: " + err);
             });
         }
