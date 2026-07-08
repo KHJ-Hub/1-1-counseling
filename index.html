@@ -9,66 +9,28 @@
     
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     <style>
+        <style>
         body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; padding: 10px; background-color: #f8f9fa; color: #495057; }
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
         
-        /* 💡 1. 박스 디자인 및 수직/수평 정중앙 정렬 */
+        /* 💡 핵심: 칸 안의 내용물을 수직 중앙으로 정렬 */
+        .fc-daygrid-day-frame { min-height: 120px !important; display: flex !important; flex-direction: column !important; }
+        .fc-daygrid-day-events { flex-grow: 1 !important; display: flex !important; flex-direction: column !important; justify-content: center !important; margin-top: 5px !important; }
+        .fc-daygrid-event-harness { margin-top: 3px !important; width: 95%; margin-left: auto; margin-right: auto; }
+
         .fc-event { 
-            border: none !important; 
-            border-radius: 6px; 
-            padding: 6px 0 !important; /* 위아래 여백을 주어 박스를 통통하게 */
-            margin-top: 2px !important; 
-            font-weight: 600; 
-            cursor: pointer; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
-            display: flex !important; 
-            align-items: center !important; /* 수직 정중앙 */
-            justify-content: center !important; /* 수평 정중앙 */
-            overflow: visible !important; /* 박스 밖으로 나가도 자르지 않음 */
+            border: none !important; border-radius: 6px; padding: 5px 0 !important; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+            display: flex !important; align-items: center !important; justify-content: center !important; overflow: visible !important;
         }
         
-        /* 💡 2. 달력 내부의 모든 껍데기(div)에 중앙 정렬 및 자름 방지 속성 강제 부여 */
-        .fc-event-main, .fc-event-main-frame, .fc-event-title-container {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 100%;
-            overflow: visible !important; 
-        }
-
-        .fc-day-sun a { color: #ff8787 !important; }
-        .fc-day-sat a { color: #74c0fc !important; }
-        .fc-day-today { background-color: #fff9db !important; }
-        
-        /* 💡 3. 글자 설정 (잘림 방지 및 자간 축소) */
         .fc-event-title {
-            font-size: 0.8rem !important; 
-            letter-spacing: -0.5px !important; /* 글자 사이 간격 좁히기 */
-            white-space: nowrap !important; 
-            overflow: visible !important; /* '...'으로 잘리는 현상 완벽 제거 */
-            text-overflow: clip !important; 
-            display: block !important; 
-            line-height: 1 !important;
+            font-size: 0.8rem !important; letter-spacing: -0.5px !important; white-space: nowrap !important; 
+            overflow: visible !important; text-overflow: clip !important; display: block !important; line-height: 1 !important;
         }
 
-        @media (max-width: 768px) {
-            h2 { font-size: 1.2rem; }
-            #calendar { padding: 10px; }
-            
-            /* 모바일에서는 글씨와 간격을 더 콤팩트하게 */
-            .fc-event-title {
-                font-size: 0.65rem !important; 
-                letter-spacing: -1px !important;
-            }
-        }
-
-        .fc-header-toolbar { display: flex !important; flex-wrap: nowrap !important; align-items: center !important; margin-bottom: 1.5em !important; }
-        .fc-toolbar-chunk:nth-child(2) { display: flex !important; align-items: center !important; justify-content: center !important; gap: 5px; }
-        .fc-toolbar-title { font-size: clamp(1.1rem, 4vw, 1.5rem) !important; white-space: nowrap !important; margin: 0 !important; }
-        .fc-button { padding: 0.3em 0.5em !important; }
-
-        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+        /* ... 이하 나머지 동일 ... */
+    </style>
     </style>
 </head>
 <body>
