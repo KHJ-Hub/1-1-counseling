@@ -41,100 +41,107 @@
     <div id='calendar'></div>
 
     <script>
-        // ✅ 새로 발급받으신 최종 배포 주소 반영 완료!
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
+       // ✅ 변함없는 최신 배포 URL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
+
+let sheetHolidays = [];
+
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        const response = await fetch(GAS_URL);
+        const data = await response.json();
         
-        let sheetHolidays = [];
+        sheetHolidays = data.holidays || [];
 
-        document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                // 1. 데이터를 가져옵니다 (상담 내역 + 빨간색 불가 이름표 포함)
-                const response = await fetch(GAS_URL);
-                const data = await response.json();
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'ko',
+            headerToolbar: { left: 'today', center: 'prev,title,next', right: '' }, 
+            
+            events: data.events,
+            
+            // 💡 1. 날짜 클릭 시 (신청) - 숫자 4자리 검증 추가
+            dateClick: function(info) {
+                if (sheetHolidays.includes(info.dateStr)) {
+                    alert("❌ 해당 날짜는 상담이 불가능한 날입니다. 😊");
+                    return;
+                }
                 
-                sheetHolidays = data.holidays || [];
+                var dayEvents = calendar.getEvents().filter(ev => ev.startStr === info.dateStr && ev.extendedProps.type === "consult");
+                var occupiedSlots = dayEvents.map(ev => ev.extendedProps.slot);
 
-                // 2. 달력을 그립니다.
-                var calendarEl = document.getElementById('calendar');
-                var calendar = new FullCalendar.Calendar(calendarEl, {
-                    initialView: 'dayGridMonth',
-                    locale: 'ko',
-                    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
-                    
-                    // GAS에서 생성한 모든 이름표(학생 이름 + 빨간 불가 이름표) 표시
-                    events: data.events,
-                    
-                    // 날짜 클릭 시 (신청)
-                    dateClick: function(info) {
-                        // 빨간 이름표가 있는 날이면 클릭 원천 차단
-                        if (sheetHolidays.includes(info.dateStr)) {
-                            alert("❌ 해당 날짜는 상담이 불가능한 날입니다. 😊");
-                            return;
-                        }
+                var msg = info.dateStr + " [상담 시간 선택]\n";
+                msg += "1. 야자 1차시 " + (occupiedSlots.includes("야자 1차시") ? "(마감)" : "") + "\n";
+                msg += "2. 야자 2차시 " + (occupiedSlots.includes("야자 2차시") ? "(마감)" : "") + "\n";
+                msg += "3. 야자 3차시 " + (occupiedSlots.includes("야자 3차시") ? "(마감)" : "") + "\n";
+                msg += "\n번호(1, 2, 3)를 입력해주세요.";
+
+                var num = prompt(msg);
+                if (['1', '2', '3'].includes(num)) {
+                    var slotText = "야자 " + num + "차시";
+                    if (occupiedSlots.includes(slotText)) {
+                        alert("이미 예약된 시간입니다!");
+                        return;
+                    }
+                    var name = prompt(slotText + " 신청자 이름을 입력하세요:");
+                    if (name && name.trim() !== "") {
+                        // 🔐 숫자 4자리 안내 문구 추가
+                        var password = prompt("🔒 예약 취소 시 확인할 '비밀번호'를 숫자 4자리로 설정해주세요.\n(예: 1234)");
                         
-                        var dayEvents = calendar.getEvents().filter(ev => ev.startStr === info.dateStr && ev.extendedProps.type === "consult");
-                        var occupiedSlots = dayEvents.map(ev => ev.extendedProps.slot);
-
-                        var msg = info.dateStr + " [상담 시간 선택]\n";
-                        msg += "1. 야자 1차시 " + (occupiedSlots.includes("야자 1차시") ? "(마감)" : "") + "\n";
-                        msg += "2. 야자 2차시 " + (occupiedSlots.includes("야자 2차시") ? "(마감)" : "") + "\n";
-                        msg += "3. 야자 3차시 " + (occupiedSlots.includes("야자 3차시") ? "(마감)" : "") + "\n";
-                        msg += "\n번호(1, 2, 3)를 입력해주세요.";
-
-                        var num = prompt(msg);
-                        if (['1', '2', '3'].includes(num)) {
-                            var slotText = "야자 " + num + "차시";
-                            if (occupiedSlots.includes(slotText)) {
-                                alert("이미 예약된 시간입니다!");
-                                return;
+                        if (password) {
+                            var pwdTrimmed = password.trim();
+                            // 💡 정규식을 통해 숫자 4자리(0000~9999)인지 엄격하게 검사
+                            if (/^\d{4}$/.test(pwdTrimmed)) {
+                                sendData({ action: "save", date: info.dateStr, slot: slotText, name: name, password: pwdTrimmed });
+                            } else {
+                                alert("❌ 비밀번호는 반드시 '숫자 4자리'로만 입력해야 합니다.\n처음부터 다시 신청해주세요.");
                             }
-                            var name = prompt(slotText + " 신청자 이름을 입력하세요:");
-                            if (name && name.trim() !== "") {
-                                sendData({ action: "save", date: info.dateStr, slot: slotText, name: name });
-                            }
-                        }
-                    },
-
-                    // 이름표 클릭 시 (취소)
-                    eventClick: function(info) {
-                        // "🚫 상담 불가" 이름표는 클릭해도 무시
-                        if (info.event.extendedProps.type === "holiday") return;
-
-                        var eventDate = info.event.startStr;
-                        var eventSlot = info.event.extendedProps.slot;
-                        var eventName = info.event.extendedProps.name;
-
-                        if (confirm("[" + eventSlot + "] " + eventName + " 상담을 취소할까요?")) {
-                            var check = prompt("본인 확인용 이름을 입력하세요 (또는 관리자 비밀번호):");
-                            if (check === eventName || check === "1234") {
-                                sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName });
-                            } else if (check !== null) {
-                                alert("권한이 없습니다.");
-                            }
+                        } else {
+                            alert("신청이 취소되었습니다.");
                         }
                     }
-                });
-                calendar.render();
-            } catch (error) {
-                console.error("데이터 로드 중 에러:", error);
-                alert("데이터 로딩에 실패했습니다. 잠시 후 다시 시도해주세요!");
+                }
+            },
+
+            // 💡 2. 이름표 클릭 시 (취소)
+            eventClick: function(info) {
+                if (info.event.extendedProps.type === "holiday") return;
+
+                var eventDate = info.event.startStr;
+                var eventSlot = info.event.extendedProps.slot;
+                var eventName = info.event.extendedProps.name;
+
+                if (confirm("[" + eventSlot + "] " + eventName + " 상담을 취소할까요?")) {
+                    var pwdCheck = prompt("🔒 예약 시 설정한 비밀번호(숫자 4자리)를 입력하세요.\n(선생님은 관리자 비밀번호 입력)");
+                    if (pwdCheck && pwdCheck.trim() !== "") {
+                        sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName, password: pwdCheck });
+                    }
+                }
             }
         });
+        calendar.render();
+    } catch (error) {
+        console.error("데이터 로드 중 에러:", error);
+        alert("데이터 로딩에 실패했습니다. 잠시 후 다시 시도해주세요!");
+    }
+});
 
-        // 데이터 서버 전송 함수
-        function sendData(payload) {
-            fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
-            .then(res => res.text())
-            .then(result => {
-                if (result === "DUPLICATE_WEEKLY") {
-                    alert("❌ 이미 이번 주에 상담 신청 내역이 있습니다.\n상담은 일주일에 한 번만 신청 가능합니다.");
-                } else {
-                    alert("처리가 완료되었습니다! ✨");
-                    location.reload();
-                }
-            })
-            .catch(err => alert("오류가 발생했습니다: " + err));
+// 💡 3. 데이터 서버 전송 함수
+function sendData(payload) {
+    fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
+    .then(res => res.text())
+    .then(result => {
+        if (result === "DUPLICATE_WEEKLY") {
+            alert("❌ 이미 이번 주에 상담 신청 내역이 있습니다.\n상담은 일주일에 한 번만 신청 가능합니다.");
+        } else if (result === "WRONG_PASSWORD") {
+            alert("❌ 비밀번호가 일치하지 않습니다."); 
+        } else if (result === "Success") {
+            alert("처리가 완료되었습니다! ✨");
+            location.reload();
+        } else {
+            alert("오류가 발생했습니다: " + result);
         }
-    </script>
-</body>
-</html>
+    })
+    .catch(err => alert("오류가 발생했습니다: " + err));
+}
