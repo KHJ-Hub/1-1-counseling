@@ -59,8 +59,8 @@
                 var calendar = new FullCalendar.Calendar(calendarEl, {
                     initialView: 'dayGridMonth',
                     locale: 'ko',
-                    // 💡 화살표 양옆 배치, month 버튼 제거
-                    headerToolbar: { left: 'today', center: 'prev,title,next', right: '' }, 
+                    // 전체 적용 모습 (쉼표를 공백으로 교체)
+headerToolbar: { left: 'today', center: 'prev title next', right: '' },
                     
                     events: data.events,
                     
