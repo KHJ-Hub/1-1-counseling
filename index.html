@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1학년 1반 상담 신청</title>
     
-    <!-- 💡 새싹 파비콘 로고 적용 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
     
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
@@ -14,21 +13,17 @@
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
         
-        /* 이름표(이벤트) 스타일 공통 */
         .fc-event { border: none !important; border-radius: 6px; padding: 4px; font-weight: 600; text-align: center; font-size: 0.9em; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         
-        /* 일요일/토요일 색상 */
         .fc-day-sun a { color: #ff8787 !important; }
         .fc-day-sat a { color: #74c0fc !important; }
         .fc-day-today { background-color: #fff9db !important; }
         
-        /* 모바일 전용 기본 설정 */
         @media (max-width: 768px) {
             h2 { font-size: 1.2rem; }
             #calendar { padding: 10px; }
         }
 
-        /* PC와 모바일 모두에서 글자가 안 잘리게 설정 */
         .fc-event-title {
             font-size: 0.85em !important; 
             white-space: nowrap !important; 
@@ -37,30 +32,26 @@
             display: block !important; 
         }
 
-        /* 💡 [추가] 달력 상단 메뉴가 줄바꿈되거나 잘리지 않도록 강제 고정 */
         .fc-header-toolbar {
             display: flex !important;
-            flex-wrap: nowrap !important; /* 무조건 한 줄에 배치 */
+            flex-wrap: nowrap !important;
             align-items: center !important;
             margin-bottom: 1.5em !important;
         }
         
-        /* 💡 가운데 영역(< 2026년 8월 >) 수평 정렬 및 간격 조정 */
         .fc-toolbar-chunk:nth-child(2) {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 5px; /* 화살표와 제목 사이의 간격 */
+            gap: 5px; 
         }
 
-        /* 💡 스마트폰 화면 크기에 맞춰 제목 글자 크기가 유연하게 줄어들도록 설정 */
         .fc-toolbar-title {
-            font-size: clamp(1.1rem, 4vw, 1.5rem) !important; /* 화면이 좁아지면 글씨도 작아짐 */
-            white-space: nowrap !important; /* 글자 줄바꿈 방지 */
+            font-size: clamp(1.1rem, 4vw, 1.5rem) !important; 
+            white-space: nowrap !important; 
             margin: 0 !important;
         }
         
-        /* 모바일에서 버튼 크기 살짝 축소 */
         .fc-button {
             padding: 0.3em 0.5em !important;
         }
@@ -72,7 +63,6 @@
     <div id='calendar'></div>
 
     <script>
-        // 구글 앱스 스크립트 연결 주소
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
         let sheetHolidays = [];
 
@@ -82,18 +72,57 @@
                 const data = await response.json();
                 
                 sheetHolidays = data.holidays || [];
+                
+                // --- 💡 [새 기능] 예약 3건 꽉 찬 날짜 찾아서 '마감' 이름표 추가 ---
+                // 날짜별로 예약 건수를 셉니다.
+                let dateCounts = {};
+                data.events.forEach(ev => {
+                    if (ev.extendedProps && ev.extendedProps.type === "consult") {
+                        dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;
+                    }
+                });
+                
+                // 예약이 3개인 날짜에 빨간색 마감 이름표를 추가합니다.
+                for (let dStr in dateCounts) {
+                    if (dateCounts[dStr] >= 3) {
+                        data.events.push({
+                            title: "🚨예약 마감🚨",
+                            start: dStr,
+                            allDay: true,
+                            backgroundColor: "#ff8787", // 눈에 띄는 빨간색
+                            borderColor: "#ff8787",
+                            textColor: "white",
+                            extendedProps: { type: "closed", slot: "마감" } // slot을 '마감'으로 주어 정렬 시 맨 아래로 가도록 유도
+                        });
+                    }
+                }
 
                 var calendarEl = document.getElementById('calendar');
                 var calendar = new FullCalendar.Calendar(calendarEl, {
                     initialView: 'dayGridMonth',
                     locale: 'ko',
-                    
-                    // 💡 화살표 양옆 배치 (쉼표 대신 띄어쓰기 적용 완료)
                     headerToolbar: { left: 'today', center: 'prev title next', right: '' }, 
+                    
+                    // 💡 [여백 제거] 달력의 높이를 내용에 맞게 자동으로 조정합니다.
+                    contentHeight: 'auto', 
+                    
+                    eventOrder: function(a, b) {
+                        // 1. 휴일(상담 불가) 최상단
+                        if (a.extendedProps.type === 'holiday' && b.extendedProps.type !== 'holiday') return -1;
+                        if (b.extendedProps.type === 'holiday' && a.extendedProps.type !== 'holiday') return 1;
+                        
+                        // 2. 차시 순 정렬
+                        let slotA = a.extendedProps.slot || "";
+                        let slotB = b.extendedProps.slot || "";
+                        
+                        if (slotA < slotB) return -1;
+                        if (slotA > slotB) return 1;
+                        
+                        return 0;
+                    },
                     
                     events: data.events,
                     
-                    // 1. 상담 신청 로직
                     dateClick: function(info) {
                         if (sheetHolidays.includes(info.dateStr)) {
                             alert("❌ 해당 날짜는 상담이 불가능한 날입니다. 😊");
@@ -102,6 +131,12 @@
                         
                         var dayEvents = calendar.getEvents().filter(ev => ev.startStr === info.dateStr && ev.extendedProps.type === "consult");
                         var occupiedSlots = dayEvents.map(ev => ev.extendedProps.slot);
+
+                        // 💡 마감 체크 로직 유지
+                        if (occupiedSlots.length >= 3) {
+                            alert("🚨 해당 날짜는 이미 3건의 상담 예약이 꽉 찼습니다!");
+                            return;
+                        }
 
                         var msg = info.dateStr + " [상담 시간 선택]\n";
                         msg += "1. 야자 1차시 " + (occupiedSlots.includes("야자 1차시") ? "(마감)" : "") + "\n";
@@ -122,7 +157,6 @@
                                 
                                 if (password) {
                                     var pwdTrimmed = password.trim();
-                                    // 숫자 4자리 엄격 검사
                                     if (/^\d{4}$/.test(pwdTrimmed)) {
                                         sendData({ action: "save", date: info.dateStr, slot: slotText, name: name, password: pwdTrimmed });
                                     } else {
@@ -135,9 +169,9 @@
                         }
                     },
 
-                    // 2. 상담 취소 로직
                     eventClick: function(info) {
-                        if (info.event.extendedProps.type === "holiday") return;
+                        // 휴일이나 마감 배지는 클릭 무시
+                        if (info.event.extendedProps.type === "holiday" || info.event.extendedProps.type === "closed") return;
 
                         var eventDate = info.event.startStr;
                         var eventSlot = info.event.extendedProps.slot;
@@ -158,7 +192,6 @@
             }
         });
 
-        // 3. 서버 전송 함수
         function sendData(payload) {
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
             .then(res => res.text())
