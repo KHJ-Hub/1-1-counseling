@@ -15,7 +15,6 @@
         
         .fc-event { border: none !important; border-radius: 6px; padding: 4px; font-weight: 600; text-align: center; font-size: 0.9em; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         
-        /* 💡 [수정됨] 이름표를 살짝 두껍게 하고 위에서 띄워 중앙 정렬된 느낌을 줍니다. */
         .fc-daygrid-event-harness {
             margin-top: 8px !important; 
         }
@@ -30,13 +29,18 @@
         @media (max-width: 768px) {
             h2 { font-size: 1.2rem; }
             #calendar { padding: 10px; }
+            /* 💡 모바일 화면에서 긴 글자도 한 줄에 들어가도록 폰트 크기 축소 */
+            .fc-event-title {
+                font-size: 0.75em !important; 
+            }
         }
 
+        /* 💡 [핵심 복구] 무조건 한 줄을 유지하되, 화면에 맞춰 크기를 조절 */
         .fc-event-title {
             font-size: 0.85em !important; 
-            white-space: nowrap !important; 
+            white-space: nowrap !important; /* 다시 한 줄 고정 설정으로 복구 */
             overflow: hidden !important; 
-            text-overflow: ellipsis !important; 
+            text-overflow: ellipsis !important; /* 칸이 너무 좁을 때만 ... 표시되게 */
             display: block !important; 
         }
 
