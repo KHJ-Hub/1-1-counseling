@@ -13,43 +13,53 @@
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
         
-        /* 💡 위쪽 치우침 해결: 이름표 위아래를 통통하게 만들고 날짜에서 살짝 떨어뜨림 */
+        /* 💡 1. 박스 디자인 및 수직/수평 정중앙 정렬 */
         .fc-event { 
             border: none !important; 
             border-radius: 6px; 
-            padding: 5px 2px !important; 
-            margin-top: 3px !important; 
+            padding: 6px 0 !important; /* 위아래 여백을 주어 박스를 통통하게 */
+            margin-top: 2px !important; 
             font-weight: 600; 
-            text-align: center; 
             cursor: pointer; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+            display: flex !important; 
+            align-items: center !important; /* 수직 정중앙 */
+            justify-content: center !important; /* 수평 정중앙 */
+            overflow: visible !important; /* 박스 밖으로 나가도 자르지 않음 */
         }
         
+        /* 💡 2. 달력 내부의 모든 껍데기(div)에 중앙 정렬 및 자름 방지 속성 강제 부여 */
+        .fc-event-main, .fc-event-main-frame, .fc-event-title-container {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100%;
+            overflow: visible !important; 
+        }
+
         .fc-day-sun a { color: #ff8787 !important; }
         .fc-day-sat a { color: #74c0fc !important; }
         .fc-day-today { background-color: #fff9db !important; }
         
-        /* 💡 글자 잘림 해결: 자간을 좁히고 말줄임표를 없애서 한 줄에 꽉꽉 눌러담기 */
+        /* 💡 3. 글자 설정 (잘림 방지 및 자간 축소) */
         .fc-event-title {
             font-size: 0.8rem !important; 
-            letter-spacing: -0.5px !important; 
+            letter-spacing: -0.5px !important; /* 글자 사이 간격 좁히기 */
             white-space: nowrap !important; 
-            overflow: hidden !important; 
-            text-overflow: clip !important; /* '...' 대신 그냥 끝까지 표시 */
+            overflow: visible !important; /* '...'으로 잘리는 현상 완벽 제거 */
+            text-overflow: clip !important; 
             display: block !important; 
+            line-height: 1 !important;
         }
 
         @media (max-width: 768px) {
             h2 { font-size: 1.2rem; }
             #calendar { padding: 10px; }
             
-            /* 모바일에서는 좁은 칸에 맞게 글씨를 더 작게, 간격을 더 좁게! */
+            /* 모바일에서는 글씨와 간격을 더 콤팩트하게 */
             .fc-event-title {
                 font-size: 0.65rem !important; 
                 letter-spacing: -1px !important;
-            }
-            .fc-event {
-                padding: 4px 1px !important; 
             }
         }
 
