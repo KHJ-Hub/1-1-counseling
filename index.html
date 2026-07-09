@@ -4,229 +4,91 @@
     <meta charset='utf-8' />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1학년 1반 상담 신청</title>
-    
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
-    
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     <style>
-        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; padding: 10px; background-color: #f8f9fa; color: #495057; }
+        body { font-family: 'Pretendard', sans-serif; padding: 10px; background-color: #f8f9fa; color: #495057; }
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; letter-spacing: -1px; }
-        
-        /* 💡 1. 날짜 숫자와 이름표 사이의 간격(천장) 띄우기 */
-        .fc-daygrid-event-harness {
-            margin-top: 6px !important; /* 위로 바짝 붙는 현상 완벽 방지 */
-        }
+        h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; }
 
-        /* 💡 2. 박스 디자인 및 수직/수평 정중앙 정렬 */
-        .fc-event { 
-            border: none !important; 
-            border-radius: 6px; 
-            padding: 6px 0 !important; 
-            font-weight: 600; 
-            cursor: pointer; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+        /* 💡 핵심: 학사일정 바(Bar) 안의 글자까지 수직/수평 중앙 정렬 */
+        .fc-daygrid-block-event { 
             display: flex !important; 
             align-items: center !important; 
             justify-content: center !important; 
-            overflow: visible !important; 
+            padding: 4px 0 !important;
         }
         
-        .fc-event-main, .fc-event-main-frame, .fc-event-title-container {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 100%;
-            overflow: visible !important; 
+        /* 상담 일정 이름표 중앙 정렬 */
+        .fc-event { 
+            border: none !important; border-radius: 6px; padding: 6px 4px !important; 
+            font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+            display: flex !important; align-items: center !important; justify-content: center !important;
         }
-
-        .fc-day-sun a { color: #ff8787 !important; }
-        .fc-day-sat a { color: #74c0fc !important; }
-        .fc-day-today { background-color: #fff9db !important; }
         
-        /* 💡 3. 글자 설정 (잘림 방지 및 자간 축소) */
-        .fc-event-title {
-            font-size: 0.8rem !important; 
-            letter-spacing: -0.5px !important; 
-            white-space: nowrap !important; 
-            overflow: visible !important; 
-            text-overflow: clip !important; 
-            display: block !important; 
-            line-height: 1 !important;
-        }
+        .fc-event-title { font-size: 0.8rem !important; white-space: nowrap !important; overflow: visible !important; }
 
         @media (max-width: 768px) {
-            h2 { font-size: 1.2rem; }
             #calendar { padding: 10px; }
-            
-            .fc-event-title {
-                font-size: 0.65rem !important; 
-                letter-spacing: -1px !important;
-            }
+            .fc-event-title { font-size: 0.65rem !important; }
         }
 
-        .fc-header-toolbar { display: flex !important; flex-wrap: nowrap !important; align-items: center !important; margin-bottom: 1.5em !important; }
-        .fc-toolbar-chunk:nth-child(2) { display: flex !important; align-items: center !important; justify-content: center !important; gap: 5px; }
-        .fc-toolbar-title { font-size: clamp(1.1rem, 4vw, 1.5rem) !important; white-space: nowrap !important; margin: 0 !important; }
-        .fc-button { padding: 0.3em 0.5em !important; }
-
+        .fc-header-toolbar { display: flex; align-items: center; margin-bottom: 1.5em; }
+        .fc-toolbar-title { font-size: 1.2rem !important; }
         @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
     </style>
 </head>
 <body>
-
     <div id="loading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
         <div style="font-size: 60px; animation: bounce 0.6s infinite alternate;">🌿</div>
-        <div style="margin-top: 15px; font-size: 1.2rem; font-weight: 700; color: #5a5570;">달력 데이터를 불러오는 중입니다...</div>
-        <div style="margin-top: 5px; font-size: 0.9rem; color: #868e96;">(최초 접속 시 2~3초 정도 소요될 수 있습니다)</div>
     </div>
-
     <h2>🌿 1학년 1반 상담 신청 🌿</h2>
     <div id='calendar'></div>
-
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
         let sheetHolidays = [];
-
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 const response = await fetch(GAS_URL);
                 const data = await response.json();
-                
                 sheetHolidays = data.holidays || [];
-                
                 let dateCounts = {};
-                data.events.forEach(ev => {
-                    if (ev.extendedProps && ev.extendedProps.type === "consult") {
-                        dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;
-                    }
-                });
-                
+                data.events.forEach(ev => { if (ev.extendedProps && ev.extendedProps.type === "consult") dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1; });
                 for (let dStr in dateCounts) {
-                    if (dateCounts[dStr] >= 3) {
-                        data.events.push({
-                            title: "🚨예약 마감🚨",
-                            start: dStr,
-                            allDay: true,
-                            backgroundColor: "#ff8787",
-                            borderColor: "#ff8787",
-                            textColor: "white",
-                            extendedProps: { type: "closed", slot: "마감" } 
-                        });
-                    }
+                    if (dateCounts[dStr] >= 3) data.events.push({ title: "🚨예약 마감🚨", start: dStr, allDay: true, backgroundColor: "#ff8787", borderColor: "#ff8787", textColor: "white", extendedProps: { type: "closed", slot: "마감" } });
                 }
-
-                var calendarEl = document.getElementById('calendar');
-                var calendar = new FullCalendar.Calendar(calendarEl, {
-                    initialView: 'dayGridMonth',
-                    locale: 'ko',
-                    headerToolbar: { left: 'today', center: 'prev title next', right: '' }, 
-                    contentHeight: 'auto', 
-                    
-                    eventOrder: function(a, b) {
-                        if (a.extendedProps.type === 'holiday' && b.extendedProps.type !== 'holiday') return -1;
-                        if (b.extendedProps.type === 'holiday' && a.extendedProps.type !== 'holiday') return 1;
-                        
-                        let slotA = a.extendedProps.slot || "";
-                        let slotB = b.extendedProps.slot || "";
-                        
-                        if (slotA < slotB) return -1;
-                        if (slotA > slotB) return 1;
-                        
-                        return 0;
-                    },
-                    
+                var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+                    initialView: 'dayGridMonth', locale: 'ko', headerToolbar: { left: 'today', center: 'prev title next', right: '' }, contentHeight: 'auto',
                     events: data.events,
-                    
                     dateClick: function(info) {
-                        if (sheetHolidays.includes(info.dateStr)) {
-                            alert("❌ 해당 날짜는 상담이 불가능한 날입니다. 😊");
-                            return;
-                        }
-                        
+                        if (sheetHolidays.includes(info.dateStr)) { alert("❌ 상담 불가"); return; }
                         var dayEvents = calendar.getEvents().filter(ev => ev.startStr === info.dateStr && ev.extendedProps.type === "consult");
-                        var occupiedSlots = dayEvents.map(ev => ev.extendedProps.slot);
-
-                        if (occupiedSlots.length >= 3) {
-                            alert("🚨 해당 날짜는 이미 3건의 상담 예약이 꽉 찼습니다!");
-                            return;
-                        }
-
-                        var msg = info.dateStr + " [상담 시간 선택]\n";
-                        msg += "1. 야자 1차시 " + (occupiedSlots.includes("야자 1차시") ? "(마감)" : "") + "\n";
-                        msg += "2. 야자 2차시 " + (occupiedSlots.includes("야자 2차시") ? "(마감)" : "") + "\n";
-                        msg += "3. 야자 3차시 " + (occupiedSlots.includes("야자 3차시") ? "(마감)" : "") + "\n";
-                        msg += "\n번호(1, 2, 3)를 입력해주세요.";
-
-                        var num = prompt(msg);
-                        if (['1', '2', '3'].includes(num)) {
-                            var slotText = "야자 " + num + "차시";
-                            if (occupiedSlots.includes(slotText)) {
-                                alert("이미 예약된 시간입니다!");
-                                return;
-                            }
-                            var name = prompt(slotText + " 신청자 이름을 입력하세요:");
-                            if (name && name.trim() !== "") {
-                                var password = prompt("🔒 예약 취소 시 확인할 '비밀번호'를 숫자 4자리로 설정해주세요.\n(예: 1234)");
-                                
-                                if (password) {
-                                    var pwdTrimmed = password.trim();
-                                    if (/^\d{4}$/.test(pwdTrimmed)) {
-                                        sendData({ action: "save", date: info.dateStr, slot: slotText, name: name, password: pwdTrimmed });
-                                    } else {
-                                        alert("❌ 비밀번호는 반드시 '숫자 4자리'로만 입력해야 합니다.\n처음부터 다시 신청해주세요.");
-                                    }
-                                } else {
-                                    alert("신청이 취소되었습니다.");
-                                }
-                            }
+                        if (dayEvents.length >= 3) { alert("🚨 예약 마감!"); return; }
+                        var num = prompt("차시 선택 (1, 2, 3):");
+                        if (['1','2','3'].includes(num)) {
+                            var slot = "야자 " + num + "차시";
+                            if (dayEvents.some(ev => ev.extendedProps.slot === slot)) { alert("이미 예약됨"); return; }
+                            var name = prompt("이름:");
+                            var pwd = prompt("비밀번호(4자리):");
+                            if (name && pwd && /^\d{4}$/.test(pwd.trim())) sendData({ action: "save", date: info.dateStr, slot: slot, name: name, password: pwd.trim() });
+                            else if (name && pwd) alert("❌ 비밀번호는 숫자 4자리!");
                         }
                     },
-
                     eventClick: function(info) {
                         if (info.event.extendedProps.type === "holiday" || info.event.extendedProps.type === "closed") return;
-
-                        var eventDate = info.event.startStr;
-                        var eventSlot = info.event.extendedProps.slot;
-                        var eventName = info.event.extendedProps.name;
-
-                        if (confirm("[" + eventSlot + "] " + eventName + " 상담을 취소할까요?")) {
-                            var pwdCheck = prompt("🔒 예약 시 설정한 비밀번호(숫자 4자리)를 입력하세요.\n(선생님은 관리자 비밀번호 입력)");
-                            if (pwdCheck && pwdCheck.trim() !== "") {
-                                sendData({ action: "delete", date: eventDate, slot: eventSlot, name: eventName, password: pwdCheck });
-                            }
+                        if (confirm("[" + info.event.extendedProps.slot + "] " + info.event.extendedProps.name + " 취소할까요?")) {
+                            var pwd = prompt("비밀번호:");
+                            if (pwd) sendData({ action: "delete", date: info.event.startStr, slot: info.event.extendedProps.slot, name: info.event.extendedProps.name, password: pwd });
                         }
                     }
                 });
                 calendar.render();
-                
                 document.getElementById('loading').style.display = 'none';
-                
-            } catch (error) {
-                console.error("데이터 로드 중 에러:", error);
-                document.getElementById('loading').style.display = 'none'; 
-                alert("데이터 로딩에 실패했습니다. 잠시 후 다시 시도해주세요!");
-            }
+            } catch (e) { document.getElementById('loading').style.display = 'none'; alert("데이터 로딩 실패!"); }
         });
-
-        function sendData(payload) {
-            fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
-            .then(res => res.text())
-            .then(result => {
-                if (result === "DUPLICATE_WEEKLY") {
-                    alert("❌ 이미 이번 주에 상담 신청 내역이 있습니다.\n상담은 일주일에 한 번만 신청 가능합니다.");
-                } else if (result === "WRONG_PASSWORD") {
-                    alert("❌ 비밀번호가 일치하지 않습니다."); 
-                } else if (result === "Success") {
-                    alert("처리가 완료되었습니다! ✨");
-                    location.reload();
-                } else {
-                    alert("오류가 발생했습니다: " + result);
-                }
-            })
-            .catch(err => {
-                alert("오류가 발생했습니다: " + err);
-            });
+        function sendData(p) {
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify(p) })
+            .then(res => res.text()).then(r => { if (r === "Success") location.reload(); else alert(r); });
         }
     </script>
 </body>
