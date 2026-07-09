@@ -7,42 +7,33 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; padding: 10px; background-color: #f8f9fa; color: #495057; }
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; padding: 10px; background-color: #f8f9fa; color: #495057; }
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; }
 
-        /* 💡 1. 바(Bar)가 깨지는 원인 제거하고, 천장에서 20px 밑으로 밀어내어 중앙 느낌을 줍니다 */
-        .fc-daygrid-day-events { 
-            margin-top: 20px !important; 
-        }
-
-        /* 💡 2. 여러 날 이어지는 바(학사일정) 통통하게 다듬기 */
-        .fc-daygrid-block-event {
-            padding: 4px 0 !important;
-            border: none !important;
-        }
+        /* 💡 바(Bar) 안 깨지고 중앙 유지 */
+        .fc-daygrid-day-events { margin-top: 20px !important; }
+        .fc-daygrid-block-event { padding: 4px 0 !important; border: none !important; }
         
-        /* 💡 3. 하루짜리 상담 이름표 디자인 */
-        .fc-daygrid-event-harness { 
-            margin-bottom: 4px !important; /* 이름표 사이 간격 */
-        }
-        .fc-event { 
-            border: none !important; border-radius: 6px; padding: 6px 4px !important; 
-            font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
-            text-align: center !important;
-        }
-        
-        /* 💡 4. 글자 잘림 완벽 방지 */
+        /* 💡 상담 이름표 디자인 */
+        .fc-daygrid-event-harness { margin-bottom: 4px !important; }
+        .fc-event { border: none !important; border-radius: 6px; padding: 6px 4px !important; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); text-align: center !important; }
         .fc-event-title { font-size: 0.8rem !important; white-space: nowrap !important; overflow: visible !important; }
+
+        /* 💡 [핵심] 상단 버튼 가로 정렬 강제 고정! (세로로 쌓이는 것 완벽 방지) */
+        .fc-header-toolbar { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 1.5em !important; }
+        .fc-toolbar-chunk { display: flex !important; align-items: center !important; }
+        .fc-toolbar-chunk:nth-child(2) { display: flex !important; flex-direction: row !important; justify-content: center !important; gap: 8px !important; }
+        .fc-toolbar-title { font-size: 1.3rem !important; margin: 0 !important; white-space: nowrap !important; }
+        .fc-button { padding: 0.3em 0.5em !important; }
 
         @media (max-width: 768px) {
             #calendar { padding: 10px; }
             .fc-event-title { font-size: 0.65rem !important; }
-            .fc-daygrid-day-events { margin-top: 15px !important; } /* 모바일은 칸이 작으니 15px만 내립니다 */
+            .fc-daygrid-day-events { margin-top: 15px !important; }
+            .fc-toolbar-title { font-size: 1.1rem !important; }
         }
 
-        .fc-header-toolbar { display: flex; align-items: center; margin-bottom: 1.5em; }
-        .fc-toolbar-title { font-size: 1.2rem !important; }
         @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
     </style>
 </head>
