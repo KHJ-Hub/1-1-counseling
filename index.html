@@ -11,26 +11,34 @@
         #calendar { max-width: 850px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; font-weight: 700; margin-bottom: 20px; }
 
-        /* 💡 핵심: 학사일정 바(Bar) 안의 글자까지 수직/수평 중앙 정렬 */
-        .fc-daygrid-block-event { 
-            display: flex !important; 
-            align-items: center !important; 
-            justify-content: center !important; 
+        /* 💡 1. 바(Bar)가 깨지는 원인 제거하고, 천장에서 20px 밑으로 밀어내어 중앙 느낌을 줍니다 */
+        .fc-daygrid-day-events { 
+            margin-top: 20px !important; 
+        }
+
+        /* 💡 2. 여러 날 이어지는 바(학사일정) 통통하게 다듬기 */
+        .fc-daygrid-block-event {
             padding: 4px 0 !important;
+            border: none !important;
         }
         
-        /* 상담 일정 이름표 중앙 정렬 */
+        /* 💡 3. 하루짜리 상담 이름표 디자인 */
+        .fc-daygrid-event-harness { 
+            margin-bottom: 4px !important; /* 이름표 사이 간격 */
+        }
         .fc-event { 
             border: none !important; border-radius: 6px; padding: 6px 4px !important; 
             font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
-            display: flex !important; align-items: center !important; justify-content: center !important;
+            text-align: center !important;
         }
         
+        /* 💡 4. 글자 잘림 완벽 방지 */
         .fc-event-title { font-size: 0.8rem !important; white-space: nowrap !important; overflow: visible !important; }
 
         @media (max-width: 768px) {
             #calendar { padding: 10px; }
             .fc-event-title { font-size: 0.65rem !important; }
+            .fc-daygrid-day-events { margin-top: 15px !important; } /* 모바일은 칸이 작으니 15px만 내립니다 */
         }
 
         .fc-header-toolbar { display: flex; align-items: center; margin-bottom: 1.5em; }
@@ -41,6 +49,7 @@
 <body>
     <div id="loading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
         <div style="font-size: 60px; animation: bounce 0.6s infinite alternate;">🌿</div>
+        <div style="margin-top: 15px; font-size: 1.2rem; font-weight: 700; color: #5a5570;">달력 데이터를 불러오는 중입니다...</div>
     </div>
     <h2>🌿 1학년 1반 상담 신청 🌿</h2>
     <div id='calendar'></div>
