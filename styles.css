@@ -18,6 +18,20 @@ h2 {
     text-align: center;
 }
 
+.admin-leaf-button {
+    min-width: 44px;
+    min-height: 44px;
+    margin: -10px;
+    padding: 10px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: 1;
+    cursor: default;
+    appearance: none;
+}
+
 #calendar {
     max-width: 850px;
     margin: 0 auto;
@@ -26,20 +40,6 @@ h2 {
     background: white;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
-
-.site-footer {
-    max-width: 850px;
-    margin: 16px auto 4px;
-    text-align: right;
-}
-
-.site-footer a {
-    color: #868e96;
-    font-size: 0.85rem;
-    text-decoration: none;
-}
-
-.site-footer a:hover { color: #4263eb; text-decoration: underline; }
 
 .hidden { display: none !important; }
 
