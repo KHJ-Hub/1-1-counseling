@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ev.title = ev.title.replace(/🚫/g, "").trim();
                 }
             } else if (ev.extendedProps && ev.extendedProps.type === "consult") {
-                ev.classNames = ['consult-event'];
+                ev.classNames = ev.extendedProps.completed ? ['consult-event', 'completed-consult-event'] : ['consult-event'];
                 dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;
             }
         });
@@ -312,6 +312,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             eventClick: function(info) {
                 if (info.event.extendedProps.type === "holiday" || info.event.extendedProps.type === "closed") return;
+                if (info.event.extendedProps.completed) {
+                    showNotice("취소 불가", "이미 완료된 상담은 취소할 수 없습니다.");
+                    return;
+                }
                 var eventDate = info.event.startStr;
                 var eventSlot = info.event.extendedProps.slot;
                 var eventName = info.event.extendedProps.name;
@@ -354,6 +358,8 @@ function sendData(payload, requestType) {
             showFormMessage(messageId, "입력 내용을 확인한 뒤 다시 시도해 주세요.");
         } else if (result === "WRONG_PASSWORD") {
             showFormMessage(messageId, "비밀번호가 일치하지 않습니다. 다시 확인해 주세요.");
+        } else if (result === "COMPLETED_RESERVATION") {
+            showFormMessage(messageId, "이미 완료된 상담은 취소할 수 없습니다.");
         } else if (result === "Success") {
             showNotice("처리 완료", requestType === 'cancel' ? "상담 예약이 취소되었습니다." : "상담 예약이 신청되었습니다.", true);
         } else {

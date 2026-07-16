@@ -75,6 +75,10 @@
                             <option value="야자 3차시">야자 3차시</option>
                         </select>
                     </div>
+                    <label class="completed-filter" for="reservation-include-completed">
+                        <input id="reservation-include-completed" type="checkbox">
+                        완료된 상담 포함
+                    </label>
                 </div>
                 <p id="reservation-count" class="list-count"></p>
                 <div id="reservation-list" class="admin-list"></div>
@@ -221,6 +225,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260717-error-isolation"></script>
+    <script src="admin.js?v=20260717-completed-filter"></script>
 </body>
 </html>

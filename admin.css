@@ -103,6 +103,14 @@
     align-items: end;
     gap: 12px;
 }
+.filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.completed-filter {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    font-weight: 700;
+    gap: 7px;
+}
 
 .editor-form,
 .password-form {
@@ -219,6 +227,16 @@
     gap: 12px;
 }
 .completed-label { display: flex; align-items: center; min-height: 42px; gap: 7px; font-weight: 700; }
+.completed-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #e5dbff;
+    color: #5f3dc4;
+    font-size: 0.75rem;
+    vertical-align: middle;
+}
 .memo-field { min-width: 0; }
 .memo-input { min-height: 70px; resize: vertical; }
 .history-item { grid-template-columns: minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(90px, 0.5fr) minmax(200px, 1.5fr); }

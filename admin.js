@@ -165,7 +165,9 @@ function renderReservations() {
 
         const summary = document.createElement('div');
         summary.className = 'reservation-summary';
-        summary.appendChild(createTextElement('div', 'item-title', item.name));
+        const title = createTextElement('div', 'item-title', item.name);
+        if (item.completed) title.appendChild(createTextElement('span', 'completed-badge', '완료'));
+        summary.appendChild(title);
         summary.appendChild(createTextElement('div', 'item-meta', item.date));
         summary.appendChild(createTextElement('div', 'item-meta', item.slot));
         const actions = document.createElement('div');
@@ -375,7 +377,9 @@ async function loadAdminData(showSuccess = false) {
     showMessage('global-message', '');
     try {
         const [reservationRequest, calendarRequest, availabilityRequest, statsRequest, integrationRequest] = await Promise.all([
-            settleAdminRequest('adminListReservations'),
+            settleAdminRequest('adminListReservations', {
+                includeCompleted: document.getElementById('reservation-include-completed').checked
+            }),
             settleAdminRequest('adminListCalendarItems'),
             settleAdminRequest('adminListAvailability'),
             settleAdminRequest('adminGetCounselingStats'),
@@ -513,6 +517,7 @@ document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventL
 document.getElementById('reservation-name-filter').addEventListener('input', renderReservations);
 document.getElementById('reservation-date-filter').addEventListener('change', renderReservations);
 document.getElementById('reservation-slot-filter').addEventListener('change', renderReservations);
+document.getElementById('reservation-include-completed').addEventListener('change', () => loadAdminData());
 
 document.getElementById('stats-filter-form').addEventListener('submit', async event => {
     event.preventDefault();

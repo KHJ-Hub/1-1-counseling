@@ -349,16 +349,20 @@ function doGet() {
       const fmtDate = parseKoreanDate(data1[i][0]); 
       if (!fmtDate) continue; 
       const slot = data1[i][1] ? data1[i][1].toString().trim() : "";
-      const color = slotColors[slot] || defaultColor;
+      const completed = sheetBoolean(data1[i][4]);
+      const color = completed ? "#d8d3e6" : (slotColors[slot] || defaultColor);
+      const extendedProps = completed
+        ? { slot: slot, type: "consult", completed: true }
+        : { slot: slot, name: data1[i][2], type: "consult", completed: false };
       
       results.push({ 
-        title: data1[i][2], 
+        title: completed ? "상담완료" : data1[i][2],
         start: fmtDate, 
         allDay: true, 
         backgroundColor: color, 
         borderColor: color, 
         textColor: "#495057", 
-        extendedProps: { slot: slot, name: data1[i][2], type: "consult" } 
+        extendedProps: extendedProps
       });
     }
   }
@@ -484,6 +488,10 @@ function doPost(e) {
       for (let i = rows.length - 1; i >= 1; i--) {
         const rDate = Utilities.formatDate(new Date(rows[i][0]), "GMT+9", "yyyy-MM-dd");
         if (rDate === date && rows[i][1] === slot && rows[i][2] === trimmedName) {
+          if (sheetBoolean(rows[i][4])) {
+            deleteResult = "COMPLETED_RESERVATION";
+            break;
+          }
           const savedPwd = rows[i][3] ? rows[i][3].toString().trim() : "";
           if (verifyAdminPassword(trimmedPwd) || trimmedPwd === savedPwd) {
             calendarEventId = rows[i][CALENDAR_EVENT_ID_COLUMN - 1] ? rows[i][CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
@@ -528,7 +536,7 @@ function handleAdminAction(data) {
     removeAdminSession(data.token);
     return jsonOutput({ ok: true });
   }
-  if (data.action === "adminListReservations") return adminListReservations();
+  if (data.action === "adminListReservations") return adminListReservations(data);
   if (data.action === "adminDeleteReservation") return adminDeleteReservation(data);
   if (data.action === "adminUpdateConsultation") return adminUpdateConsultation(data);
   if (data.action === "adminListStudentHistory") return adminListStudentHistory(data);
@@ -550,22 +558,25 @@ function handleAdminAction(data) {
   return jsonOutput({ ok: false, error: "INVALID_ACTION" });
 }
 
-function adminListReservations() {
+function adminListReservations(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
   if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
 
+  const includeCompleted = Boolean(data && data.includeCompleted === true);
   const rows = sheet.getDataRange().getValues();
   const reservations = [];
   for (let i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
     const date = parseKoreanDate(rows[i][0]);
     if (!date) continue;
+    const completed = sheetBoolean(rows[i][4]);
+    if (completed && !includeCompleted) continue;
     reservations.push({
       row: i + 1,
       date: date,
       slot: rows[i][1] ? rows[i][1].toString().trim() : "",
       name: rows[i][2] ? rows[i][2].toString() : "",
-      completed: sheetBoolean(rows[i][4]),
+      completed: completed,
       memo: rows[i][5] ? rows[i][5].toString() : ""
     });
   }
