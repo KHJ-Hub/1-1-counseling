@@ -451,20 +451,6 @@ function doGet() {
     holidays: [...new Set(holidays)],
     availability: getAvailabilityMap(ss)
   });
-}le: completed ? "상담완료" : data1[i][2],
-        start: fmtDate, 
-        allDay: true, 
-        backgroundColor: color, 
-        borderColor: color, 
-        textColor: "#495057", 
-        extendedProps: extendedProps
-      });
-  }
-  return jsonOutput({
-    events: results,
-    holidays: [...new Set(holidays)],
-    availability: getAvailabilityMap(ss)
-  });
 }
 
 function doPost(e) {
