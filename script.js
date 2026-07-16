@@ -287,6 +287,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             events: data.events,
 
             dateClick: function(info) {
+                var dateObj = new Date(info.dateStr + "T00:00:00+09:00");
+                var dayOfWeek = dateObj.getDay();
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    showNotice("주말 예약 불가", "주말에는 상담을 예약할 수 없습니다.");
+                    return;
+                }
+
                 if (sheetHolidays.includes(info.dateStr)) {
                     showNotice("상담 불가 안내", "해당 날짜는 상담이 불가능한 날입니다.");
                     return;
@@ -354,6 +361,11 @@ function sendData(payload, requestType) {
             showFormMessage(messageId, "방금 다른 학생이 이 시간을 예약했습니다. 새로고침 후 다른 시간을 선택해 주세요.");
         } else if (result === "SLOT_UNAVAILABLE" || result === "DATE_BLOCKED") {
             showFormMessage(messageId, "현재 선택한 날짜 또는 시간에는 상담을 신청할 수 없습니다. 새로고침 후 다시 확인해 주세요.");
+        } else if (result === "WEEKEND_NOT_ALLOWED") {
+            showFormMessage(messageId, "주말에는 상담을 예약할 수 없습니다.");
+        } else if (result && result.indexOf("HOLIDAY_NOT_ALLOWED:") === 0) {
+            const reason = result.split(":")[1] || "공휴일";
+            showFormMessage(messageId, reason + "에는 상담을 예약할 수 없습니다.");
         } else if (result === "INVALID_DATE" || result === "INVALID_SLOT" || result === "INVALID_PASSWORD" || result === "INVALID_NAME" || result === "NAME_REQUIRED") {
             showFormMessage(messageId, "입력 내용을 확인한 뒤 다시 시도해 주세요.");
         } else if (result === "WRONG_PASSWORD") {

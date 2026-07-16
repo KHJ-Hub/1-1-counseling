@@ -27,6 +27,39 @@ const SLOT_PROPERTY_MAP = {
   "야자 3차시": { start: "SLOT_3_START", end: "SLOT_3_END" }
 };
 
+function getKoreanHolidays(year) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "HOLIDAYS_" + year;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    try {
+      return JSON.parse(cachedData);
+    } catch(e) {}
+  }
+  
+  const properties = getScriptProperties();
+  const calendarId = properties.getProperty("KOREAN_HOLIDAY_CALENDAR_ID") || "ko.south_korea#holiday@group.v.calendar.google.com";
+  const holidays = {};
+  
+  try {
+    const calendar = CalendarApp.getCalendarById(calendarId);
+    if (calendar) {
+      const startDate = new Date(year + "-01-01T00:00:00+09:00");
+      const endDate = new Date(year + "-12-31T23:59:59+09:00");
+      const events = calendar.getEvents(startDate, endDate);
+      events.forEach(event => {
+        const dateStr = Utilities.formatDate(event.getStartTime(), TIME_ZONE, "yyyy-MM-dd");
+        holidays[dateStr] = event.getTitle();
+      });
+      cache.put(cacheKey, JSON.stringify(holidays), 21600);
+    }
+  } catch(error) {
+    console.error("Failed to fetch holidays for year " + year + ": " + error);
+  }
+  
+  return holidays;
+}
+
 function textOutput(value) {
   return ContentService.createTextOutput(value).setMimeType(ContentService.MimeType.TEXT);
 }
@@ -336,11 +369,10 @@ function doGet() {
   const sheet1 = ss.getSheetByName("상담신청현황"); 
   const data1 = sheet1 ? sheet1.getDataRange().getValues() : [];
   
-  // 🎨 [수정됨] 쨍한 색을 빼고 부드러운 파스텔톤으로 완벽 통일!
   const slotColors = { 
-    "야자 1차시": "#d0c3fa", // 차분한 파스텔 연보라
-    "야자 2차시": "#b5ead7", // 눈이 편안한 파스텔 민트
-    "야자 3차시": "#ffeaa7"  // 따뜻한 파스텔 노랑
+    "야자 1차시": "#d0c3fa",
+    "야자 2차시": "#b5ead7",
+    "야자 3차시": "#ffeaa7"
   };
   const defaultColor = "#caffbf"; 
 
@@ -369,6 +401,8 @@ function doGet() {
 
   const sheet2 = ss.getSheetByName("학사일정");
   const holidays = [];
+  const blockedMap = {};
+
   if (sheet2) {
     const holidayData = sheet2.getDataRange().getValues();
     for (var j = 1; j < holidayData.length; j++) {
@@ -381,20 +415,50 @@ function doGet() {
         const endFmt = endDateVal ? parseKoreanDate(endDateVal) : startFmt; 
         if (startFmt && endFmt) {
           const rangeDates = getDatesStartToIn(startFmt, endFmt);
-          holidays.push(...rangeDates);
-          let calendarEnd = new Date(endFmt);
-          calendarEnd.setDate(calendarEnd.getDate() + 1);
-          const calendarEndStr = Utilities.formatDate(calendarEnd, "GMT+9", "yyyy-MM-dd");
-          
-          results.push({
-            title: "🚫 " + hTitle + " 🚫", 
-            start: startFmt, end: calendarEndStr, allDay: true,
-            backgroundColor: "#e8e6f2", borderColor: "#e8e6f2", textColor: "#5a5570",
-            extendedProps: { type: "holiday" }
+          rangeDates.forEach(d => {
+            if (!blockedMap[d]) blockedMap[d] = hTitle;
           });
         }
       }
     }
+  }
+
+  const currentYear = new Date().getFullYear();
+  const krHolidays = Object.assign({}, getKoreanHolidays(currentYear), getKoreanHolidays(currentYear + 1));
+  for (const date in krHolidays) {
+    if (!blockedMap[date]) {
+      blockedMap[date] = krHolidays[date];
+    }
+  }
+
+  const allHolidays = Object.keys(blockedMap);
+  for (const date of allHolidays) {
+    holidays.push(date);
+    let calendarEnd = new Date(date);
+    calendarEnd.setDate(calendarEnd.getDate() + 1);
+    const calendarEndStr = Utilities.formatDate(calendarEnd, "GMT+9", "yyyy-MM-dd");
+    
+    results.push({
+      title: "🚫 " + blockedMap[date] + " 🚫", 
+      start: date, end: calendarEndStr, allDay: true,
+      backgroundColor: "#e8e6f2", borderColor: "#e8e6f2", textColor: "#5a5570",
+      extendedProps: { type: "holiday", reason: blockedMap[date] }
+    });
+  }
+
+  return jsonOutput({
+    events: results,
+    holidays: [...new Set(holidays)],
+    availability: getAvailabilityMap(ss)
+  });
+}le: completed ? "상담완료" : data1[i][2],
+        start: fmtDate, 
+        allDay: true, 
+        backgroundColor: color, 
+        borderColor: color, 
+        textColor: "#495057", 
+        extendedProps: extendedProps
+      });
   }
   return jsonOutput({
     events: results,
@@ -442,6 +506,15 @@ function doPost(e) {
     let savedRowNumber = null;
     lock.waitLock(10000);
     try {
+      const reqDate = new Date(date + "T00:00:00+09:00");
+      const day = reqDate.getDay();
+      if (day === 0 || day === 6) return textOutput("WEEKEND_NOT_ALLOWED");
+
+      const krHolidays = getKoreanHolidays(reqDate.getFullYear());
+      if (krHolidays[date]) {
+        return textOutput("HOLIDAY_NOT_ALLOWED:" + krHolidays[date]);
+      }
+
       if (isDateBlocked(ss, date)) return textOutput("DATE_BLOCKED");
 
       const availability = getAvailabilityMap(ss);
@@ -783,7 +856,22 @@ function adminListCalendarItems() {
       startDate: startDate,
       endDate: endDate,
       title: rawTitle || BLOCKED_PERIOD_TITLE,
-      kind: !rawTitle || rawTitle === BLOCKED_PERIOD_TITLE ? "blocked" : "academic"
+      kind: !rawTitle || rawTitle === BLOCKED_PERIOD_TITLE ? "blocked" : "academic",
+      readonly: false
+    });
+  }
+
+  const currentYear = new Date().getFullYear();
+  const krHolidays = Object.assign({}, getKoreanHolidays(currentYear), getKoreanHolidays(currentYear + 1));
+  let rowId = -1000;
+  for (const date in krHolidays) {
+    items.push({
+      row: rowId--,
+      startDate: date,
+      endDate: date,
+      title: krHolidays[date],
+      kind: "academic",
+      readonly: true
     });
   }
 

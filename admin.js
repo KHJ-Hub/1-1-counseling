@@ -226,10 +226,43 @@ function renderHistory(history, name) {
     history.forEach(item => {
         const article = document.createElement('article');
         article.className = 'list-item history-item';
-        article.appendChild(createTextElement('div', 'item-title', item.date));
-        article.appendChild(createTextElement('div', 'item-meta', item.slot));
-        article.appendChild(createTextElement('div', item.completed ? 'status-complete' : 'status-pending', item.completed ? '완료' : '미완료'));
-        article.appendChild(createTextElement('div', 'item-meta', item.memo || '메모 없음'));
+        article.dataset.row = String(item.row);
+        article.dataset.date = item.date;
+        article.dataset.slot = item.slot;
+        article.dataset.name = item.name;
+        article.dataset.completed = String(item.completed);
+        
+        const summary = document.createElement('div');
+        summary.className = 'history-summary';
+        summary.appendChild(createTextElement('div', 'item-title', item.date));
+        summary.appendChild(createTextElement('div', 'item-meta', item.slot));
+        summary.appendChild(createTextElement('div', item.completed ? 'status-complete' : 'status-pending', item.completed ? '완료' : '미완료'));
+        summary.appendChild(createTextElement('div', 'item-meta memo-display', item.memo || '메모 없음'));
+        
+        const actions = document.createElement('div');
+        actions.className = 'item-actions';
+        actions.appendChild(createActionButton('메모 수정', 'secondary', 'edit-history-memo', item.row));
+        summary.appendChild(actions);
+        article.appendChild(summary);
+
+        const editor = document.createElement('div');
+        editor.className = 'history-editor hidden';
+        const memoField = document.createElement('div');
+        memoField.className = 'memo-field';
+        const memoInput = document.createElement('textarea');
+        memoInput.className = 'form-input memo-input history-memo-input';
+        memoInput.maxLength = 2000;
+        memoInput.value = item.memo || '';
+        memoField.appendChild(memoInput);
+        editor.appendChild(memoField);
+        
+        const editorActions = document.createElement('div');
+        editorActions.className = 'item-actions';
+        editorActions.appendChild(createActionButton('저장', 'primary', 'save-history-memo', item.row));
+        editorActions.appendChild(createActionButton('취소', 'secondary', 'cancel-history-memo', item.row));
+        editor.appendChild(editorActions);
+
+        article.appendChild(editor);
         list.appendChild(article);
     });
 }
@@ -581,6 +614,40 @@ async function loadStudentHistory(name) {
         setButtonBusy(button, false, '');
     }
 }
+
+document.getElementById('history-list').addEventListener('click', async event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const article = button.closest('.history-item');
+    if (!article) return;
+    
+    if (button.dataset.action === 'edit-history-memo') {
+        article.querySelector('.history-summary').classList.add('hidden');
+        article.querySelector('.history-editor').classList.remove('hidden');
+    } else if (button.dataset.action === 'cancel-history-memo') {
+        article.querySelector('.history-editor').classList.add('hidden');
+        article.querySelector('.history-summary').classList.remove('hidden');
+    } else if (button.dataset.action === 'save-history-memo') {
+        const row = Number(article.dataset.row);
+        const date = article.dataset.date;
+        const slot = article.dataset.slot;
+        const name = article.dataset.name;
+        const completed = article.dataset.completed === 'true';
+        const memo = article.querySelector('.history-memo-input').value;
+
+        setButtonBusy(button, true, '저장 중…');
+        showMessage('history-message', '');
+        try {
+            await adminRequest('adminUpdateConsultation', { row, date, slot, name, completed, memo });
+            showMessage('history-message', '메모를 수정했습니다.', true);
+            await loadStudentHistory(name);
+        } catch (error) {
+            if (error.code !== 'AUTH_REQUIRED') showMessage('history-message', errorMessage(error.code));
+        } finally {
+            setButtonBusy(button, false, '');
+        }
+    }
+});
 
 document.getElementById('history-form').addEventListener('submit', event => {
     event.preventDefault();
