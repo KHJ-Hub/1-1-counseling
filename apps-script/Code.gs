@@ -401,48 +401,60 @@ function doGet() {
 
   const sheet2 = ss.getSheetByName("학사일정");
   const holidays = [];
-  const blockedMap = {};
+
+  // ─── 1단계: 학사일정 시트 → 기간 바(bar) 형태로 달력에 표시 ───
+  // blockedDates는 예약 차단 판단용 날짜 Set (script.js의 sheetHolidays 배열로 전달됨)
+  const blockedDates = new Set();
 
   if (sheet2) {
     const holidayData = sheet2.getDataRange().getValues();
     for (var j = 1; j < holidayData.length; j++) {
       const startDateVal = holidayData[j][0];
-      const endDateVal = holidayData[j][1]; 
-      const hTitle = holidayData[j][2] || "상담불가"; 
-      
-      if (startDateVal) {
-        const startFmt = parseKoreanDate(startDateVal);
-        const endFmt = endDateVal ? parseKoreanDate(endDateVal) : startFmt; 
-        if (startFmt && endFmt) {
-          const rangeDates = getDatesStartToIn(startFmt, endFmt);
-          rangeDates.forEach(d => {
-            if (!blockedMap[d]) blockedMap[d] = hTitle;
-          });
-        }
-      }
+      const endDateVal   = holidayData[j][1];
+      const hTitle       = holidayData[j][2] || "상담불가";
+
+      if (!startDateVal) continue;
+      const startFmt = parseKoreanDate(startDateVal);
+      const endFmt   = endDateVal ? parseKoreanDate(endDateVal) : startFmt;
+      if (!startFmt || !endFmt) continue;
+
+      // 기간 내 날짜를 holidays 배열(클릭 차단용)에 등록
+      getDatesStartToIn(startFmt, endFmt).forEach(d => {
+        blockedDates.add(d);
+        holidays.push(d);
+      });
+
+      // FullCalendar에는 기간 전체를 하나의 이벤트(bar)로 추가
+      // FullCalendar의 exclusive end date 규칙에 따라 endFmt + 1일
+      let calendarEnd = new Date(endFmt + "T00:00:00+09:00");
+      calendarEnd.setDate(calendarEnd.getDate() + 1);
+      const calendarEndStr = Utilities.formatDate(calendarEnd, "GMT+9", "yyyy-MM-dd");
+
+      results.push({
+        title: "🚫 " + hTitle + " 🚫",
+        start: startFmt, end: calendarEndStr, allDay: true,
+        backgroundColor: "#e8e6f2", borderColor: "#e8e6f2", textColor: "#5a5570",
+        extendedProps: { type: "holiday", reason: hTitle }
+      });
     }
   }
 
+  // ─── 2단계: 구글 캘린더 공휴일 → 학사일정과 겹치지 않는 날만 하루씩 표시 ───
   const currentYear = new Date().getFullYear();
   const krHolidays = Object.assign({}, getKoreanHolidays(currentYear), getKoreanHolidays(currentYear + 1));
   for (const date in krHolidays) {
-    if (!blockedMap[date]) {
-      blockedMap[date] = krHolidays[date];
-    }
-  }
+    if (blockedDates.has(date)) continue; // 이미 학사일정에 포함된 날 중복 방지
 
-  const allHolidays = Object.keys(blockedMap);
-  for (const date of allHolidays) {
     holidays.push(date);
-    let calendarEnd = new Date(date);
+    let calendarEnd = new Date(date + "T00:00:00+09:00");
     calendarEnd.setDate(calendarEnd.getDate() + 1);
     const calendarEndStr = Utilities.formatDate(calendarEnd, "GMT+9", "yyyy-MM-dd");
-    
+
     results.push({
-      title: "🚫 " + blockedMap[date] + " 🚫", 
+      title: "🚫 " + krHolidays[date] + " 🚫",
       start: date, end: calendarEndStr, allDay: true,
       backgroundColor: "#e8e6f2", borderColor: "#e8e6f2", textColor: "#5a5570",
-      extendedProps: { type: "holiday", reason: blockedMap[date] }
+      extendedProps: { type: "holiday", reason: krHolidays[date] }
     });
   }
 
