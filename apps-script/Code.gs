@@ -10,7 +10,7 @@ const ADMIN_PASSWORD_SETUP_KEY = "ADMIN_PASSWORD_SETUP";
 const ADMIN_SESSION_PREFIX = "ADMIN_SESSION_";
 const ADMIN_SESSION_TTL_SECONDS = 30 * 60;
 const DISCORD_WEBHOOK_URL_KEY = "DISCORD_WEBHOOK_URL";
-const ADMIN_PAGE_URL_KEY = "ADMIN_PAGE_URL";
+const ADMIN_PAGE_URL = "https://khj-hub.github.io/1-1-counseling/admin.html";
 
 function textOutput(value) {
   return ContentService.createTextOutput(value).setMimeType(ContentService.MimeType.TEXT);
@@ -54,17 +54,12 @@ function sendDiscordMessage(message) {
 }
 
 function notifyDiscordReservation(name, date, slot) {
-  const adminPageUrl = getScriptProperties().getProperty(ADMIN_PAGE_URL_KEY);
-  if (!adminPageUrl) {
-    console.error("Discord reservation notification skipped: ADMIN_PAGE_URL is not configured.");
-    return false;
-  }
   return sendDiscordMessage([
     "📅 **상담 예약 알림**",
     "학생: " + name,
     "날짜: " + date,
     "시간: " + slot,
-    "관리자 페이지: " + adminPageUrl
+    "관리자 페이지: " + ADMIN_PAGE_URL
   ].join("\n"));
 }
 
@@ -79,6 +74,22 @@ function notifyDiscordCancellation(name, date, slot) {
 
 function testDiscordNotification() {
   return sendDiscordMessage("🔔 상담 예약 시스템 Discord Webhook 테스트 알림입니다.");
+}
+
+function notifyDiscordReservationSafely(name, date, slot) {
+  try {
+    notifyDiscordReservation(name, date, slot);
+  } catch (error) {
+    console.error("Discord reservation notification failed.");
+  }
+}
+
+function notifyDiscordCancellationSafely(name, date, slot) {
+  try {
+    notifyDiscordCancellation(name, date, slot);
+  } catch (error) {
+    console.error("Discord cancellation notification failed.");
+  }
 }
 
 function createPasswordSalt() {
@@ -373,7 +384,6 @@ function doPost(e) {
     if (!/^\d{4}$/.test(trimmedPwd)) return textOutput("INVALID_PASSWORD");
 
     const lock = LockService.getScriptLock();
-    let reservationSaved = false;
     lock.waitLock(10000);
     try {
       if (isDateBlocked(ss, date)) return textOutput("DATE_BLOCKED");
@@ -405,11 +415,10 @@ function doPost(e) {
       if (isDuplicate) return textOutput("DUPLICATE_WEEKLY");
 
       sheet.appendRow([date, slot, trimmedName, trimmedPwd]);
-      reservationSaved = true;
     } finally {
       lock.releaseLock();
     }
-    if (reservationSaved) notifyDiscordReservation(trimmedName, date, slot);
+    notifyDiscordReservationSafely(trimmedName, date, slot);
     return textOutput("Success");
   } else if (action === "delete") {
     const lock = LockService.getScriptLock();
@@ -433,7 +442,9 @@ function doPost(e) {
     } finally {
       lock.releaseLock();
     }
-    if (deleteResult === "Success") notifyDiscordCancellation(trimmedName, date, slot);
+    if (deleteResult === "Success") {
+      notifyDiscordCancellationSafely(trimmedName, date, slot);
+    }
     return textOutput(deleteResult);
   }
 

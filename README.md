@@ -73,8 +73,7 @@ Discord Webhook URL은 코드나 Git 저장소에 기록하지 않고 Apps Scrip
 
 1. Apps Script 편집기에서 **프로젝트 설정 → 스크립트 속성**을 엽니다.
 2. `DISCORD_WEBHOOK_URL`에 Discord에서 발급한 Webhook URL을 입력합니다.
-3. `ADMIN_PAGE_URL`에 실제 운영 중인 관리자 페이지의 전체 URL을 입력합니다.
-4. `testDiscordNotification()`을 편집기에서 한 번 실행하고 Discord 테스트 메시지를 확인합니다.
+3. `testDiscordNotification()`을 편집기에서 한 번 실행하고 Discord 테스트 메시지를 확인합니다.
 
 예약 성공 알림에는 학생 이름, 상담 날짜, 상담 시간, 관리자 페이지 링크만 포함됩니다. 취소 성공 알림에는 학생 이름, 상담 날짜, 상담 시간만 포함됩니다. 학생 비밀번호와 상담 메모는 전송하지 않습니다. 알림 전송에 실패해도 예약·취소 결과에는 영향을 주지 않으며 실패 사실만 Apps Script 실행 로그에 남습니다.
 
