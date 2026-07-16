@@ -14,8 +14,6 @@ const modalBackdrop = document.getElementById('modal-backdrop');
 const modalPanels = document.querySelectorAll('.modal-panel');
 const bookingForm = document.getElementById('booking-form');
 const cancelForm = document.getElementById('cancel-form');
-const adminLoginForm = document.getElementById('admin-login-form');
-const adminLeafButton = document.getElementById('admin-leaf-button');
 
 class HttpError extends Error {
     constructor(status) {
@@ -140,13 +138,6 @@ function openCancelModal(eventDate, eventSlot, eventName) {
     openModal('cancel-modal', document.getElementById('cancel-password'));
 }
 
-adminLeafButton.addEventListener('click', () => {
-    adminLoginForm.reset();
-    showFormMessage('admin-login-message', '');
-    setModalTrigger(adminLeafButton);
-    openModal('admin-login-modal', document.getElementById('hidden-admin-password'));
-});
-
 function trapModalFocus(event) {
     if (event.key !== 'Tab' || modalBackdrop.classList.contains('hidden')) return;
 
@@ -237,41 +228,6 @@ cancelForm.addEventListener('submit', event => {
         name: selectedCancelEvent.name,
         password: pwdCheck
     }, 'cancel');
-});
-
-adminLoginForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (isSubmitting) return;
-
-    const password = document.getElementById('hidden-admin-password').value;
-    if (!password) {
-        showFormMessage('admin-login-message', '관리자 비밀번호를 입력해 주세요.');
-        return;
-    }
-
-    showFormMessage('admin-login-message', '');
-    setSubmitting(adminLoginForm, true, '확인 중…');
-    try {
-        const response = await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'adminLogin', password: password })
-        });
-        if (!response.ok) throw new HttpError(response.status);
-        const result = await response.json();
-
-        if (!result.ok || !result.token) {
-            showFormMessage('admin-login-message', '비밀번호가 올바르지 않습니다.');
-            return;
-        }
-
-        sessionStorage.setItem('counselingAdminSession', result.token);
-        window.location.href = 'admin.html';
-    } catch (error) {
-        console.error('관리자 로그인 중 에러:', error);
-        showFormMessage('admin-login-message', '서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
-    } finally {
-        setSubmitting(adminLoginForm, false, '');
-    }
 });
 
 document.addEventListener('DOMContentLoaded', async function() {

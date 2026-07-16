@@ -18,31 +18,23 @@ h2 {
     text-align: center;
 }
 
-.admin-leaf-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
-    margin: -10px;
-    padding: 10px;
+.admin-leaf-link {
+    margin: 0;
+    padding: 0;
     border: 0;
     background: transparent;
     color: inherit;
     font: inherit;
-    line-height: 1;
+    line-height: inherit;
     text-decoration: none;
-    vertical-align: middle;
     cursor: default;
-    appearance: none;
 }
 
-.admin-leaf-button:focus { outline: none; }
+.admin-leaf-link:focus { outline: none; }
 
-.admin-leaf-button:focus-visible {
-    border-radius: 50%;
+.admin-leaf-link:focus-visible {
     outline: 2px dotted rgba(66, 99, 235, 0.7);
-    outline-offset: -6px;
+    outline-offset: 2px;
 }
 
 #calendar {
