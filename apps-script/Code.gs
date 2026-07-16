@@ -9,6 +9,8 @@ const ADMIN_AUTH_VERSION_KEY = "ADMIN_AUTH_VERSION";
 const ADMIN_PASSWORD_SETUP_KEY = "ADMIN_PASSWORD_SETUP";
 const ADMIN_SESSION_PREFIX = "ADMIN_SESSION_";
 const ADMIN_SESSION_TTL_SECONDS = 30 * 60;
+const DISCORD_WEBHOOK_URL_KEY = "DISCORD_WEBHOOK_URL";
+const ADMIN_PAGE_URL_KEY = "ADMIN_PAGE_URL";
 
 function textOutput(value) {
   return ContentService.createTextOutput(value).setMimeType(ContentService.MimeType.TEXT);
@@ -20,6 +22,63 @@ function jsonOutput(value) {
 
 function getScriptProperties() {
   return PropertiesService.getScriptProperties();
+}
+
+function sendDiscordMessage(message) {
+  const webhookUrl = getScriptProperties().getProperty(DISCORD_WEBHOOK_URL_KEY);
+  if (!webhookUrl) {
+    console.error("Discord notification skipped: DISCORD_WEBHOOK_URL is not configured.");
+    return false;
+  }
+
+  try {
+    const response = UrlFetchApp.fetch(webhookUrl, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify({
+        content: message,
+        allowed_mentions: { parse: [] }
+      }),
+      muteHttpExceptions: true
+    });
+    const statusCode = response.getResponseCode();
+    if (statusCode < 200 || statusCode >= 300) {
+      console.error("Discord notification failed with HTTP status " + statusCode + ".");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Discord notification failed because the request could not be completed.");
+    return false;
+  }
+}
+
+function notifyDiscordReservation(name, date, slot) {
+  const adminPageUrl = getScriptProperties().getProperty(ADMIN_PAGE_URL_KEY);
+  if (!adminPageUrl) {
+    console.error("Discord reservation notification skipped: ADMIN_PAGE_URL is not configured.");
+    return false;
+  }
+  return sendDiscordMessage([
+    "📅 **상담 예약 알림**",
+    "학생: " + name,
+    "날짜: " + date,
+    "시간: " + slot,
+    "관리자 페이지: " + adminPageUrl
+  ].join("\n"));
+}
+
+function notifyDiscordCancellation(name, date, slot) {
+  return sendDiscordMessage([
+    "❌ **상담 예약 취소 알림**",
+    "학생: " + name,
+    "날짜: " + date,
+    "시간: " + slot
+  ].join("\n"));
+}
+
+function testDiscordNotification() {
+  return sendDiscordMessage("🔔 상담 예약 시스템 Discord Webhook 테스트 알림입니다.");
 }
 
 function createPasswordSalt() {
@@ -314,6 +373,7 @@ function doPost(e) {
     if (!/^\d{4}$/.test(trimmedPwd)) return textOutput("INVALID_PASSWORD");
 
     const lock = LockService.getScriptLock();
+    let reservationSaved = false;
     lock.waitLock(10000);
     try {
       if (isDateBlocked(ss, date)) return textOutput("DATE_BLOCKED");
@@ -345,12 +405,15 @@ function doPost(e) {
       if (isDuplicate) return textOutput("DUPLICATE_WEEKLY");
 
       sheet.appendRow([date, slot, trimmedName, trimmedPwd]);
-      return textOutput("Success");
+      reservationSaved = true;
     } finally {
       lock.releaseLock();
     }
+    if (reservationSaved) notifyDiscordReservation(trimmedName, date, slot);
+    return textOutput("Success");
   } else if (action === "delete") {
     const lock = LockService.getScriptLock();
+    let deleteResult = "NOT_FOUND";
     lock.waitLock(10000);
     try {
       const rows = sheet.getDataRange().getValues();
@@ -360,15 +423,18 @@ function doPost(e) {
           const savedPwd = rows[i][3] ? rows[i][3].toString().trim() : "";
           if (verifyAdminPassword(trimmedPwd) || trimmedPwd === savedPwd) {
             sheet.deleteRow(i + 1);
-            return textOutput("Success");
+            deleteResult = "Success";
+          } else {
+            deleteResult = "WRONG_PASSWORD";
           }
-          return textOutput("WRONG_PASSWORD");
+          break;
         }
       }
-      return textOutput("NOT_FOUND");
     } finally {
       lock.releaseLock();
     }
+    if (deleteResult === "Success") notifyDiscordCancellation(trimmedName, date, slot);
+    return textOutput(deleteResult);
   }
 
   return textOutput("INVALID_ACTION");

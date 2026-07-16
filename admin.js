@@ -1,5 +1,11 @@
 const ADMIN_GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
 const ADMIN_SESSION_KEY = "counselingAdminSession";
+const forceAdminLogin = new URLSearchParams(window.location.search).get('reauth') === '1';
+
+if (forceAdminLogin) {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    history.replaceState(null, '', window.location.pathname + window.location.hash);
+}
 
 let adminToken = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
 let reservations = [];
