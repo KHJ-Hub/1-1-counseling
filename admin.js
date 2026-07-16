@@ -38,7 +38,6 @@ function errorMessage(code) {
     const messages = {
         INVALID_CREDENTIALS: '관리자 비밀번호가 올바르지 않습니다.',
         AUTH_REQUIRED: '관리자 세션이 만료되었습니다. 다시 로그인해 주세요.',
-        SESSION_EXPIRED: '관리자 세션이 만료되었습니다. 다시 로그인해 주세요.',
         SHEET_NOT_FOUND: '필요한 Google Sheet를 찾지 못했습니다.',
         AVAILABILITY_SHEET_NOT_FOUND: '“상담가능시간” 시트를 찾지 못했습니다. README의 시트 설정을 확인해 주세요.',
         STALE_DATA: '시트 내용이 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
@@ -76,25 +75,16 @@ async function adminRequest(action, payload = {}) {
 
     if (!response.ok) throw new AdminApiError('NETWORK_ERROR');
 
-    const text = (await response.text()).trim();
+    const text = await response.text();
     let result;
     try {
         result = JSON.parse(text);
     } catch (error) {
-        if (text === 'AUTH_REQUIRED' || text === 'SESSION_EXPIRED') {
-            clearAdminSession();
-            showLoginView('관리자 세션이 만료되었습니다. 다시 로그인해 주세요.');
-            throw new AdminApiError(text);
-        }
-        throw new AdminApiError('INVALID_RESPONSE');
-    }
-
-    if (!result || typeof result !== 'object' || typeof result.ok !== 'boolean') {
         throw new AdminApiError('INVALID_RESPONSE');
     }
 
     if (!result.ok) {
-        if (result.error === 'AUTH_REQUIRED' || result.error === 'SESSION_EXPIRED') {
+        if (result.error === 'AUTH_REQUIRED') {
             clearAdminSession();
             showLoginView('관리자 세션이 만료되었습니다. 다시 로그인해 주세요.');
         }
@@ -165,9 +155,7 @@ function renderReservations() {
 
         const summary = document.createElement('div');
         summary.className = 'reservation-summary';
-        const title = createTextElement('div', 'item-title', item.name);
-        if (item.completed) title.appendChild(createTextElement('span', 'completed-badge', '완료'));
-        summary.appendChild(title);
+        summary.appendChild(createTextElement('div', 'item-title', item.name));
         summary.appendChild(createTextElement('div', 'item-meta', item.date));
         summary.appendChild(createTextElement('div', 'item-meta', item.slot));
         const actions = document.createElement('div');
@@ -363,57 +351,27 @@ async function loadIntegrationStatus() {
     renderIntegrationStatus(result.status || {});
 }
 
-async function settleAdminRequest(action, payload = {}) {
-    try {
-        return { ok: true, result: await adminRequest(action, payload) };
-    } catch (error) {
-        return { ok: false, error };
-    }
-}
-
 async function loadAdminData(showSuccess = false) {
     const refreshButton = document.getElementById('refresh-button');
     setButtonBusy(refreshButton, true, '불러오는 중…');
     showMessage('global-message', '');
     try {
-        const [reservationRequest, calendarRequest, availabilityRequest, statsRequest, integrationRequest] = await Promise.all([
-            settleAdminRequest('adminListReservations', {
-                includeCompleted: document.getElementById('reservation-include-completed').checked
-            }),
-            settleAdminRequest('adminListCalendarItems'),
-            settleAdminRequest('adminListAvailability'),
-            settleAdminRequest('adminGetCounselingStats'),
-            settleAdminRequest('adminGetIntegrationStatus')
+        const [reservationResult, calendarResult, availabilityResult, statsResult, integrationResult] = await Promise.all([
+            adminRequest('adminListReservations'),
+            adminRequest('adminListCalendarItems'),
+            adminRequest('adminListAvailability'),
+            adminRequest('adminGetCounselingStats'),
+            adminRequest('adminGetIntegrationStatus')
         ]);
-
-        const requests = [reservationRequest, calendarRequest, availabilityRequest, statsRequest, integrationRequest];
-        if (requests.some(request => !request.ok && ['AUTH_REQUIRED', 'SESSION_EXPIRED'].includes(request.error.code))) return;
-
-        const coreErrors = [];
-        if (reservationRequest.ok) reservations = reservationRequest.result.reservations || [];
-        else coreErrors.push('예약: ' + errorMessage(reservationRequest.error.code));
-        if (calendarRequest.ok) calendarItems = calendarRequest.result.items || [];
-        else coreErrors.push('학사일정: ' + errorMessage(calendarRequest.error.code));
-        if (availabilityRequest.ok) availabilityItems = availabilityRequest.result.items || [];
-        else coreErrors.push('가능 시간: ' + errorMessage(availabilityRequest.error.code));
+        reservations = reservationResult.reservations || [];
+        calendarItems = calendarResult.items || [];
+        availabilityItems = availabilityResult.items || [];
         renderAllData();
-
-        if (statsRequest.ok) {
-            renderStats(statsRequest.result.stats || {});
-            showMessage('stats-message', '');
-        } else {
-            showMessage('stats-message', '통계를 불러오지 못했습니다. ' + errorMessage(statsRequest.error.code));
-        }
-
-        if (integrationRequest.ok) {
-            renderIntegrationStatus(integrationRequest.result.status || {});
-            showMessage('integration-message', '');
-        } else {
-            showMessage('integration-message', '연동 설정 상태를 불러오지 못했습니다. ' + errorMessage(integrationRequest.error.code));
-        }
-
-        if (coreErrors.length) showMessage('global-message', coreErrors.join('\n'));
-        else if (showSuccess) showMessage('global-message', 'Google Sheets의 최신 데이터를 불러왔습니다.', true);
+        renderStats(statsResult.stats || {});
+        renderIntegrationStatus(integrationResult.status || {});
+        if (showSuccess) showMessage('global-message', 'Google Sheets의 최신 데이터를 불러왔습니다.', true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('global-message', errorMessage(error.code));
     } finally {
         setButtonBusy(refreshButton, false, '');
     }
@@ -517,7 +475,6 @@ document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventL
 document.getElementById('reservation-name-filter').addEventListener('input', renderReservations);
 document.getElementById('reservation-date-filter').addEventListener('change', renderReservations);
 document.getElementById('reservation-slot-filter').addEventListener('change', renderReservations);
-document.getElementById('reservation-include-completed').addEventListener('change', () => loadAdminData());
 
 document.getElementById('stats-filter-form').addEventListener('submit', async event => {
     event.preventDefault();
