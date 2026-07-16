@@ -39,6 +39,11 @@ function getScriptProperties() {
   return PropertiesService.getScriptProperties();
 }
 
+function logServerError(context, error) {
+  const detail = error && error.stack ? error.stack : (error && error.message ? error.message : String(error));
+  console.error(context + ": " + detail);
+}
+
 function getAdminPageUrl() {
   return getScriptProperties().getProperty("ADMIN_PAGE_URL") || DEFAULT_ADMIN_PAGE_URL;
 }
@@ -401,12 +406,15 @@ function doPost(e) {
   } catch (error) {
     return textOutput("INVALID_REQUEST");
   }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return textOutput("INVALID_REQUEST");
+  }
 
   if (data.action && data.action.indexOf("admin") === 0) {
     try {
       return handleAdminAction(data);
     } catch (error) {
-      console.error("Admin action failed", data.action, error);
+      logServerError("Admin action failed [" + data.action + "]", error);
       return jsonOutput({ ok: false, error: "SERVER_ERROR" });
     }
   }
@@ -1237,7 +1245,15 @@ function adminRunIntegrationTest(testFunction) {
 function adminGetIntegrationStatus() {
   const properties = getScriptProperties();
   const slotConfigs = getAllSlotTimeConfigs();
-  const triggers = getCounselingTriggerStatus();
+  let triggers = {};
+  let triggerStatusAvailable = true;
+  try {
+    triggers = getCounselingTriggerStatus();
+  } catch (error) {
+    triggerStatusAvailable = false;
+    COUNSELING_TRIGGER_HANDLERS.forEach(handler => { triggers[handler] = false; });
+    logServerError("Counseling trigger status lookup failed", error);
+  }
   return jsonOutput({
     ok: true,
     status: {
@@ -1246,7 +1262,7 @@ function adminGetIntegrationStatus() {
       dailySummaryEnabled: isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED"),
       calendarEnabled: isPropertyEnabled("GOOGLE_CALENDAR_ENABLED"),
       slotTimesValid: Object.keys(slotConfigs).length === CONSULT_SLOTS.length,
-      triggersInstalled: COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true)
+      triggersInstalled: triggerStatusAvailable && COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true)
     }
   });
 }
