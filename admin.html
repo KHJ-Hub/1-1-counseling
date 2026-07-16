@@ -45,6 +45,7 @@
 
             <nav class="admin-tabs" aria-label="관리 메뉴">
                 <button class="admin-tab active" type="button" data-admin-tab="reservations" aria-controls="reservations-panel" aria-selected="true">예약</button>
+                <button class="admin-tab" type="button" data-admin-tab="stats" aria-controls="stats-panel" aria-selected="false">상담 통계</button>
                 <button class="admin-tab" type="button" data-admin-tab="history" aria-controls="history-panel" aria-selected="false">학생 이력</button>
                 <button class="admin-tab" type="button" data-admin-tab="academic" aria-controls="academic-panel" aria-selected="false">학사일정</button>
                 <button class="admin-tab" type="button" data-admin-tab="blocked" aria-controls="blocked-panel" aria-selected="false">상담불가</button>
@@ -77,6 +78,20 @@
                 </div>
                 <p id="reservation-count" class="list-count"></p>
                 <div id="reservation-list" class="admin-list"></div>
+            </section>
+
+            <section id="stats-panel" class="admin-panel hidden" data-admin-panel="stats">
+                <div class="panel-heading"><div><h3>상담 통계</h3><p class="admin-muted">필터 조건에 맞는 상담 현황을 집계합니다. 비밀번호와 상담 메모는 통계에 사용하거나 표시하지 않습니다.</p></div></div>
+                <form id="stats-filter-form" class="stats-filter-grid">
+                    <div><label class="form-label" for="stats-start-date">시작일</label><input id="stats-start-date" class="form-input" type="date"></div>
+                    <div><label class="form-label" for="stats-end-date">종료일</label><input id="stats-end-date" class="form-input" type="date"></div>
+                    <div><label class="form-label" for="stats-name">학생 이름</label><input id="stats-name" class="form-input" type="search" maxlength="100"></div>
+                    <div><label class="form-label" for="stats-completed">완료 여부</label><select id="stats-completed" class="form-input"><option value="">전체</option><option value="true">완료</option><option value="false">미완료</option></select></div>
+                    <div class="stats-filter-actions"><button id="stats-reset" class="admin-button secondary" type="button">초기화</button><button id="stats-submit" class="admin-button primary" type="submit">통계 조회</button></div>
+                </form>
+                <p id="stats-message" class="admin-message hidden" role="status"></p>
+                <div id="stats-summary" class="stats-summary-grid"></div>
+                <div id="stats-charts" class="stats-chart-grid"></div>
             </section>
 
             <section id="history-panel" class="admin-panel hidden" data-admin-panel="history">
@@ -162,6 +177,18 @@
             </section>
 
             <section id="settings-panel" class="admin-panel hidden" data-admin-panel="settings">
+                <div class="settings-section">
+                    <div class="panel-heading"><div><h3>알림 및 연동 설정 안내</h3><p class="admin-muted">실제 URL·Calendar ID·비밀값은 화면과 API 응답에 표시하지 않습니다.</p></div></div>
+                    <div id="integration-status" class="integration-status" aria-live="polite"></div>
+                    <div class="integration-actions">
+                        <button id="integration-refresh" class="admin-button secondary" type="button">설정 상태 새로고침</button>
+                        <button class="admin-button secondary integration-test" data-test-action="adminTestDiscord" type="button">Discord 테스트</button>
+                        <button class="admin-button secondary integration-test" data-test-action="adminTestTodaySummary" type="button">오늘 일정 테스트</button>
+                        <button class="admin-button secondary integration-test" data-test-action="adminTestTomorrowSummary" type="button">내일 일정 테스트</button>
+                        <button class="admin-button secondary integration-test" data-test-action="adminTestSlotStart" type="button">차시 시작 테스트</button>
+                    </div>
+                    <p id="integration-message" class="admin-message hidden" role="status"></p>
+                </div>
                 <div class="panel-heading"><div><h3>관리자 비밀번호 변경</h3><p class="admin-muted">변경 후 모든 관리자 세션이 만료되어 다시 로그인해야 합니다.</p></div></div>
                 <form id="password-form" class="password-form" novalidate>
                     <div>
@@ -194,6 +221,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260716-reauth"></script>
+    <script src="admin.js?v=20260716-advanced"></script>
 </body>
 </html>

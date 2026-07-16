@@ -10,7 +10,22 @@ const ADMIN_PASSWORD_SETUP_KEY = "ADMIN_PASSWORD_SETUP";
 const ADMIN_SESSION_PREFIX = "ADMIN_SESSION_";
 const ADMIN_SESSION_TTL_SECONDS = 30 * 60;
 const DISCORD_WEBHOOK_URL_KEY = "DISCORD_WEBHOOK_URL";
-const ADMIN_PAGE_URL = "https://khj-hub.github.io/1-1-counseling/admin.html";
+const DEFAULT_ADMIN_PAGE_URL = "https://khj-hub.github.io/1-1-counseling/admin.html";
+const TIME_ZONE = "Asia/Seoul";
+const CALENDAR_EVENT_ID_COLUMN = 7;
+const CALENDAR_EVENT_ID_HEADER = "Calendar Event ID";
+const SLOT_START_STATE_KEY = "COUNSELING_SLOT_START_STATE";
+const SUMMARY_STATE_KEY = "COUNSELING_SUMMARY_STATE";
+const COUNSELING_TRIGGER_HANDLERS = [
+  "checkCounselingSlotStartNotifications",
+  "runTodayCounselingSummary",
+  "runTomorrowCounselingSummary"
+];
+const SLOT_PROPERTY_MAP = {
+  "야자 1차시": { start: "SLOT_1_START", end: "SLOT_1_END" },
+  "야자 2차시": { start: "SLOT_2_START", end: "SLOT_2_END" },
+  "야자 3차시": { start: "SLOT_3_START", end: "SLOT_3_END" }
+};
 
 function textOutput(value) {
   return ContentService.createTextOutput(value).setMimeType(ContentService.MimeType.TEXT);
@@ -24,7 +39,15 @@ function getScriptProperties() {
   return PropertiesService.getScriptProperties();
 }
 
-function sendDiscordMessage(message) {
+function getAdminPageUrl() {
+  return getScriptProperties().getProperty("ADMIN_PAGE_URL") || DEFAULT_ADMIN_PAGE_URL;
+}
+
+function isPropertyEnabled(key) {
+  return (getScriptProperties().getProperty(key) || "").toLowerCase() === "true";
+}
+
+function sendDiscordPayload(payload) {
   const webhookUrl = getScriptProperties().getProperty(DISCORD_WEBHOOK_URL_KEY);
   if (!webhookUrl) {
     console.error("Discord notification skipped: DISCORD_WEBHOOK_URL is not configured.");
@@ -35,10 +58,7 @@ function sendDiscordMessage(message) {
     const response = UrlFetchApp.fetch(webhookUrl, {
       method: "post",
       contentType: "application/json",
-      payload: JSON.stringify({
-        content: message,
-        allowed_mentions: { parse: [] }
-      }),
+      payload: JSON.stringify(Object.assign({}, payload, { allowed_mentions: { parse: [] } })),
       muteHttpExceptions: true
     });
     const statusCode = response.getResponseCode();
@@ -53,23 +73,46 @@ function sendDiscordMessage(message) {
   }
 }
 
+function sendDiscordMessage(message) {
+  return sendDiscordPayload({ content: message });
+}
+
+function sendDiscordEmbed(embed) {
+  return sendDiscordPayload({ embeds: [embed] });
+}
+
+function discordTimestampLabel() {
+  return Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM-dd HH:mm:ss");
+}
+
 function notifyDiscordReservation(name, date, slot) {
-  return sendDiscordMessage([
-    "📅 **상담 예약 알림**",
-    "학생: " + name,
-    "날짜: " + date,
-    "시간: " + slot,
-    "관리자 페이지: " + ADMIN_PAGE_URL
-  ].join("\n"));
+  return sendDiscordEmbed({
+    title: "🌿 새로운 상담 예약",
+    url: getAdminPageUrl(),
+    color: 5763719,
+    fields: [
+      { name: "학생 이름", value: name, inline: true },
+      { name: "상담 날짜", value: date, inline: true },
+      { name: "상담 시간대", value: slot, inline: true },
+      { name: "신청 시각", value: discordTimestampLabel(), inline: false },
+      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
+    ]
+  });
 }
 
 function notifyDiscordCancellation(name, date, slot) {
-  return sendDiscordMessage([
-    "❌ **상담 예약 취소 알림**",
-    "학생: " + name,
-    "날짜: " + date,
-    "시간: " + slot
-  ].join("\n"));
+  return sendDiscordEmbed({
+    title: "❌ 상담 예약 취소",
+    url: getAdminPageUrl(),
+    color: 14495300,
+    fields: [
+      { name: "학생 이름", value: name, inline: true },
+      { name: "상담 날짜", value: date, inline: true },
+      { name: "상담 시간대", value: slot, inline: true },
+      { name: "취소 시각", value: discordTimestampLabel(), inline: false },
+      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
+    ]
+  });
 }
 
 function testDiscordNotification() {
@@ -384,6 +427,7 @@ function doPost(e) {
     if (!/^\d{4}$/.test(trimmedPwd)) return textOutput("INVALID_PASSWORD");
 
     const lock = LockService.getScriptLock();
+    let savedRowNumber = null;
     lock.waitLock(10000);
     try {
       if (isDateBlocked(ss, date)) return textOutput("DATE_BLOCKED");
@@ -415,14 +459,17 @@ function doPost(e) {
       if (isDuplicate) return textOutput("DUPLICATE_WEEKLY");
 
       sheet.appendRow([date, slot, trimmedName, trimmedPwd]);
+      savedRowNumber = sheet.getLastRow();
     } finally {
       lock.releaseLock();
     }
     notifyDiscordReservationSafely(trimmedName, date, slot);
+    createCalendarEventForReservationSafely(savedRowNumber, date, slot, trimmedName);
     return textOutput("Success");
   } else if (action === "delete") {
     const lock = LockService.getScriptLock();
     let deleteResult = "NOT_FOUND";
+    let calendarEventId = "";
     lock.waitLock(10000);
     try {
       const rows = sheet.getDataRange().getValues();
@@ -431,6 +478,7 @@ function doPost(e) {
         if (rDate === date && rows[i][1] === slot && rows[i][2] === trimmedName) {
           const savedPwd = rows[i][3] ? rows[i][3].toString().trim() : "";
           if (verifyAdminPassword(trimmedPwd) || trimmedPwd === savedPwd) {
+            calendarEventId = rows[i][CALENDAR_EVENT_ID_COLUMN - 1] ? rows[i][CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
             sheet.deleteRow(i + 1);
             deleteResult = "Success";
           } else {
@@ -444,6 +492,7 @@ function doPost(e) {
     }
     if (deleteResult === "Success") {
       notifyDiscordCancellationSafely(trimmedName, date, slot);
+      deleteCalendarEventSafely(calendarEventId);
     }
     return textOutput(deleteResult);
   }
@@ -483,6 +532,12 @@ function handleAdminAction(data) {
   if (data.action === "adminSetAvailability") return adminSetAvailability(data);
   if (data.action === "adminDeleteAvailability") return adminDeleteAvailability(data);
   if (data.action === "adminChangePassword") return adminChangePassword(data);
+  if (data.action === "adminGetCounselingStats") return adminGetCounselingStats(data);
+  if (data.action === "adminGetIntegrationStatus") return adminGetIntegrationStatus();
+  if (data.action === "adminTestDiscord") return adminRunIntegrationTest(testDiscordNotification);
+  if (data.action === "adminTestTodaySummary") return adminRunIntegrationTest(testTodayCounselingSummary);
+  if (data.action === "adminTestTomorrowSummary") return adminRunIntegrationTest(testTomorrowCounselingSummary);
+  if (data.action === "adminTestSlotStart") return adminRunIntegrationTest(testSlotStartNotification);
 
   return jsonOutput({ ok: false, error: "INVALID_ACTION" });
 }
@@ -524,10 +579,11 @@ function adminDeleteReservation(data) {
   }
 
   const lock = LockService.getScriptLock();
+  let calendarEventId = "";
   lock.waitLock(10000);
   try {
     if (rowNumber > sheet.getLastRow()) return jsonOutput({ ok: false, error: "STALE_DATA" });
-    const row = sheet.getRange(rowNumber, 1, 1, 4).getValues()[0];
+    const row = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
     const currentDate = parseKoreanDate(row[0]);
     const currentSlot = row[1] ? row[1].toString().trim() : "";
     const currentName = row[2] ? row[2].toString() : "";
@@ -536,11 +592,13 @@ function adminDeleteReservation(data) {
       return jsonOutput({ ok: false, error: "STALE_DATA" });
     }
 
+    calendarEventId = row[CALENDAR_EVENT_ID_COLUMN - 1] ? row[CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
     sheet.deleteRow(rowNumber);
-    return jsonOutput({ ok: true });
   } finally {
     lock.releaseLock();
   }
+  deleteCalendarEventSafely(calendarEventId);
+  return jsonOutput({ ok: true });
 }
 
 function adminUpdateConsultation(data) {
@@ -558,10 +616,12 @@ function adminUpdateConsultation(data) {
   if (memo.length > 2000) return jsonOutput({ ok: false, error: "MEMO_TOO_LONG" });
 
   const lock = LockService.getScriptLock();
+  let calendarEventId = "";
+  let reservationName = "";
   lock.waitLock(10000);
   try {
     if (rowNumber > sheet.getLastRow()) return jsonOutput({ ok: false, error: "STALE_DATA" });
-    const row = sheet.getRange(rowNumber, 1, 1, 6).getValues()[0];
+    const row = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
     const currentDate = parseKoreanDate(row[0]);
     const currentSlot = row[1] ? row[1].toString().trim() : "";
     const currentName = row[2] ? row[2].toString() : "";
@@ -570,10 +630,13 @@ function adminUpdateConsultation(data) {
     }
 
     sheet.getRange(rowNumber, 5, 1, 2).setValues([[data.completed, memo]]);
-    return jsonOutput({ ok: true });
+    calendarEventId = row[CALENDAR_EVENT_ID_COLUMN - 1] ? row[CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
+    reservationName = currentName;
   } finally {
     lock.releaseLock();
   }
+  updateCalendarCompletionSafely(calendarEventId, reservationName, data.completed);
+  return jsonOutput({ ok: true });
 }
 
 function adminListStudentHistory(data) {
@@ -795,4 +858,472 @@ function adminChangePassword(data) {
 
   saveAdminPassword(newPassword);
   return jsonOutput({ ok: true, reloginRequired: true });
+}
+
+function getSlotTimeConfig(slot) {
+  const propertyKeys = SLOT_PROPERTY_MAP[slot];
+  if (!propertyKeys) return null;
+  const properties = getScriptProperties();
+  const start = properties.getProperty(propertyKeys.start) || "";
+  const end = properties.getProperty(propertyKeys.end) || "";
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) {
+    console.error("Counseling slot time skipped: invalid or missing properties for " + slot + ".");
+    return null;
+  }
+  if (timeToMinutes(end) <= timeToMinutes(start)) {
+    console.error("Counseling slot time skipped: end time must be later than start time for " + slot + ".");
+    return null;
+  }
+  return { slot: slot, start: start, end: end };
+}
+
+function timeToMinutes(value) {
+  const parts = value.split(":");
+  return Number(parts[0]) * 60 + Number(parts[1]);
+}
+
+function getAllSlotTimeConfigs() {
+  const configs = {};
+  CONSULT_SLOTS.forEach(slot => {
+    const config = getSlotTimeConfig(slot);
+    if (config) configs[slot] = config;
+  });
+  return configs;
+}
+
+function formatKoreanDateLabel(date) {
+  const parsed = new Date(date + "T00:00:00+09:00");
+  return Utilities.formatDate(parsed, TIME_ZONE, "yyyy년 M월 d일");
+}
+
+function localIsoDate(date) {
+  return Utilities.formatDate(date || new Date(), TIME_ZONE, "yyyy-MM-dd");
+}
+
+function addDays(date, count) {
+  return new Date(date.getTime() + count * 24 * 60 * 60 * 1000);
+}
+
+function hasCalendarEventIdHeader(sheet) {
+  return sheet && sheet.getRange(1, CALENDAR_EVENT_ID_COLUMN).getValue().toString().trim() === CALENDAR_EVENT_ID_HEADER;
+}
+
+function getCalendarConfiguration() {
+  const properties = getScriptProperties();
+  const enabled = isPropertyEnabled("GOOGLE_CALENDAR_ENABLED");
+  const calendarId = properties.getProperty("GOOGLE_CALENDAR_ID") || "";
+  return { enabled: enabled, calendarId: calendarId };
+}
+
+function getConfiguredCalendar() {
+  const config = getCalendarConfiguration();
+  if (!config.enabled || !config.calendarId) return null;
+  const calendar = CalendarApp.getCalendarById(config.calendarId);
+  if (!calendar) throw new Error("CALENDAR_NOT_ACCESSIBLE");
+  return calendar;
+}
+
+function buildCounselingDateTime(date, time) {
+  return new Date(date + "T" + time + ":00+09:00");
+}
+
+function createCalendarEventForReservation(rowNumber, date, slot, name) {
+  const config = getCalendarConfiguration();
+  if (!config.enabled || !config.calendarId) return false;
+  const slotTime = getSlotTimeConfig(slot);
+  if (!slotTime) return false;
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet || !hasCalendarEventIdHeader(sheet)) {
+    console.error("Google Calendar sync skipped: G1 must be '" + CALENDAR_EVENT_ID_HEADER + "'.");
+    return false;
+  }
+  if (!rowNumber || rowNumber > sheet.getLastRow()) return false;
+  const current = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
+  if (current[CALENDAR_EVENT_ID_COLUMN - 1]) return false;
+  if (parseKoreanDate(current[0]) !== date || current[1].toString().trim() !== slot || current[2].toString() !== name) return false;
+
+  const calendar = getConfiguredCalendar();
+  if (!calendar) return false;
+  const event = calendar.createEvent(
+    "[학생 상담] " + name,
+    buildCounselingDateTime(date, slotTime.start),
+    buildCounselingDateTime(date, slotTime.end),
+    { description: "상담 시간대: " + slot + "\n관리자 페이지: " + getAdminPageUrl() }
+  );
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    if (rowNumber > sheet.getLastRow()) {
+      event.deleteEvent();
+      return false;
+    }
+    const verified = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
+    const existingId = verified[CALENDAR_EVENT_ID_COLUMN - 1] ? verified[CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
+    const stillMatches = parseKoreanDate(verified[0]) === date && verified[1].toString().trim() === slot && verified[2].toString() === name;
+    if (!stillMatches || existingId) {
+      event.deleteEvent();
+      return false;
+    }
+    sheet.getRange(rowNumber, CALENDAR_EVENT_ID_COLUMN).setValue(event.getId());
+  } finally {
+    lock.releaseLock();
+  }
+  return true;
+}
+
+function createCalendarEventForReservationSafely(rowNumber, date, slot, name) {
+  try {
+    return createCalendarEventForReservation(rowNumber, date, slot, name);
+  } catch (error) {
+    console.error("Google Calendar event creation failed.");
+    return false;
+  }
+}
+
+function deleteCalendarEvent(eventId) {
+  if (!eventId) return false;
+  const calendar = getConfiguredCalendar();
+  if (!calendar) return false;
+  const event = calendar.getEventById(eventId);
+  if (!event) return false;
+  event.deleteEvent();
+  return true;
+}
+
+function deleteCalendarEventSafely(eventId) {
+  try {
+    return deleteCalendarEvent(eventId);
+  } catch (error) {
+    console.error("Google Calendar event deletion failed.");
+    return false;
+  }
+}
+
+function updateCalendarCompletionSafely(eventId, name, completed) {
+  if (!eventId) return false;
+  try {
+    const calendar = getConfiguredCalendar();
+    if (!calendar) return false;
+    const event = calendar.getEventById(eventId);
+    if (!event) return false;
+    event.setTitle((completed ? "[완료] " : "") + "[학생 상담] " + name);
+    return true;
+  } catch (error) {
+    console.error("Google Calendar completion update failed.");
+    return false;
+  }
+}
+
+function syncExistingReservationsToCalendar() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) throw new Error("SHEET_NOT_FOUND");
+  if (!hasCalendarEventIdHeader(sheet)) throw new Error("CALENDAR_EVENT_ID_HEADER_REQUIRED");
+  const config = getCalendarConfiguration();
+  if (!config.enabled || !config.calendarId) throw new Error("CALENDAR_NOT_CONFIGURED");
+
+  const rows = sheet.getDataRange().getValues();
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const date = parseKoreanDate(rows[i][0]);
+    const slot = rows[i][1] ? rows[i][1].toString().trim() : "";
+    const name = rows[i][2] ? rows[i][2].toString() : "";
+    if (!date || !name || CONSULT_SLOTS.indexOf(slot) === -1 || rows[i][CALENDAR_EVENT_ID_COLUMN - 1]) {
+      skipped++;
+      continue;
+    }
+    try {
+      if (createCalendarEventForReservation(i + 1, date, slot, name)) created++;
+      else skipped++;
+    } catch (error) {
+      failed++;
+      console.error("Existing reservation Calendar sync failed at row " + (i + 1) + ".");
+    }
+  }
+  return { created: created, skipped: skipped, failed: failed };
+}
+
+function readJsonProperty(key) {
+  const raw = getScriptProperties().getProperty(key);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    console.error("Invalid JSON state was reset for " + key + ".");
+    return {};
+  }
+}
+
+function writeJsonProperty(key, value) {
+  getScriptProperties().setProperty(key, JSON.stringify(value));
+}
+
+function cleanDatedState(state, cutoffDate) {
+  Object.keys(state).forEach(key => {
+    const dateMatch = key.match(/\d{4}-\d{2}-\d{2}/);
+    if (dateMatch && dateMatch[0] < cutoffDate) delete state[key];
+  });
+  return state;
+}
+
+function getReservationsForDate(date) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) return [];
+  return sheet.getDataRange().getValues().slice(1).map(row => ({
+    date: parseKoreanDate(row[0]),
+    slot: row[1] ? row[1].toString().trim() : "",
+    name: row[2] ? row[2].toString() : "",
+    completed: sheetBoolean(row[4])
+  })).filter(item => item.date === date && item.name && CONSULT_SLOTS.indexOf(item.slot) !== -1)
+    .sort((a, b) => CONSULT_SLOTS.indexOf(a.slot) - CONSULT_SLOTS.indexOf(b.slot) || a.name.localeCompare(b.name));
+}
+
+function sendSlotStartNotification(date, slot, names, testMode) {
+  const slotTime = getSlotTimeConfig(slot);
+  if (!slotTime || !names.length) return false;
+  const titlePrefix = testMode ? "[테스트] " : "";
+  return sendDiscordEmbed({
+    title: titlePrefix + "🔔 " + slot + " 상담 일정",
+    url: getAdminPageUrl(),
+    color: 16766720,
+    fields: [
+      { name: "날짜", value: formatKoreanDateLabel(date), inline: true },
+      { name: "시작 시각", value: slotTime.start, inline: true },
+      { name: "상담 학생", value: names.map(name => "- " + name).join("\n"), inline: false },
+      { name: "전체", value: names.length + "명", inline: true },
+      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
+    ]
+  });
+}
+
+function checkCounselingSlotStartNotifications() {
+  if (!isPropertyEnabled("DISCORD_SLOT_START_ENABLED")) return false;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const now = new Date();
+    const date = localIsoDate(now);
+    const currentMinutes = Number(Utilities.formatDate(now, TIME_ZONE, "H")) * 60 + Number(Utilities.formatDate(now, TIME_ZONE, "m"));
+    const reservations = getReservationsForDate(date);
+    if (!reservations.length) return false;
+
+    const state = cleanDatedState(readJsonProperty(SLOT_START_STATE_KEY), localIsoDate(addDays(now, -14)));
+    let sentAny = false;
+    CONSULT_SLOTS.forEach(slot => {
+      const config = getSlotTimeConfig(slot);
+      if (!config) return;
+      const difference = currentMinutes - timeToMinutes(config.start);
+      const key = date + "|" + slot;
+      if (difference < 0 || difference > 4 || state[key]) return;
+      const names = reservations.filter(item => item.slot === slot).map(item => item.name);
+      if (!names.length) return;
+      if (sendSlotStartNotification(date, slot, names, false)) {
+        state[key] = discordTimestampLabel();
+        sentAny = true;
+      }
+    });
+    writeJsonProperty(SLOT_START_STATE_KEY, state);
+    return sentAny;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function testSlotStartNotification() {
+  const slot = CONSULT_SLOTS.find(item => getSlotTimeConfig(item));
+  if (!slot) return false;
+  const todayReservations = getReservationsForDate(localIsoDate(new Date())).filter(item => item.slot === slot);
+  const names = todayReservations.length ? todayReservations.map(item => item.name) : ["테스트 학생"];
+  return sendSlotStartNotification(localIsoDate(new Date()), slot, names, true);
+}
+
+function sendCounselingSummary(date, kind, testMode) {
+  const reservations = getReservationsForDate(date);
+  const isToday = kind === "today";
+  const lines = reservations.length ? reservations.map(item => {
+    const completed = isToday ? " · " + (item.completed ? "완료" : "미완료") : "";
+    return "- " + item.slot + " · " + item.name + completed;
+  }).join("\n") : (isToday ? "오늘 예정된 상담이 없습니다." : "내일 예정된 상담이 없습니다.");
+  return sendDiscordEmbed({
+    title: (testMode ? "[테스트] " : "") + (isToday ? "📅 오늘의 상담 일정" : "📋 내일의 상담 일정"),
+    url: getAdminPageUrl(),
+    color: isToday ? 3447003 : 10181046,
+    fields: [
+      { name: "날짜", value: formatKoreanDateLabel(date), inline: true },
+      { name: "전체 예약", value: reservations.length + "건", inline: true },
+      { name: "일정", value: lines, inline: false },
+      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
+    ]
+  });
+}
+
+function runDailySummary(kind) {
+  if (!isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED")) return false;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const now = new Date();
+    const date = localIsoDate(kind === "today" ? now : addDays(now, 1));
+    const key = kind + "|" + date;
+    const state = cleanDatedState(readJsonProperty(SUMMARY_STATE_KEY), localIsoDate(addDays(now, -14)));
+    if (state[key]) return false;
+    if (!sendCounselingSummary(date, kind, false)) return false;
+    state[key] = discordTimestampLabel();
+    writeJsonProperty(SUMMARY_STATE_KEY, state);
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function runTodayCounselingSummary() {
+  return runDailySummary("today");
+}
+
+function runTomorrowCounselingSummary() {
+  return runDailySummary("tomorrow");
+}
+
+function testTodayCounselingSummary() {
+  return sendCounselingSummary(localIsoDate(new Date()), "today", true);
+}
+
+function testTomorrowCounselingSummary() {
+  return sendCounselingSummary(localIsoDate(addDays(new Date(), 1)), "tomorrow", true);
+}
+
+function removeCounselingTriggers() {
+  let removed = 0;
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    if (COUNSELING_TRIGGER_HANDLERS.indexOf(trigger.getHandlerFunction()) !== -1) {
+      ScriptApp.deleteTrigger(trigger);
+      removed++;
+    }
+  });
+  return removed;
+}
+
+function installCounselingTriggers() {
+  removeCounselingTriggers();
+  ScriptApp.newTrigger("checkCounselingSlotStartNotifications").timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger("runTodayCounselingSummary").timeBased().atHour(8).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
+  ScriptApp.newTrigger("runTomorrowCounselingSummary").timeBased().atHour(19).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
+  return getCounselingTriggerStatus();
+}
+
+function getCounselingTriggerStatus() {
+  const installed = {};
+  COUNSELING_TRIGGER_HANDLERS.forEach(handler => { installed[handler] = false; });
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    const handler = trigger.getHandlerFunction();
+    if (Object.prototype.hasOwnProperty.call(installed, handler)) installed[handler] = true;
+  });
+  return installed;
+}
+
+function adminRunIntegrationTest(testFunction) {
+  try {
+    return jsonOutput({ ok: true, sent: Boolean(testFunction()) });
+  } catch (error) {
+    console.error("Administrator integration test failed.");
+    return jsonOutput({ ok: false, error: "INTEGRATION_TEST_FAILED" });
+  }
+}
+
+function adminGetIntegrationStatus() {
+  const properties = getScriptProperties();
+  const slotConfigs = getAllSlotTimeConfigs();
+  const triggers = getCounselingTriggerStatus();
+  return jsonOutput({
+    ok: true,
+    status: {
+      discordConfigured: Boolean(properties.getProperty(DISCORD_WEBHOOK_URL_KEY)),
+      slotStartEnabled: isPropertyEnabled("DISCORD_SLOT_START_ENABLED"),
+      dailySummaryEnabled: isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED"),
+      calendarEnabled: isPropertyEnabled("GOOGLE_CALENDAR_ENABLED"),
+      slotTimesValid: Object.keys(slotConfigs).length === CONSULT_SLOTS.length,
+      triggersInstalled: COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true)
+    }
+  });
+}
+
+function incrementCount(target, key) {
+  target[key] = (target[key] || 0) + 1;
+}
+
+function countMapToArray(counts, preferredOrder) {
+  const keys = preferredOrder ? preferredOrder.filter(key => counts[key]) : Object.keys(counts).sort();
+  return keys.map(key => ({ label: key, count: counts[key] }));
+}
+
+function adminGetCounselingStats(data) {
+  const startDate = data.startDate ? data.startDate.toString().trim() : "";
+  const endDate = data.endDate ? data.endDate.toString().trim() : "";
+  const name = data.name ? data.name.toString().trim() : "";
+  const completedFilter = data.completed === true ? true : data.completed === false ? false : null;
+  if ((startDate && !isIsoDate(startDate)) || (endDate && !isIsoDate(endDate))) {
+    return jsonOutput({ ok: false, error: "INVALID_DATE" });
+  }
+  if (startDate && endDate && startDate > endDate) return jsonOutput({ ok: false, error: "INVALID_DATE_RANGE" });
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
+  const rows = sheet.getDataRange().getValues().slice(1).map(row => ({
+    date: parseKoreanDate(row[0]),
+    slot: row[1] ? row[1].toString().trim() : "",
+    name: row[2] ? row[2].toString().trim() : "",
+    completed: sheetBoolean(row[4])
+  })).filter(item => item.date && item.name)
+    .filter(item => !startDate || item.date >= startDate)
+    .filter(item => !endDate || item.date <= endDate)
+    .filter(item => !name || item.name.indexOf(name) !== -1)
+    .filter(item => completedFilter === null || item.completed === completedFilter);
+
+  const now = new Date();
+  const today = localIsoDate(now);
+  const jsDay = new Date(today + "T00:00:00+09:00").getDay();
+  const day = jsDay === 0 ? 7 : jsDay;
+  const weekStart = localIsoDate(addDays(now, 1 - day));
+  const weekEnd = localIsoDate(addDays(now, 7 - day));
+  const month = today.substring(0, 7);
+  const completed = rows.filter(item => item.completed).length;
+  const studentCounts = {};
+  const dateCounts = {};
+  const weekdayCounts = {};
+  const slotCounts = {};
+  const monthCounts = {};
+  const weekdayLabels = ["월", "화", "수", "목", "금", "토", "일"];
+  rows.forEach(item => {
+    incrementCount(studentCounts, item.name);
+    incrementCount(dateCounts, item.date);
+    const rowJsDay = new Date(item.date + "T00:00:00+09:00").getDay();
+    const weekdayIndex = (rowJsDay === 0 ? 7 : rowJsDay) - 1;
+    incrementCount(weekdayCounts, weekdayLabels[weekdayIndex]);
+    incrementCount(slotCounts, item.slot || "미지정");
+    incrementCount(monthCounts, item.date.substring(0, 7));
+  });
+
+  return jsonOutput({
+    ok: true,
+    stats: {
+      summary: {
+        today: rows.filter(item => item.date === today).length,
+        week: rows.filter(item => item.date >= weekStart && item.date <= weekEnd).length,
+        month: rows.filter(item => item.date.substring(0, 7) === month).length,
+        completed: completed,
+        incomplete: rows.length - completed,
+        completionRate: rows.length ? Math.round(completed * 1000 / rows.length) / 10 : 0,
+        total: rows.length
+      },
+      byStudent: countMapToArray(studentCounts),
+      byDate: countMapToArray(dateCounts),
+      byWeekday: countMapToArray(weekdayCounts, weekdayLabels),
+      bySlot: countMapToArray(slotCounts, CONSULT_SLOTS.concat(["미지정"])),
+      byMonth: countMapToArray(monthCounts)
+    }
+  });
 }

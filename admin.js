@@ -54,6 +54,7 @@ function errorMessage(code) {
         WRONG_CURRENT_PASSWORD: '현재 관리자 비밀번호가 올바르지 않습니다.',
         ADMIN_PASSWORD_POLICY: '관리자 비밀번호는 4자 이상 64자 이하로 입력해 주세요.',
         INVALID_ACTION: '지원하지 않는 관리자 작업입니다.',
+        INTEGRATION_TEST_FAILED: '연동 테스트를 실행하지 못했습니다. Apps Script 실행 로그를 확인해 주세요.',
         SERVER_ERROR: '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
         INVALID_RESPONSE: '서버 응답을 확인할 수 없습니다. Apps Script 배포 버전을 확인해 주세요.',
         NETWORK_ERROR: '서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.'
@@ -267,20 +268,107 @@ function renderAllData() {
         `예약 ${reservations.length}건 · 학사일정 ${calendarItems.filter(item => item.kind === 'academic').length}건 · 상담불가 ${calendarItems.filter(item => item.kind === 'blocked').length}건 · 가능 시간 설정 ${availabilityItems.length}건`;
 }
 
+function renderStats(stats) {
+    const summary = stats.summary || {};
+    const summaryItems = [
+        ['오늘 상담', summary.today || 0, '건'], ['이번 주', summary.week || 0, '건'],
+        ['이번 달', summary.month || 0, '건'], ['완료 상담', summary.completed || 0, '건'],
+        ['미완료 상담', summary.incomplete || 0, '건'], ['상담 완료율', summary.completionRate || 0, '%']
+    ];
+    const summaryContainer = document.getElementById('stats-summary');
+    summaryContainer.replaceChildren(...summaryItems.map(([label, value, unit]) => {
+        const card = document.createElement('article');
+        card.className = 'stat-card';
+        card.append(createTextElement('span', 'stat-label', label), createTextElement('strong', 'stat-value', `${value}${unit}`));
+        return card;
+    }));
+
+    const chartDefinitions = [
+        ['학생별 상담 횟수', stats.byStudent], ['날짜별 상담 건수', stats.byDate],
+        ['요일별 상담 건수', stats.byWeekday], ['시간대별 상담 건수', stats.bySlot],
+        ['월별 상담 추이', stats.byMonth]
+    ];
+    const chartContainer = document.getElementById('stats-charts');
+    chartContainer.replaceChildren(...chartDefinitions.map(([title, items]) => {
+        const section = document.createElement('section');
+        section.className = 'stat-chart';
+        section.appendChild(createTextElement('h4', '', title));
+        const values = Array.isArray(items) ? items : [];
+        if (!values.length) {
+            section.appendChild(createTextElement('p', 'empty-state compact', '표시할 데이터가 없습니다.'));
+            return section;
+        }
+        const max = Math.max(...values.map(item => item.count), 1);
+        values.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'stat-bar-row';
+            row.appendChild(createTextElement('span', 'stat-bar-label', item.label));
+            const track = document.createElement('div');
+            track.className = 'stat-bar-track';
+            const bar = document.createElement('span');
+            bar.className = 'stat-bar-fill';
+            bar.style.width = `${Math.max(4, item.count / max * 100)}%`;
+            track.appendChild(bar);
+            row.append(track, createTextElement('strong', 'stat-bar-count', String(item.count)));
+            section.appendChild(row);
+        });
+        return section;
+    }));
+}
+
+async function loadStats() {
+    const completedValue = document.getElementById('stats-completed').value;
+    const payload = {
+        startDate: document.getElementById('stats-start-date').value,
+        endDate: document.getElementById('stats-end-date').value,
+        name: document.getElementById('stats-name').value.trim()
+    };
+    if (completedValue) payload.completed = completedValue === 'true';
+    const result = await adminRequest('adminGetCounselingStats', payload);
+    renderStats(result.stats || {});
+}
+
+function renderIntegrationStatus(status) {
+    const labels = [
+        ['Discord Webhook', status.discordConfigured],
+        ['야자 차시 시작 알림', status.slotStartEnabled],
+        ['오늘·내일 일정 요약', status.dailySummaryEnabled],
+        ['Google Calendar 연동', status.calendarEnabled],
+        ['상담 시간대 설정', status.slotTimesValid],
+        ['Apps Script 트리거', status.triggersInstalled]
+    ];
+    const container = document.getElementById('integration-status');
+    container.replaceChildren(...labels.map(([label, enabled]) => {
+        const item = document.createElement('div');
+        item.className = 'integration-status-item';
+        item.append(createTextElement('span', '', label), createTextElement('strong', enabled ? 'status-complete' : 'status-pending', enabled ? '설정됨' : '미설정'));
+        return item;
+    }));
+}
+
+async function loadIntegrationStatus() {
+    const result = await adminRequest('adminGetIntegrationStatus');
+    renderIntegrationStatus(result.status || {});
+}
+
 async function loadAdminData(showSuccess = false) {
     const refreshButton = document.getElementById('refresh-button');
     setButtonBusy(refreshButton, true, '불러오는 중…');
     showMessage('global-message', '');
     try {
-        const [reservationResult, calendarResult, availabilityResult] = await Promise.all([
+        const [reservationResult, calendarResult, availabilityResult, statsResult, integrationResult] = await Promise.all([
             adminRequest('adminListReservations'),
             adminRequest('adminListCalendarItems'),
-            adminRequest('adminListAvailability')
+            adminRequest('adminListAvailability'),
+            adminRequest('adminGetCounselingStats'),
+            adminRequest('adminGetIntegrationStatus')
         ]);
         reservations = reservationResult.reservations || [];
         calendarItems = calendarResult.items || [];
         availabilityItems = availabilityResult.items || [];
         renderAllData();
+        renderStats(statsResult.stats || {});
+        renderIntegrationStatus(integrationResult.status || {});
         if (showSuccess) showMessage('global-message', 'Google Sheets의 최신 데이터를 불러왔습니다.', true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('global-message', errorMessage(error.code));
@@ -387,6 +475,57 @@ document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventL
 document.getElementById('reservation-name-filter').addEventListener('input', renderReservations);
 document.getElementById('reservation-date-filter').addEventListener('change', renderReservations);
 document.getElementById('reservation-slot-filter').addEventListener('change', renderReservations);
+
+document.getElementById('stats-filter-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = document.getElementById('stats-submit');
+    setButtonBusy(button, true, '조회 중…');
+    showMessage('stats-message', '');
+    try {
+        await loadStats();
+        showMessage('stats-message', '통계를 조회했습니다.', true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('stats-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
+});
+
+document.getElementById('stats-reset').addEventListener('click', async () => {
+    document.getElementById('stats-filter-form').reset();
+    showMessage('stats-message', '');
+    try { await loadStats(); } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('stats-message', errorMessage(error.code));
+    }
+});
+
+document.getElementById('integration-refresh').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    setButtonBusy(button, true, '확인 중…');
+    showMessage('integration-message', '');
+    try {
+        await loadIntegrationStatus();
+        showMessage('integration-message', '설정 상태를 새로 확인했습니다.', true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('integration-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
+});
+
+document.querySelectorAll('.integration-test').forEach(button => button.addEventListener('click', async event => {
+    const target = event.currentTarget;
+    setButtonBusy(target, true, '전송 중…');
+    showMessage('integration-message', '');
+    try {
+        const result = await adminRequest(target.dataset.testAction);
+        showMessage('integration-message', result.sent ? '테스트 알림을 전송했습니다.' : '알림을 보내지 못했습니다. Script Properties와 실행 로그를 확인해 주세요.', result.sent);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('integration-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(target, false, '');
+    }
+}));
 
 document.getElementById('reservation-list').addEventListener('click', async event => {
     const button = event.target.closest('button[data-action]');
