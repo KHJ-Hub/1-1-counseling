@@ -502,22 +502,21 @@ function doPost(e) {
 
     const lock = LockService.getScriptLock();
     let savedRowNumber = null;
+    let earlyResult = null; // lock 안에서 조기 반환이 필요한 경우 여기에 저장
     lock.waitLock(10000);
     try {
       const reqDate = new Date(date + "T00:00:00+09:00");
       const day = reqDate.getDay();
-      if (day === 0 || day === 6) return textOutput("WEEKEND_NOT_ALLOWED");
+      if (day === 0 || day === 6) { earlyResult = "WEEKEND_NOT_ALLOWED"; return; }
 
       const krHolidays = getKoreanHolidays(reqDate.getFullYear());
-      if (krHolidays[date]) {
-        return textOutput("HOLIDAY_NOT_ALLOWED:" + krHolidays[date]);
-      }
+      if (krHolidays[date]) { earlyResult = "HOLIDAY_NOT_ALLOWED:" + krHolidays[date]; return; }
 
-      if (isDateBlocked(ss, date)) return textOutput("DATE_BLOCKED");
+      if (isDateBlocked(ss, date)) { earlyResult = "DATE_BLOCKED"; return; }
 
       const availability = getAvailabilityMap(ss);
       if (availability[date] && availability[date][slot] !== true) {
-        return textOutput("SLOT_UNAVAILABLE");
+        earlyResult = "SLOT_UNAVAILABLE"; return;
       }
 
       const rows = sheet.getDataRange().getValues();
@@ -525,7 +524,7 @@ function doPost(e) {
         return parseKoreanDate(row[0]) === date &&
           (row[1] ? row[1].toString().trim() : "") === slot;
       });
-      if (slotTaken) return textOutput("SLOT_TAKEN");
+      if (slotTaken) { earlyResult = "SLOT_TAKEN"; return; }
 
       const mondayDiff = day === 0 ? -6 : 1 - day;
       const mon = new Date(reqDate); mon.setDate(reqDate.getDate() + mondayDiff); mon.setHours(0,0,0,0);
@@ -537,13 +536,16 @@ function doPost(e) {
         const rowName = row[2] ? row[2].toString().trim() : "";
         return rowName === trimmedName && sDate >= mon.getTime() && sDate <= sun.getTime();
       });
-      if (isDuplicate) return textOutput("DUPLICATE_WEEKLY");
+      if (isDuplicate) { earlyResult = "DUPLICATE_WEEKLY"; return; }
 
       sheet.appendRow([date, slot, trimmedName, trimmedPwd]);
       savedRowNumber = sheet.getLastRow();
     } finally {
       lock.releaseLock();
     }
+    // lock 블록 안에서 조기 반환된 경우 여기서 처리 (알림 없이 종료)
+    if (earlyResult) return textOutput(earlyResult);
+    // 정상 저장 완료 시에만 디스코드 알림 및 캘린더 이벤트 생성
     notifyDiscordReservationSafely(trimmedName, date, slot);
     createCalendarEventForReservationSafely(savedRowNumber, date, slot, trimmedName);
     return textOutput("Success");
@@ -555,7 +557,8 @@ function doPost(e) {
     try {
       const rows = sheet.getDataRange().getValues();
       for (let i = rows.length - 1; i >= 1; i--) {
-        const rDate = Utilities.formatDate(new Date(rows[i][0]), "GMT+9", "yyyy-MM-dd");
+        // parseKoreanDate로 날짜 형식을 통일하여 비교 (Date 객체/문자열 혼용 방지)
+        const rDate = parseKoreanDate(rows[i][0]);
         if (rDate === date && rows[i][1] === slot && rows[i][2] === trimmedName) {
           if (sheetBoolean(rows[i][4])) {
             deleteResult = "COMPLETED_RESERVATION";
@@ -1247,16 +1250,28 @@ function testSlotStartNotification() {
 function sendCounselingSummary(date, kind, testMode) {
   const reservations = getReservationsForDate(date);
   const isToday = kind === "today";
-  const lines = reservations.length ? reservations.map(item => {
+  const dateLabel = formatKoreanDateLabel(date);
+  const prefix = testMode ? "[테스트] " : "";
+
+  // 예약이 0건이더라도 반드시 안내 메시지 전송
+  if (reservations.length === 0) {
+    const noItemMsg = isToday
+      ? "[안내] 오늘(" + dateLabel + ") 예정된 상담이 없습니다."
+      : "[안내] 내일(" + dateLabel + ") 예정된 상담이 없습니다.";
+    return sendDiscordMessage(prefix + noItemMsg);
+  }
+
+  const lines = reservations.map(item => {
     const completed = isToday ? " · " + (item.completed ? "완료" : "미완료") : "";
     return "- " + item.slot + " · " + item.name + completed;
-  }).join("\n") : (isToday ? "오늘 예정된 상담이 없습니다." : "내일 예정된 상담이 없습니다.");
+  }).join("\n");
+
   return sendDiscordEmbed({
-    title: (testMode ? "[테스트] " : "") + (isToday ? "📅 오늘의 상담 일정" : "📋 내일의 상담 일정"),
+    title: prefix + (isToday ? "📅 오늘의 상담 일정" : "📋 내일의 상담 일정"),
     url: getAdminPageUrl(),
     color: isToday ? 3447003 : 10181046,
     fields: [
-      { name: "날짜", value: formatKoreanDateLabel(date), inline: true },
+      { name: "날짜", value: dateLabel, inline: true },
       { name: "전체 예약", value: reservations.length + "건", inline: true },
       { name: "일정", value: lines, inline: false },
       { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
