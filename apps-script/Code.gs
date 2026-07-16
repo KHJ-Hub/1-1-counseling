@@ -515,8 +515,6 @@ function doPost(e) {
       });
       if (slotTaken) return textOutput("SLOT_TAKEN");
 
-      const reqDate = new Date(date + "T00:00:00+09:00");
-      const day = reqDate.getDay();
       const mondayDiff = day === 0 ? -6 : 1 - day;
       const mon = new Date(reqDate); mon.setDate(reqDate.getDate() + mondayDiff); mon.setHours(0,0,0,0);
       const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23,59,59,999);
