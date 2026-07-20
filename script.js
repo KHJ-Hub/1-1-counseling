@@ -1,7 +1,10 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
 
 let sheetHolidays = [];
+let vacationDates = [];
 let dateAvailability = {};
+let dateOperationTypes = {};
+let slotTimes = {};
 let calendar;
 let selectedBookingDate = "";
 let selectedCancelEvent = null;
@@ -102,8 +105,15 @@ function setSubmitting(form, submitting, submittingText) {
 
 function getAvailableSlots(dateStr) {
     const configured = dateAvailability[dateStr];
-    if (!configured) return ['야자 1차시', '야자 2차시', '야자 3차시'];
+    const operationType = dateOperationTypes[dateStr] || (vacationDates.includes(dateStr) ? 'vacation' : 'semester');
+    if (operationType === 'closed') return [];
+    if (!configured) return operationType === 'vacation' ? [] : ['야자 1차시', '야자 2차시', '야자 3차시'];
     return Object.keys(configured).filter(slot => configured[slot] === true);
+}
+
+function formatSlotLabel(slot) {
+    const time = slotTimes[slot];
+    return time ? `${slot} (${time.start}~${time.end})` : slot;
 }
 
 function openBookingModal(dateStr, occupiedSlots, availableSlots) {
@@ -113,9 +123,16 @@ function openBookingModal(dateStr, occupiedSlots, availableSlots) {
     document.getElementById('booking-date-display').textContent = dateStr;
 
     let firstAvailableInput = null;
-    document.querySelectorAll('[data-slot-option]').forEach(option => {
-        const input = option.querySelector('input');
-        const status = option.querySelector('.slot-status');
+    const slotList = document.getElementById('booking-slot-list');
+    slotList.replaceChildren();
+    const operationType = dateOperationTypes[dateStr] || (vacationDates.includes(dateStr) ? 'vacation' : 'semester');
+    const slots = operationType === 'vacation' ? ['자습 1차시', '자습 2차시', '자습 3차시', '자습 4차시'] : ['야자 1차시', '야자 2차시', '야자 3차시'];
+    slots.forEach(slot => {
+        const option = document.createElement('label'); option.className = 'slot-option'; option.dataset.slotOption = '';
+        const input = document.createElement('input'); input.type = 'radio'; input.name = 'booking-slot'; input.value = slot;
+        const label = document.createElement('span'); label.textContent = formatSlotLabel(slot);
+        const status = document.createElement('span'); status.className = 'slot-status';
+        option.append(input, label, status); slotList.appendChild(option);
         const occupied = occupiedSlots.includes(input.value);
         const unavailable = !availableSlots.includes(input.value);
         input.disabled = occupied || unavailable;
@@ -237,7 +254,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         const data = await response.json();
 
         sheetHolidays = data.holidays || [];
+        vacationDates = data.vacationDates || [];
         dateAvailability = data.availability || {};
+        dateOperationTypes = data.operationTypes || {};
+        slotTimes = data.slotTimes || {};
         let dateCounts = {};
 
         data.events.forEach(ev => {
@@ -253,7 +273,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         for (let dStr in dateCounts) {
-            if (dateCounts[dStr] >= 3) {
+            const availableCount = getAvailableSlots(dStr).length;
+            if (availableCount > 0 && dateCounts[dStr] >= availableCount) {
                 data.events.push({
                     title: "🚨예약 마감🚨",
                     start: dStr,
@@ -304,7 +325,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 var availableSlots = getAvailableSlots(info.dateStr);
 
                 if (availableSlots.length === 0) {
-                    showNotice("상담 불가 안내", "해당 날짜에는 예약 가능한 상담 시간이 없습니다.");
+                    showNotice("상담 불가 안내", "해당 날짜에는 상담 가능한 시간이 없습니다.");
                     return;
                 }
 
@@ -318,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             },
 
             eventClick: function(info) {
-                if (info.event.extendedProps.type === "holiday" || info.event.extendedProps.type === "closed") return;
+                if (["holiday", "vacation", "closed"].includes(info.event.extendedProps.type)) return;
                 if (info.event.extendedProps.completed) {
                     showNotice("취소 불가", "이미 완료된 상담은 취소할 수 없습니다.");
                     return;

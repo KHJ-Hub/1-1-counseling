@@ -73,6 +73,8 @@
                             <option value="야자 1차시">야자 1차시</option>
                             <option value="야자 2차시">야자 2차시</option>
                             <option value="야자 3차시">야자 3차시</option>
+                            <option value="자습 1차시">자습 1차시</option><option value="자습 2차시">자습 2차시</option>
+                            <option value="자습 3차시">자습 3차시</option><option value="자습 4차시">자습 4차시</option>
                         </select>
                     </div>
                     <label class="completed-filter" for="reservation-include-completed">
@@ -158,19 +160,21 @@
             </section>
 
             <section id="availability-panel" class="admin-panel hidden" data-admin-panel="availability">
-                <div class="panel-heading"><div><h3>날짜별 상담 가능 시간</h3><p class="admin-muted">별도 설정이 없는 날짜는 세 시간 모두 예약 가능합니다.</p></div></div>
+                <div class="panel-heading"><div><h3>날짜별 상담 가능 시간</h3><p class="admin-muted">학기 중 평일은 기본 가능, 방학은 명시적으로 연 날짜만 가능합니다.</p></div></div>
                 <form id="availability-form" class="editor-form availability-editor" novalidate>
                     <input id="availability-row" type="hidden">
                     <div>
                         <label class="form-label" for="availability-date">날짜</label>
                         <input id="availability-date" class="form-input" type="date" required>
                     </div>
-                    <fieldset class="slot-checks">
+                    <div>
+                        <label class="form-label" for="availability-operation">운영 유형</label>
+                        <select id="availability-operation" class="form-input"><option value="semester">학기 중</option><option value="vacation">방학</option><option value="closed">상담 불가</option></select>
+                    </div>
+                    <fieldset id="availability-slot-checks" class="slot-checks">
                         <legend class="form-label">가능 시간</legend>
-                        <label><input id="availability-slot-1" type="checkbox" checked> 야자 1차시</label>
-                        <label><input id="availability-slot-2" type="checkbox" checked> 야자 2차시</label>
-                        <label><input id="availability-slot-3" type="checkbox" checked> 야자 3차시</label>
                     </fieldset>
+                    <div><label class="form-label" for="availability-note">비고</label><input id="availability-note" class="form-input" type="text" maxlength="200" placeholder="예: 1차시 특강, 미출근"></div>
                     <div class="editor-actions">
                         <button id="availability-cancel-edit" class="admin-button secondary hidden" type="button">수정 취소</button>
                         <button id="availability-submit" class="admin-button primary" type="submit">설정 추가</button>
@@ -225,6 +229,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260717-completed-filter"></script>
+    <script src="admin.js?v=20260720-vacation-mode"></script>
 </body>
 </html>

@@ -2,7 +2,13 @@ const CONSULT_SHEET_NAME = "상담신청현황";
 const CALENDAR_SHEET_NAME = "학사일정";
 const AVAILABILITY_SHEET_NAME = "상담가능시간";
 const BLOCKED_PERIOD_TITLE = "상담불가";
-const CONSULT_SLOTS = ["야자 1차시", "야자 2차시", "야자 3차시"];
+const SEMESTER_SLOTS = ["야자 1차시", "야자 2차시", "야자 3차시"];
+const VACATION_SLOTS = ["자습 1차시", "자습 2차시", "자습 3차시", "자습 4차시"];
+const CONSULT_SLOTS = SEMESTER_SLOTS.concat(VACATION_SLOTS);
+const OPERATION_TYPES = ["semester", "vacation", "closed"];
+const VACATION_SLOT_DEFAULTS = [
+  ["08:20", "10:10"], ["10:20", "12:10"], ["13:00", "14:50"], ["15:10", "17:00"]
+];
 const ADMIN_PASSWORD_HASH_KEY = "ADMIN_PASSWORD_HASH";
 const ADMIN_PASSWORD_SALT_KEY = "ADMIN_PASSWORD_SALT";
 const ADMIN_AUTH_VERSION_KEY = "ADMIN_AUTH_VERSION";
@@ -24,7 +30,11 @@ const COUNSELING_TRIGGER_HANDLERS = [
 const SLOT_PROPERTY_MAP = {
   "야자 1차시": { start: "SLOT_1_START", end: "SLOT_1_END" },
   "야자 2차시": { start: "SLOT_2_START", end: "SLOT_2_END" },
-  "야자 3차시": { start: "SLOT_3_START", end: "SLOT_3_END" }
+  "야자 3차시": { start: "SLOT_3_START", end: "SLOT_3_END" },
+  "자습 1차시": { start: "VACATION_SLOT_1_START", end: "VACATION_SLOT_1_END", defaults: VACATION_SLOT_DEFAULTS[0] },
+  "자습 2차시": { start: "VACATION_SLOT_2_START", end: "VACATION_SLOT_2_END", defaults: VACATION_SLOT_DEFAULTS[1] },
+  "자습 3차시": { start: "VACATION_SLOT_3_START", end: "VACATION_SLOT_3_END", defaults: VACATION_SLOT_DEFAULTS[2] },
+  "자습 4차시": { start: "VACATION_SLOT_4_START", end: "VACATION_SLOT_4_END", defaults: VACATION_SLOT_DEFAULTS[3] }
 };
 
 function getKoreanHolidays(year) {
@@ -131,7 +141,7 @@ function notifyDiscordReservation(name, date, slot) {
     fields: [
       { name: "학생 이름", value: name, inline: true },
       { name: "상담 날짜", value: date, inline: true },
-      { name: "상담 시간대", value: slot, inline: true },
+      { name: "상담 시간대", value: formatSlotWithTime(slot), inline: true },
       { name: "신청 시각", value: discordTimestampLabel(), inline: false },
       { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
     ]
@@ -146,7 +156,7 @@ function notifyDiscordCancellation(name, date, slot) {
     fields: [
       { name: "학생 이름", value: name, inline: true },
       { name: "상담 날짜", value: date, inline: true },
-      { name: "상담 시간대", value: slot, inline: true },
+      { name: "상담 시간대", value: formatSlotWithTime(slot), inline: true },
       { name: "취소 시각", value: discordTimestampLabel(), inline: false },
       { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
     ]
@@ -332,34 +342,82 @@ function sheetBoolean(value) {
   return Boolean(value) && value.toString().trim().toUpperCase() === "TRUE";
 }
 
-function getAvailabilityMap(ss) {
+function normalizeOperationType(value) {
+  const normalized = (value || "").toString().trim().toLowerCase();
+  if (normalized === "vacation" || normalized === "방학") return "vacation";
+  if (normalized === "closed" || normalized === "상담 불가" || normalized === "상담불가") return "closed";
+  return "semester";
+}
+
+function hasExtendedAvailabilityHeaders(sheet) {
+  if (!sheet) return false;
+  const headers = sheet.getRange(1, 5, 1, 3).getValues()[0].map(value => (value || "").toString().trim());
+  return headers[0] === "운영유형" && headers[1] === "4차시" && headers[2] === "비고";
+}
+
+function getAvailabilitySettings(ss) {
   const sheet = ss.getSheetByName(AVAILABILITY_SHEET_NAME);
-  const availability = {};
-  if (!sheet) return availability;
+  const settings = {};
+  if (!sheet) return settings;
 
   const rows = sheet.getDataRange().getValues();
+  const extended = hasExtendedAvailabilityHeaders(sheet);
   for (let i = 1; i < rows.length; i++) {
     const date = parseKoreanDate(rows[i][0]);
     if (!date) continue;
-    availability[date] = {
-      "야자 1차시": sheetBoolean(rows[i][1]),
-      "야자 2차시": sheetBoolean(rows[i][2]),
-      "야자 3차시": sheetBoolean(rows[i][3])
-    };
+    const operationType = extended ? normalizeOperationType(rows[i][4]) : "semester";
+    const slotNames = operationType === "vacation" ? VACATION_SLOTS : SEMESTER_SLOTS;
+    const flags = [sheetBoolean(rows[i][1]), sheetBoolean(rows[i][2]), sheetBoolean(rows[i][3]), extended && sheetBoolean(rows[i][5])];
+    const slots = {};
+    slotNames.forEach((slot, index) => { slots[slot] = operationType !== "closed" && flags[index] === true; });
+    settings[date] = { operationType: operationType, slots: slots, note: extended && rows[i][6] ? rows[i][6].toString() : "", row: i + 1 };
   }
+  return settings;
+}
+
+function getAvailabilityMap(ss) {
+  const settings = getAvailabilitySettings(ss);
+  const availability = {};
+  Object.keys(settings).forEach(date => { availability[date] = settings[date].slots; });
   return availability;
 }
 
-function isDateBlocked(ss, date) {
+function isVacationTitle(title) {
+  return (title || "").toString().indexOf("방학") !== -1;
+}
+
+function getAcademicDateState(ss, date) {
   const sheet = ss.getSheetByName(CALENDAR_SHEET_NAME);
-  if (!sheet) return false;
+  const state = { vacation: false, blocked: false };
+  if (!sheet) return state;
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
     const startDate = parseKoreanDate(rows[i][0]);
     const endDate = rows[i][1] ? parseKoreanDate(rows[i][1]) : startDate;
-    if (startDate && endDate && date >= startDate && date <= endDate) return true;
+    if (!startDate || !endDate || date < startDate || date > endDate) continue;
+    if (isVacationTitle(rows[i][2])) state.vacation = true;
+    else state.blocked = true;
   }
-  return false;
+  return state;
+}
+
+function getDateOperation(ss, date) {
+  const setting = getAvailabilitySettings(ss)[date];
+  if (setting) return setting;
+  const academic = getAcademicDateState(ss, date);
+  if (academic.vacation) return { operationType: "vacation", slots: {}, note: "" };
+  const slots = {}; SEMESTER_SLOTS.forEach(slot => { slots[slot] = true; });
+  return { operationType: "semester", slots: slots, note: "" };
+}
+
+function getAllowedSlotsForDate(ss, date) {
+  const operation = getDateOperation(ss, date);
+  if (operation.operationType === "closed") return [];
+  return Object.keys(operation.slots).filter(slot => operation.slots[slot] === true);
+}
+
+function isDateBlocked(ss, date) {
+  return getAcademicDateState(ss, date).blocked;
 }
 
 function doGet() {
@@ -401,6 +459,7 @@ function doGet() {
 
   const sheet2 = ss.getSheetByName("학사일정");
   const holidays = [];
+  const vacationDates = [];
 
   // ─── 1단계: 학사일정 시트 → 기간 바(bar) 형태로 달력에 표시 ───
   // blockedDates는 예약 차단 판단용 날짜 Set (script.js의 sheetHolidays 배열로 전달됨)
@@ -412,6 +471,7 @@ function doGet() {
       const startDateVal = holidayData[j][0];
       const endDateVal   = holidayData[j][1];
       const hTitle       = holidayData[j][2] || "상담불가";
+      const vacation = isVacationTitle(hTitle);
 
       if (!startDateVal) continue;
       const startFmt = parseKoreanDate(startDateVal);
@@ -420,8 +480,8 @@ function doGet() {
 
       // 기간 내 날짜를 holidays 배열(클릭 차단용)에 등록
       getDatesStartToIn(startFmt, endFmt).forEach(d => {
-        blockedDates.add(d);
-        holidays.push(d);
+        if (vacation) vacationDates.push(d);
+        else { blockedDates.add(d); holidays.push(d); }
       });
 
       // FullCalendar에는 기간 전체를 하나의 이벤트(bar)로 추가
@@ -431,10 +491,10 @@ function doGet() {
       const calendarEndStr = Utilities.formatDate(calendarEnd, "GMT+9", "yyyy-MM-dd");
 
       results.push({
-        title: "🚫 " + hTitle + " 🚫",
+        title: vacation ? hTitle : "🚫 " + hTitle + " 🚫",
         start: startFmt, end: calendarEndStr, allDay: true,
-        backgroundColor: "#e8e6f2", borderColor: "#e8e6f2", textColor: "#5a5570",
-        extendedProps: { type: "holiday", reason: hTitle }
+        backgroundColor: vacation ? "#dbeafe" : "#e8e6f2", borderColor: vacation ? "#93c5fd" : "#e8e6f2", textColor: "#5a5570",
+        extendedProps: { type: vacation ? "vacation" : "holiday", reason: hTitle }
       });
     }
   }
@@ -458,10 +518,23 @@ function doGet() {
     });
   }
 
+  const availabilitySettings = getAvailabilitySettings(ss);
+  const operationTypes = {};
+  const availabilityNotes = {};
+  Object.keys(availabilitySettings).forEach(date => {
+    operationTypes[date] = availabilitySettings[date].operationType;
+    availabilityNotes[date] = availabilitySettings[date].note;
+  });
+  const slotTimes = {};
+  CONSULT_SLOTS.forEach(slot => { const config = getSlotTimeConfig(slot); if (config) slotTimes[slot] = { start: config.start, end: config.end }; });
   return jsonOutput({
     events: results,
     holidays: [...new Set(holidays)],
-    availability: getAvailabilityMap(ss)
+    vacationDates: [...new Set(vacationDates)],
+    availability: getAvailabilityMap(ss),
+    operationTypes: operationTypes,
+    availabilityNotes: availabilityNotes,
+    slotTimes: slotTimes
   });
 }
 
@@ -517,10 +590,8 @@ function doPost(e) {
       if (!earlyResult && isDateBlocked(ss, date)) earlyResult = "DATE_BLOCKED";
 
       if (!earlyResult) {
-        const availability = getAvailabilityMap(ss);
-        if (availability[date] && availability[date][slot] !== true) {
-          earlyResult = "SLOT_UNAVAILABLE";
-        }
+        const allowedSlots = getAllowedSlotsForDate(ss, date);
+        if (allowedSlots.indexOf(slot) === -1) earlyResult = "SLOT_UNAVAILABLE";
       }
 
       if (!earlyResult) {
@@ -770,29 +841,33 @@ function adminListAvailability() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(AVAILABILITY_SHEET_NAME);
   if (!sheet) return jsonOutput({ ok: false, error: "AVAILABILITY_SHEET_NOT_FOUND" });
 
-  const rows = sheet.getDataRange().getValues();
-  const items = [];
-  for (let i = 1; i < rows.length; i++) {
-    const date = parseKoreanDate(rows[i][0]);
-    if (!date) continue;
-    items.push({
-      row: i + 1,
-      date: date,
-      slots: [sheetBoolean(rows[i][1]), sheetBoolean(rows[i][2]), sheetBoolean(rows[i][3])]
-    });
-  }
+  const settings = getAvailabilitySettings(SpreadsheetApp.getActiveSpreadsheet());
+  const items = Object.keys(settings).map(date => ({ row: settings[date].row, date: date, operationType: settings[date].operationType,
+    slots: (settings[date].operationType === "vacation" ? VACATION_SLOTS : SEMESTER_SLOTS).map(slot => settings[date].slots[slot] === true),
+    note: settings[date].note }));
+  const slotTimes = {};
+  CONSULT_SLOTS.forEach(slot => {
+    const config = getSlotTimeConfig(slot);
+    if (config) slotTimes[slot] = config.start + "~" + config.end;
+  });
   items.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  return jsonOutput({ ok: true, items: items });
+  return jsonOutput({ ok: true, items: items, slotTimes: slotTimes, extendedColumnsReady: hasExtendedAvailabilityHeaders(sheet) });
 }
 
 function validateAvailabilityInput(data) {
   const date = data.date ? data.date.toString().trim() : "";
+  const rawOperationType = data.operationType === undefined || data.operationType === null ? "" : data.operationType.toString().trim();
+  if (rawOperationType && OPERATION_TYPES.indexOf(rawOperationType) === -1) return { ok: false, error: "INVALID_AVAILABILITY" };
+  const operationType = normalizeOperationType(data.operationType);
+  const expectedLength = operationType === "vacation" ? 4 : operationType === "closed" ? 0 : 3;
+  const note = data.note === undefined || data.note === null ? "" : data.note.toString().trim();
   if (!isIsoDate(date)) return { ok: false, error: "INVALID_DATE" };
-  if (!Array.isArray(data.slots) || data.slots.length !== CONSULT_SLOTS.length ||
+  if (OPERATION_TYPES.indexOf(operationType) === -1 || !Array.isArray(data.slots) || data.slots.length !== expectedLength ||
       data.slots.some(value => typeof value !== "boolean")) {
     return { ok: false, error: "INVALID_AVAILABILITY" };
   }
-  return { ok: true, date: date, slots: data.slots };
+  if (note.length > 200) return { ok: false, error: "NOTE_TOO_LONG" };
+  return { ok: true, date: date, operationType: operationType, slots: operationType === "closed" ? [false, false, false] : data.slots, note: note };
 }
 
 function adminSetAvailability(data) {
@@ -800,6 +875,7 @@ function adminSetAvailability(data) {
   if (!input.ok) return jsonOutput(input);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(AVAILABILITY_SHEET_NAME);
   if (!sheet) return jsonOutput({ ok: false, error: "AVAILABILITY_SHEET_NOT_FOUND" });
+  if (!hasExtendedAvailabilityHeaders(sheet)) return jsonOutput({ ok: false, error: "AVAILABILITY_COLUMNS_REQUIRED" });
   const rowNumber = data.row === undefined || data.row === null || data.row === "" ? null : Number(data.row);
   if (rowNumber !== null && (!Number.isInteger(rowNumber) || rowNumber < 2)) {
     return jsonOutput({ ok: false, error: "INVALID_ROW" });
@@ -812,14 +888,16 @@ function adminSetAvailability(data) {
     if (rowNumber === null) {
       const duplicate = rows.slice(1).some(row => parseKoreanDate(row[0]) === input.date);
       if (duplicate) return jsonOutput({ ok: false, error: "AVAILABILITY_EXISTS" });
-      sheet.appendRow([input.date].concat(input.slots));
+      const flags = input.slots.concat([false, false, false, false]).slice(0, 4);
+      sheet.appendRow([input.date, flags[0], flags[1], flags[2], input.operationType, flags[3], input.note]);
     } else {
       if (rowNumber > sheet.getLastRow()) return jsonOutput({ ok: false, error: "STALE_DATA" });
       const currentDate = parseKoreanDate(sheet.getRange(rowNumber, 1).getValue());
       if (currentDate !== data.expectedDate) return jsonOutput({ ok: false, error: "STALE_DATA" });
       const duplicate = rows.slice(1).some((row, index) => index + 2 !== rowNumber && parseKoreanDate(row[0]) === input.date);
       if (duplicate) return jsonOutput({ ok: false, error: "AVAILABILITY_EXISTS" });
-      sheet.getRange(rowNumber, 1, 1, 4).setValues([[input.date].concat(input.slots)]);
+      const flags = input.slots.concat([false, false, false, false]).slice(0, 4);
+      sheet.getRange(rowNumber, 1, 1, 7).setValues([[input.date, flags[0], flags[1], flags[2], input.operationType, flags[3], input.note]]);
     }
     return jsonOutput({ ok: true });
   } finally {
@@ -980,8 +1058,8 @@ function getSlotTimeConfig(slot) {
   const propertyKeys = SLOT_PROPERTY_MAP[slot];
   if (!propertyKeys) return null;
   const properties = getScriptProperties();
-  const start = properties.getProperty(propertyKeys.start) || "";
-  const end = properties.getProperty(propertyKeys.end) || "";
+  const start = properties.getProperty(propertyKeys.start) || (propertyKeys.defaults ? propertyKeys.defaults[0] : "");
+  const end = properties.getProperty(propertyKeys.end) || (propertyKeys.defaults ? propertyKeys.defaults[1] : "");
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) {
     console.error("Counseling slot time skipped: invalid or missing properties for " + slot + ".");
     return null;
@@ -991,6 +1069,26 @@ function getSlotTimeConfig(slot) {
     return null;
   }
   return { slot: slot, start: start, end: end };
+}
+
+function formatSlotWithTime(slot) {
+  const config = getSlotTimeConfig(slot);
+  return config ? slot + " (" + config.start + "~" + config.end + ")" : slot;
+}
+
+function initializeVacationSlotProperties() {
+  const properties = getScriptProperties();
+  const added = [], matching = [], different = [];
+  VACATION_SLOTS.forEach(slot => {
+    const config = SLOT_PROPERTY_MAP[slot];
+    [[config.start, config.defaults[0]], [config.end, config.defaults[1]]].forEach(item => {
+      const current = properties.getProperty(item[0]);
+      if (!current) { properties.setProperty(item[0], item[1]); added.push(item[0]); }
+      else if (current === item[1]) matching.push(item[0]);
+      else different.push({ key: item[0], current: current, expected: item[1] });
+    });
+  });
+  return { added: added, matching: matching, different: different };
 }
 
 function timeToMinutes(value) {
@@ -1065,7 +1163,7 @@ function createCalendarEventForReservation(rowNumber, date, slot, name) {
     "[학생 상담] " + name,
     buildCounselingDateTime(date, slotTime.start),
     buildCounselingDateTime(date, slotTime.end),
-    { description: "상담 시간대: " + slot + "\n관리자 페이지: " + getAdminPageUrl() }
+    { description: "상담 시간대: " + formatSlotWithTime(slot) + "\n관리자 페이지: " + getAdminPageUrl() }
   );
 
   const lock = LockService.getScriptLock();
@@ -1226,10 +1324,12 @@ function checkCounselingSlotStartNotifications() {
     const currentMinutes = Number(Utilities.formatDate(now, TIME_ZONE, "H")) * 60 + Number(Utilities.formatDate(now, TIME_ZONE, "m"));
     const reservations = getReservationsForDate(date);
     if (!reservations.length) return false;
+    const allowedSlots = getAllowedSlotsForDate(SpreadsheetApp.getActiveSpreadsheet(), date);
 
     const state = cleanDatedState(readJsonProperty(SLOT_START_STATE_KEY), localIsoDate(addDays(now, -14)));
     let sentAny = false;
     CONSULT_SLOTS.forEach(slot => {
+      if (allowedSlots.indexOf(slot) === -1) return;
       const config = getSlotTimeConfig(slot);
       if (!config) return;
       const difference = currentMinutes - timeToMinutes(config.start);

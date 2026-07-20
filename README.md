@@ -48,8 +48,11 @@ Google Calendar를 사용하려면 **G1에 정확히 `Calendar Event ID`를 직�
 | B | 야자 1차시 | `TRUE/FALSE` |
 | C | 야자 2차시 | `TRUE/FALSE` |
 | D | 야자 3차시 | `TRUE/FALSE` |
+| E | 운영유형 | `semester`·`vacation`·`closed` (기존 빈 값은 `semester`) |
+| F | 4차시 | 방학 자습 4차시 `TRUE/FALSE` |
+| G | 비고 | 특강·회의·미출근 등 200자 이하 |
 
-행이 없는 날짜는 세 시간 모두 가능한 것으로 처리합니다.
+기존 A~D는 이동하지 않습니다. 학기 중 행이 없는 평일은 야자 1~3차시가 기본 가능하고, 학사일정 이름에 `방학`이 포함된 기간은 날짜별 `vacation` 설정으로 명시적으로 연 차시만 예약할 수 있습니다. `closed`는 모든 차시를 차단합니다. E1~G1 헤더가 없으면 기존 조회는 유지되지만 관리자 저장은 차단됩니다.
 
 ## Script Properties
 
@@ -67,8 +70,14 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 | `SLOT_1_START` / `SLOT_1_END` | `HH:mm` | 야자 1차시 시작·종료 |
 | `SLOT_2_START` / `SLOT_2_END` | `HH:mm` | 야자 2차시 시작·종료 |
 | `SLOT_3_START` / `SLOT_3_END` | `HH:mm` | 야자 3차시 시작·종료 |
+| `VACATION_SLOT_1_START` / `VACATION_SLOT_1_END` | `HH:mm` | 기본 `08:20` / `10:10` |
+| `VACATION_SLOT_2_START` / `VACATION_SLOT_2_END` | `HH:mm` | 기본 `10:20` / `12:10` |
+| `VACATION_SLOT_3_START` / `VACATION_SLOT_3_END` | `HH:mm` | 기본 `13:00` / `14:50` |
+| `VACATION_SLOT_4_START` / `VACATION_SLOT_4_END` | `HH:mm` | 기본 `15:10` / `17:00` |
 
 시간 예시는 `18:40`/`19:30`, `19:40`/`20:30`, `20:40`/`21:30`입니다. 실제 학교 시간표를 입력하세요. 시간값이 없거나 잘못되면 예약은 유지되고 Calendar 등록과 차시 시작 알림만 생략됩니다.
+
+방학 시간 속성이 없으면 위 기본값을 사용합니다. `initializeVacationSlotProperties()`는 없는 속성만 추가하고 기존 값은 덮어쓰지 않으며, 확정값과 다른 기존 항목은 `different`로 반환합니다.
 
 관리자 비밀번호 초기화 절차:
 

@@ -157,7 +157,8 @@
 .integration-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .history-form { grid-template-columns: minmax(220px, 1fr) auto; max-width: 620px; margin-bottom: 16px; }
 .password-form .admin-message { margin: 0; }
-.availability-editor { grid-template-columns: minmax(180px, 0.8fr) minmax(320px, 1.4fr) auto; }
+.availability-editor { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+.availability-editor .editor-actions { grid-column: 1 / -1; }
 .slot-checks {
     display: flex;
     min-width: 0;

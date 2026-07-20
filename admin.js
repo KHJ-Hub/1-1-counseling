@@ -13,6 +13,11 @@ let calendarItems = [];
 let availabilityItems = [];
 let pendingDelete = null;
 let confirmTrigger = null;
+let adminSlotTimes = {
+    '자습 1차시': '08:20~10:10', '자습 2차시': '10:20~12:10',
+    '자습 3차시': '13:00~14:50', '자습 4차시': '15:10~17:00'
+};
+const ADMIN_SLOT_NAMES = { semester: ['야자 1차시', '야자 2차시', '야자 3차시'], vacation: ['자습 1차시', '자습 2차시', '자습 3차시', '자습 4차시'], closed: [] };
 
 class AdminApiError extends Error {
     constructor(code) {
@@ -50,6 +55,8 @@ function errorMessage(code) {
         INVALID_COMPLETED: '상담 완료 상태를 확인해 주세요.',
         MEMO_TOO_LONG: '상담 메모는 2,000자 이하로 입력해 주세요.',
         INVALID_AVAILABILITY: '상담 가능 시간 설정을 확인해 주세요.',
+        AVAILABILITY_COLUMNS_REQUIRED: '상담가능시간 시트 E1~G1에 운영유형, 4차시, 비고 헤더를 추가해 주세요.',
+        NOTE_TOO_LONG: '비고는 200자 이하로 입력해 주세요.',
         AVAILABILITY_EXISTS: '해당 날짜의 설정이 이미 있습니다. 기존 항목을 수정해 주세요.',
         WRONG_CURRENT_PASSWORD: '현재 관리자 비밀번호가 올바르지 않습니다.',
         ADMIN_PASSWORD_POLICY: '관리자 비밀번호는 4자 이상 64자 이하로 입력해 주세요.',
@@ -197,7 +204,7 @@ function renderAvailability() {
     const list = document.getElementById('availability-list');
     list.replaceChildren();
     if (availabilityItems.length === 0) {
-        list.appendChild(createTextElement('p', 'empty-state', '별도로 설정된 날짜가 없습니다. 모든 날짜에 세 시간이 기본 적용됩니다.'));
+        list.appendChild(createTextElement('p', 'empty-state', '별도로 설정된 날짜가 없습니다. 방학 기간은 기본 상담 불가입니다.'));
         return;
     }
 
@@ -205,8 +212,10 @@ function renderAvailability() {
         const article = document.createElement('article');
         article.className = 'list-item availability-item';
         article.appendChild(createTextElement('div', 'item-title', item.date));
-        const enabled = item.slots.map((value, index) => value ? `야자 ${index + 1}차시` : '').filter(Boolean);
-        article.appendChild(createTextElement('div', 'item-meta', enabled.length ? enabled.join(', ') : '가능 시간 없음'));
+        const names = ADMIN_SLOT_NAMES[item.operationType] || ADMIN_SLOT_NAMES.semester;
+        const enabled = item.slots.map((value, index) => value ? names[index] : '').filter(Boolean);
+        const typeLabel = item.operationType === 'vacation' ? '방학' : item.operationType === 'closed' ? '상담 불가' : '학기 중';
+        article.appendChild(createTextElement('div', 'item-meta', `${typeLabel} · ${enabled.length ? enabled.join(', ') : '가능 시간 없음'}${item.note ? ` · ${item.note}` : ''}`));
         const actions = document.createElement('div');
         actions.className = 'item-actions';
         actions.appendChild(createActionButton('수정', 'secondary', 'edit-availability', item.row));
@@ -399,6 +408,10 @@ async function loadAdminData(showSuccess = false) {
         reservations = reservationResult.reservations || [];
         calendarItems = calendarResult.items || [];
         availabilityItems = availabilityResult.items || [];
+        adminSlotTimes = { ...adminSlotTimes, ...(availabilityResult.slotTimes || {}) };
+        if (!document.getElementById('availability-row').value) {
+            renderAvailabilitySlotChecks(document.getElementById('availability-operation').value || 'semester');
+        }
         renderAllData();
         renderStats(statsResult.stats || {});
         renderIntegrationStatus(integrationResult.status || {});
@@ -659,10 +672,26 @@ document.getElementById('history-form').addEventListener('submit', event => {
     loadStudentHistory(name);
 });
 
+function renderAvailabilitySlotChecks(operationType, values = []) {
+    const fieldset = document.getElementById('availability-slot-checks');
+    fieldset.querySelectorAll('label').forEach(label => label.remove());
+    const names = ADMIN_SLOT_NAMES[operationType] || [];
+    names.forEach((name, index) => {
+        const label = document.createElement('label');
+        const input = document.createElement('input'); input.type = 'checkbox'; input.id = `availability-slot-${index + 1}`; input.checked = values[index] !== false;
+        label.append(input, document.createTextNode(` ${name}${adminSlotTimes[name] ? ` (${adminSlotTimes[name]})` : ''}`));
+        fieldset.appendChild(label);
+    });
+    fieldset.disabled = operationType === 'closed';
+}
+
 function resetAvailabilityForm() {
     const form = document.getElementById('availability-form');
     form.reset();
     document.getElementById('availability-row').value = '';
+    document.getElementById('availability-operation').value = 'semester';
+    document.getElementById('availability-note').value = '';
+    renderAvailabilitySlotChecks('semester');
     delete form.dataset.expectedDate;
     document.getElementById('availability-submit').textContent = '설정 추가';
     document.getElementById('availability-cancel-edit').classList.add('hidden');
@@ -674,9 +703,9 @@ function startAvailabilityEdit(item) {
     const form = document.getElementById('availability-form');
     document.getElementById('availability-row').value = item.row;
     document.getElementById('availability-date').value = item.date;
-    item.slots.forEach((value, index) => {
-        document.getElementById(`availability-slot-${index + 1}`).checked = value;
-    });
+    document.getElementById('availability-operation').value = item.operationType || 'semester';
+    document.getElementById('availability-note').value = item.note || '';
+    renderAvailabilitySlotChecks(item.operationType || 'semester', item.slots);
     form.dataset.expectedDate = item.date;
     document.getElementById('availability-submit').textContent = '설정 수정';
     document.getElementById('availability-cancel-edit').classList.remove('hidden');
@@ -684,6 +713,8 @@ function startAvailabilityEdit(item) {
 }
 
 document.getElementById('availability-cancel-edit').addEventListener('click', resetAvailabilityForm);
+document.getElementById('availability-operation').addEventListener('change', event => renderAvailabilitySlotChecks(event.target.value));
+renderAvailabilitySlotChecks('semester');
 document.getElementById('availability-list').addEventListener('click', event => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
@@ -691,7 +722,7 @@ document.getElementById('availability-list').addEventListener('click', event => 
     if (!item) return;
     if (button.dataset.action === 'edit-availability') startAvailabilityEdit(item);
     if (button.dataset.action === 'delete-availability') {
-        openConfirm(`${item.date}의 상담 가능 시간 설정을 삭제할까요? 삭제하면 세 시간 모두 가능한 기본값이 적용됩니다.`, { type: 'availability', item }, button);
+        openConfirm(`${item.date}의 상담 가능 시간 설정을 삭제할까요? 방학 기간이면 기본 상담 불가, 학기 중이면 기본 시간이 적용됩니다.`, { type: 'availability', item }, button);
     }
 });
 
@@ -700,14 +731,16 @@ document.getElementById('availability-form').addEventListener('submit', async ev
     const form = event.currentTarget;
     const row = document.getElementById('availability-row').value;
     const date = document.getElementById('availability-date').value;
-    const slots = [1, 2, 3].map(index => document.getElementById(`availability-slot-${index}`).checked);
+    const operationType = document.getElementById('availability-operation').value;
+    const slots = (ADMIN_SLOT_NAMES[operationType] || []).map((slot, index) => document.getElementById(`availability-slot-${index + 1}`).checked);
+    const note = document.getElementById('availability-note').value.trim();
     const button = document.getElementById('availability-submit');
     if (!date) {
         showMessage('availability-message', '날짜를 입력해 주세요.');
         return;
     }
 
-    const payload = { date, slots };
+    const payload = { date, operationType, slots, note };
     if (row) {
         payload.row = Number(row);
         payload.expectedDate = form.dataset.expectedDate;
