@@ -215,7 +215,13 @@ function renderAvailability() {
         const names = ADMIN_SLOT_NAMES[item.operationType] || ADMIN_SLOT_NAMES.semester;
         const enabled = item.slots.map((value, index) => value ? names[index] : '').filter(Boolean);
         const typeLabel = item.operationType === 'vacation' ? '방학' : item.operationType === 'closed' ? '상담 불가' : '학기 중';
-        article.appendChild(createTextElement('div', 'item-meta', `${typeLabel} · ${enabled.length ? enabled.join(', ') : '가능 시간 없음'}${item.note ? ` · ${item.note}` : ''}`));
+        const details = document.createElement('div');
+        const badges = document.createElement('div'); badges.className = 'item-badges';
+        badges.appendChild(createTextElement('span', `item-badge type-${item.operationType || 'semester'}`, typeLabel));
+        (enabled.length ? enabled : ['가능 시간 없음']).forEach(label => badges.appendChild(createTextElement('span', 'item-badge', label)));
+        details.appendChild(badges);
+        if (item.note) details.appendChild(createTextElement('p', 'item-note', item.note));
+        article.appendChild(details);
         const actions = document.createElement('div');
         actions.className = 'item-actions';
         actions.appendChild(createActionButton('수정', 'secondary', 'edit-availability', item.row));

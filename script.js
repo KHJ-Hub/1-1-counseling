@@ -111,11 +111,6 @@ function getAvailableSlots(dateStr) {
     return Object.keys(configured).filter(slot => configured[slot] === true);
 }
 
-function formatSlotLabel(slot) {
-    const time = slotTimes[slot];
-    return time ? `${slot} (${time.start}~${time.end})` : slot;
-}
-
 function openBookingModal(dateStr, occupiedSlots, availableSlots) {
     selectedBookingDate = dateStr;
     bookingForm.reset();
@@ -130,14 +125,17 @@ function openBookingModal(dateStr, occupiedSlots, availableSlots) {
     slots.forEach(slot => {
         const option = document.createElement('label'); option.className = 'slot-option'; option.dataset.slotOption = '';
         const input = document.createElement('input'); input.type = 'radio'; input.name = 'booking-slot'; input.value = slot;
-        const label = document.createElement('span'); label.textContent = formatSlotLabel(slot);
+        const label = document.createElement('span'); label.className = 'slot-name'; label.textContent = slot;
+        const time = document.createElement('span'); time.className = 'slot-time';
+        time.textContent = slotTimes[slot] ? `${slotTimes[slot].start}~${slotTimes[slot].end}` : '';
         const status = document.createElement('span'); status.className = 'slot-status';
-        option.append(input, label, status); slotList.appendChild(option);
+        option.append(input, label, time, status); slotList.appendChild(option);
         const occupied = occupiedSlots.includes(input.value);
         const unavailable = !availableSlots.includes(input.value);
         input.disabled = occupied || unavailable;
         option.classList.toggle('disabled', occupied || unavailable);
-        status.textContent = unavailable ? '상담 불가' : (occupied ? '마감' : '예약 가능');
+        option.dataset.state = unavailable ? 'unavailable' : (occupied ? 'occupied' : 'available');
+        status.textContent = unavailable ? '잠김' : (occupied ? '마감' : '');
 
         if (!occupied && !unavailable && !firstAvailableInput) firstAvailableInput = input;
     });
@@ -269,6 +267,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             } else if (ev.extendedProps && ev.extendedProps.type === "consult") {
                 ev.classNames = ev.extendedProps.completed ? ['consult-event', 'completed-consult-event'] : ['consult-event'];
                 dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;
+            } else if (ev.extendedProps && ev.extendedProps.type === "vacation") {
+                ev.classNames = ['vacation-event'];
             }
         });
 
@@ -292,8 +292,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'ko',
+            buttonText: { today: '오늘' },
             headerToolbar: { left: 'today', center: 'prev title next', right: '' },
             contentHeight: 'auto',
+            dayMaxEvents: 3,
+
+            dayCellDidMount: function(info) {
+                const dateStr = info.el.dataset.date;
+                const day = info.date.getDay();
+                const availableSlotCount = getAvailableSlots(dateStr).length;
+                if (day === 0 || day === 6) info.el.classList.add('is-weekend-day');
+                if (sheetHolidays.includes(dateStr)) info.el.classList.add('is-blocked-day');
+                else if (vacationDates.includes(dateStr)) info.el.classList.add('is-vacation-day');
+                if (day !== 0 && day !== 6 && !sheetHolidays.includes(dateStr) && availableSlotCount > (dateCounts[dateStr] || 0)) {
+                    info.el.classList.add('is-bookable-day');
+                }
+            },
 
             eventOrder: function(a, b) {
                 if (a.extendedProps.type === 'holiday' && b.extendedProps.type !== 'holiday') return -1;
