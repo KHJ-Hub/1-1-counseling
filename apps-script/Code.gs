@@ -507,39 +507,49 @@ function doPost(e) {
     try {
       const reqDate = new Date(date + "T00:00:00+09:00");
       const day = reqDate.getDay();
-      if (day === 0 || day === 6) { earlyResult = "WEEKEND_NOT_ALLOWED"; return; }
+      if (day === 0 || day === 6) earlyResult = "WEEKEND_NOT_ALLOWED";
 
-      const krHolidays = getKoreanHolidays(reqDate.getFullYear());
-      if (krHolidays[date]) { earlyResult = "HOLIDAY_NOT_ALLOWED:" + krHolidays[date]; return; }
-
-      if (isDateBlocked(ss, date)) { earlyResult = "DATE_BLOCKED"; return; }
-
-      const availability = getAvailabilityMap(ss);
-      if (availability[date] && availability[date][slot] !== true) {
-        earlyResult = "SLOT_UNAVAILABLE"; return;
+      if (!earlyResult) {
+        const krHolidays = getKoreanHolidays(reqDate.getFullYear());
+        if (krHolidays[date]) earlyResult = "HOLIDAY_NOT_ALLOWED:" + krHolidays[date];
       }
 
-      const rows = sheet.getDataRange().getValues();
-      const slotTaken = rows.slice(1).some(row => {
-        return parseKoreanDate(row[0]) === date &&
-          (row[1] ? row[1].toString().trim() : "") === slot;
-      });
-      if (slotTaken) { earlyResult = "SLOT_TAKEN"; return; }
+      if (!earlyResult && isDateBlocked(ss, date)) earlyResult = "DATE_BLOCKED";
 
-      const mondayDiff = day === 0 ? -6 : 1 - day;
-      const mon = new Date(reqDate); mon.setDate(reqDate.getDate() + mondayDiff); mon.setHours(0,0,0,0);
-      const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23,59,59,999);
+      if (!earlyResult) {
+        const availability = getAvailabilityMap(ss);
+        if (availability[date] && availability[date][slot] !== true) {
+          earlyResult = "SLOT_UNAVAILABLE";
+        }
+      }
 
-      const isDuplicate = rows.slice(1).some(row => {
-        const rowDate = parseKoreanDate(row[0]);
-        const sDate = rowDate ? new Date(rowDate + "T00:00:00+09:00").getTime() : NaN;
-        const rowName = row[2] ? row[2].toString().trim() : "";
-        return rowName === trimmedName && sDate >= mon.getTime() && sDate <= sun.getTime();
-      });
-      if (isDuplicate) { earlyResult = "DUPLICATE_WEEKLY"; return; }
+      if (!earlyResult) {
+        const rows = sheet.getDataRange().getValues();
+        const slotTaken = rows.slice(1).some(row => {
+          return parseKoreanDate(row[0]) === date &&
+            (row[1] ? row[1].toString().trim() : "") === slot;
+        });
+        if (slotTaken) {
+          earlyResult = "SLOT_TAKEN";
+        } else {
+          const mondayDiff = day === 0 ? -6 : 1 - day;
+          const mon = new Date(reqDate); mon.setDate(reqDate.getDate() + mondayDiff); mon.setHours(0,0,0,0);
+          const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23,59,59,999);
 
-      sheet.appendRow([date, slot, trimmedName, trimmedPwd]);
-      savedRowNumber = sheet.getLastRow();
+          const isDuplicate = rows.slice(1).some(row => {
+            const rowDate = parseKoreanDate(row[0]);
+            const sDate = rowDate ? new Date(rowDate + "T00:00:00+09:00").getTime() : NaN;
+            const rowName = row[2] ? row[2].toString().trim() : "";
+            return rowName === trimmedName && sDate >= mon.getTime() && sDate <= sun.getTime();
+          });
+          if (isDuplicate) {
+            earlyResult = "DUPLICATE_WEEKLY";
+          } else {
+            sheet.appendRow([date, slot, trimmedName, trimmedPwd]);
+            savedRowNumber = sheet.getLastRow();
+          }
+        }
+      }
     } finally {
       lock.releaseLock();
     }

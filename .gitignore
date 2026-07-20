@@ -1,0 +1,3 @@
+# clasp OAuth credentials must never be committed.
+.clasprc.json
+.clasprc.json.*

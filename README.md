@@ -7,6 +7,7 @@ Google Apps Script와 Google Sheets를 사용하는 상담 예약 사이트입�
 - `index.html`, `styles.css`, `script.js`: 학생 예약 화면
 - `admin.html`, `admin.css`, `admin.js`: 교사용 관리자 화면
 - `apps-script/Code.gs`: Google Sheets, 관리자 인증, Discord, Google Calendar, 자동 알림 서버
+- `.clasp.json`, `apps-script/appsscript.json`: 기존 Apps Script 프로젝트 연결과 로컬 배포 설정
 - `AGENTS.md`: 프로젝트 작업 규칙
 
 학생 화면과 관리자 화면은 같은 기존 Google Apps Script 웹 앱 URL을 사용합니다. 학생용 `save`·`delete` 요청 필드와 응답 문자열은 유지합니다.
@@ -146,6 +147,63 @@ Apps Script 시간 기반 트리거는 정확한 정각 실행을 보장하지 �
 11. 학생 조회·신청·취소 후 관리자 기능과 실행 로그를 확인합니다.
 
 연동 실패 시 Apps Script 왼쪽 **실행** 메뉴의 `console.error` 기록, Script Properties, 트리거 소유 계정, 캘린더 공유 권한, G1 헤더를 확인합니다. 로그에 Webhook URL이나 Calendar ID 원문을 남기지 않습니다.
+
+## 로컬 clasp 배포 환경
+
+저장소 루트의 `.clasp.json`은 `apps-script` 폴더만 Apps Script에 전송하도록 구성되어 있습니다. 현재 저장소에는 공개 웹앱의 배포 ID만 있고 Apps Script **Script ID**는 없으므로, 최초 1회 아래 절차로 기존 프로젝트의 Script ID를 입력해야 합니다. 웹앱 URL의 `/s/` 뒤 값은 배포 ID이며 Script ID 대신 사용할 수 없습니다.
+
+### 최초 로그인과 기존 프로젝트 연결
+
+1. [Apps Script 사용자 설정](https://script.google.com/home/usersettings)에서 **Google Apps Script API**를 사용 설정합니다.
+2. PowerShell에서 clasp를 설치하고 로그인합니다.
+
+   ```powershell
+   npm.cmd install --global @google/clasp
+   clasp.cmd login
+   ```
+
+3. 기존 Apps Script 편집기에서 **프로젝트 설정 → ID → 스크립트 ID**를 복사합니다.
+4. 저장소 루트의 `.clasp.json`에서 `PASTE_EXISTING_APPS_SCRIPT_SCRIPT_ID_HERE`만 복사한 Script ID로 바꿉니다. `rootDir`는 `apps-script`로 유지합니다.
+5. 최초 push 전에 Apps Script 편집기의 현재 `Code.gs`와 `appsscript.json`을 별도로 백업하고, 로컬 `apps-script/Code.gs`가 의도한 최신본인지 비교합니다. `clasp pull`은 로컬 파일을 덮어쓸 수 있으므로 이 저장소 루트에서 백업 없이 실행하지 않습니다.
+6. 전송 대상을 확인합니다. `Code.gs`와 `appsscript.json`만 표시되어야 합니다.
+
+   ```powershell
+   clasp.cmd show-file-status
+   ```
+
+OAuth 토큰은 기본적으로 사용자 홈의 `.clasprc.json`에 저장됩니다. 저장소의 `.gitignore`도 `.clasprc.json`과 변형 파일을 제외하므로 인증정보를 Git에 추가하지 마세요. `.clasp.json`의 Script ID는 프로젝트 연결 정보이며 관리자 비밀번호, Webhook URL 같은 비밀값을 넣지 않습니다.
+
+### 코드 push와 기존 웹앱 배포 업데이트
+
+1. 로컬 코드를 기존 Apps Script 프로젝트에 전송합니다. 원격 코드 전체가 로컬 전송 대상으로 교체되므로 `show-file-status` 확인 후 실행합니다.
+
+   ```powershell
+   clasp.cmd push
+   ```
+
+2. 배포 목록에서 현재 웹앱 배포 ID가 아래 기존 ID와 일치하는지 확인합니다.
+
+   ```powershell
+   clasp.cmd list-deployments
+   ```
+
+   기존 배포 ID: `AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA`
+
+3. 새 버전을 만들고 출력된 버전 번호를 기록합니다.
+
+   ```powershell
+   clasp.cmd create-version "상담 예약 시스템 업데이트"
+   ```
+
+4. 새 배포를 만들지 말고 기존 배포 ID를 새 버전으로 업데이트합니다.
+
+   ```powershell
+   clasp.cmd update-deployment AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA -V <버전번호> -d "상담 예약 시스템 업데이트"
+   ```
+
+5. `script.js`와 `admin.js`의 기존 웹앱 URL이 그대로인지 확인하고 학생 조회·예약·취소와 관리자 로그인을 실제 환경에서 점검합니다.
+
+clasp 2.x를 사용하는 환경에서는 `create-version` 대신 `version`, `update-deployment` 대신 `redeploy <배포ID> <버전번호> <설명>` 명령을 사용합니다. 설치된 버전은 `clasp.cmd --version`과 `clasp.cmd --help`로 확인하세요. 이 저장소에는 GitHub Actions 자동 배포를 구성하지 않습니다.
 
 ## 되돌리기
 
