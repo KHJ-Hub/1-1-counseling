@@ -154,9 +154,10 @@ label { -webkit-tap-highlight-color: transparent; }
 .calendar-legend > span { display: inline-flex; align-items: center; gap: 7px; }
 .legend-dot { display: inline-grid; width: 13px; height: 13px; border-radius: 50%; place-items: center; font-size: 9px; font-style: normal; }
 .legend-dot.available { background: var(--color-primary); }
-.legend-dot.vacation { background: var(--color-accent); border: 1px solid #abcbd7; }
+.legend-dot.vacation { border: 1px solid #bfd3da; background: rgba(220, 236, 243, 0.68); }
 .legend-dot.completed { background: var(--color-blocked); color: #665e73; }
 .legend-dot.blocked { background: #b6b5b7; }
+.calendar-guide { margin: 11px 0 0; color: var(--color-muted); font-size: 0.78rem; line-height: 1.5; text-align: center; }
 
 .loading-overlay {
     position: fixed;
@@ -203,11 +204,16 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .fc-daygrid-day-frame { min-height: 112px; padding: 3px; }
 .fc .fc-daygrid-day-top { position: relative; z-index: 2; }
 .fc .fc-daygrid-day-number { display: grid; min-width: 30px; min-height: 30px; margin: 3px; padding: 0; border-radius: 50%; color: var(--color-text); font-size: 0.8rem; font-variant-numeric: tabular-nums; text-decoration: none; place-items: center; }
-.fc .fc-day-today .fc-daygrid-day-number { background: var(--color-primary); color: #fff; font-weight: 800; }
+.fc .fc-day-today .fc-daygrid-day-number { border: 1.5px solid var(--color-primary); background: transparent; color: var(--color-text); font-weight: 800; }
 .fc .is-weekend-day:not(.fc-day-other) { background: rgba(239, 238, 233, 0.48); }
 .fc .is-blocked-day { background: rgba(232, 228, 236, 0.38); }
 .fc .is-vacation-day:not(.is-blocked-day) { background: rgba(220, 236, 243, 0.2); }
+.fc .is-past-day .fc-daygrid-day-number { color: #707774; }
+.fc .is-past-day .fc-daygrid-day-frame { cursor: default; }
+.fc .is-bookable-day:not(.fc-day-other) .fc-daygrid-day-frame { cursor: pointer; }
 .fc .is-bookable-day:not(.fc-day-other):hover { z-index: 1; background: rgba(228, 238, 231, 0.65); box-shadow: inset 0 0 0 2px rgba(100, 132, 116, 0.26); }
+.fc .is-selected-day:not(.is-past-day) { background: rgba(228, 238, 231, 0.44); box-shadow: inset 0 0 0 2px rgba(100, 132, 116, 0.34); }
+.fc .is-selected-day.fc-day-today .fc-daygrid-day-number { background: transparent; color: var(--color-text); }
 .fc .is-bookable-day .fc-daygrid-day-frame::after { position: absolute; top: 12px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--color-primary); content: ""; }
 .fc .fc-day-other .fc-daygrid-day-number { color: #aaaead; }
 .fc .fc-daygrid-day-events { min-height: 1.2em; margin-top: 5px !important; }
@@ -218,7 +224,8 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .completed-consult-event { background: var(--color-blocked) !important; color: #625b6d !important; }
 .fc .completed-consult-event .fc-event-title::before { content: "✓ "; }
 .fc .holiday-event { background: var(--color-blocked) !important; color: #625b6d !important; }
-.fc .vacation-event { background: var(--color-accent) !important; color: #426775 !important; }
+.fc .vacation-event { padding-block: 2px !important; background: rgba(220, 236, 243, 0.62) !important; color: #5f747b !important; opacity: 0.82; }
+.fc .vacation-event .fc-event-title { font-weight: 650 !important; }
 .fc .closed-event { background: var(--color-muted-soft) !important; color: #666b68 !important; }
 .fc .fc-more-link { margin: 2px 5px; color: var(--color-primary-strong); font-size: 0.72rem; font-weight: 760; }
 .fc .fc-popover { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-float); }
@@ -264,7 +271,7 @@ label { -webkit-tap-highlight-color: transparent; }
 .slot-name { min-width: 0; font-size: 0.92rem; font-weight: 770; }
 .slot-time { grid-column: 2 / -1; color: var(--color-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
 .slot-option:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary-soft); box-shadow: inset 0 0 0 1px var(--color-primary); }
-.slot-option.disabled { border-style: dashed; background: var(--color-muted-soft); color: #8c908e; cursor: not-allowed; }
+.slot-option.disabled { border-style: dashed; background: #f3f2ed; color: #747a77; cursor: not-allowed; opacity: 0.78; }
 .slot-status { justify-self: end; padding: 2px 7px; border-radius: 999px; background: var(--color-blocked); color: #696270; font-size: 0.68rem; font-weight: 760; }
 .slot-status:empty { display: none; }
 .form-input { width: 100%; min-height: 48px; padding: 11px 13px; border: 1px solid #d6d7d2; border-radius: var(--radius-sm); background: #fff; color: var(--color-text); outline: none; transition: border-color 150ms ease, box-shadow 150ms ease; }
@@ -317,6 +324,7 @@ textarea:focus-visible,
     .fc .fc-event-title { font-size: 0.62rem !important; line-height: 1.22 !important; }
     .fc .fc-daygrid-event { border-radius: 6px !important; }
     .calendar-legend { justify-content: flex-start; padding: 14px 8px 0; gap: 8px 14px; }
+    .calendar-guide { padding: 0 8px; text-align: left; }
 
     .modal-backdrop { align-items: flex-end; padding: 0; }
     .modal-panel { display: flex; width: 100%; height: 100dvh; max-height: 100dvh; flex-direction: column; padding: calc(24px + env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px)); border: 0; border-radius: 0; }

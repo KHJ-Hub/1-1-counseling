@@ -580,7 +580,8 @@ function doPost(e) {
     try {
       const reqDate = new Date(date + "T00:00:00+09:00");
       const day = reqDate.getDay();
-      if (day === 0 || day === 6) earlyResult = "WEEKEND_NOT_ALLOWED";
+      if (date < localIsoDate(new Date())) earlyResult = "PAST_DATE_NOT_ALLOWED";
+      if (!earlyResult && (day === 0 || day === 6)) earlyResult = "WEEKEND_NOT_ALLOWED";
 
       if (!earlyResult) {
         const krHolidays = getKoreanHolidays(reqDate.getFullYear());

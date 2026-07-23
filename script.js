@@ -26,6 +26,27 @@ class HttpError extends Error {
     }
 }
 
+function getSeoulDateString(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(date);
+    const values = {};
+    parts.forEach(part => {
+        if (part.type !== 'literal') values[part.type] = part.value;
+    });
+    return `${values.year}-${values.month}-${values.day}`;
+}
+
+function markSelectedCalendarDate(dayElement) {
+    document.querySelectorAll('.fc-daygrid-day.is-selected-day').forEach(element => {
+        element.classList.remove('is-selected-day');
+    });
+    if (dayElement) dayElement.classList.add('is-selected-day');
+}
+
 function openModal(panelId, focusElement) {
     if (modalBackdrop.classList.contains('hidden')) {
         previouslyFocusedElement = pendingModalTrigger || document.activeElement;
@@ -301,10 +322,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const dateStr = info.el.dataset.date;
                 const day = info.date.getDay();
                 const availableSlotCount = getAvailableSlots(dateStr).length;
+                const isPastDate = dateStr < getSeoulDateString();
+                if (isPastDate) info.el.classList.add('is-past-day');
                 if (day === 0 || day === 6) info.el.classList.add('is-weekend-day');
                 if (sheetHolidays.includes(dateStr)) info.el.classList.add('is-blocked-day');
                 else if (vacationDates.includes(dateStr)) info.el.classList.add('is-vacation-day');
-                if (day !== 0 && day !== 6 && !sheetHolidays.includes(dateStr) && availableSlotCount > (dateCounts[dateStr] || 0)) {
+                if (!isPastDate && day !== 0 && day !== 6 && !sheetHolidays.includes(dateStr) && availableSlotCount > (dateCounts[dateStr] || 0)) {
                     info.el.classList.add('is-bookable-day');
                 }
             },
@@ -322,6 +345,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             events: data.events,
 
             dateClick: function(info) {
+                if (info.dateStr < getSeoulDateString()) {
+                    setModalTrigger(info.dayEl);
+                    showNotice("예약 불가 안내", "지난 날짜에는 상담을 신청할 수 없습니다.");
+                    return;
+                }
+
                 var dateObj = new Date(info.dateStr + "T00:00:00+09:00");
                 var dayOfWeek = dateObj.getDay();
                 if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -348,6 +377,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     return;
                 }
 
+                markSelectedCalendarDate(info.dayEl);
                 setModalTrigger(info.dayEl);
                 openBookingModal(info.dateStr, occupiedSlots, availableSlots);
             },
@@ -392,6 +422,8 @@ function sendData(payload, requestType) {
 
         if (result === "DUPLICATE_WEEKLY") {
             showFormMessage(messageId, "이미 이번 주에 상담 신청 내역이 있습니다. 상담은 일주일에 한 번만 신청할 수 있습니다.");
+        } else if (result === "PAST_DATE_NOT_ALLOWED") {
+            showFormMessage(messageId, "지난 날짜에는 상담을 신청할 수 없습니다.");
         } else if (result === "SLOT_TAKEN") {
             showFormMessage(messageId, "방금 다른 학생이 이 시간을 예약했습니다. 새로고침 후 다른 시간을 선택해 주세요.");
         } else if (result === "SLOT_UNAVAILABLE" || result === "DATE_BLOCKED") {
