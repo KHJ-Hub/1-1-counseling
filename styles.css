@@ -211,12 +211,12 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .is-blocked-day { background: rgba(232, 228, 236, 0.38); }
 .fc .is-vacation-day:not(.is-blocked-day) { background: rgba(220, 236, 243, 0.2); }
 .fc .is-past-day .fc-daygrid-day-number { color: #707774; }
-.fc .fc-day-sun:not(.fc-day-other) .fc-daygrid-day-number { color: #b05454; }
-.fc .fc-day-sat:not(.fc-day-other) .fc-daygrid-day-number { color: #4f6f9b; }
-.fc .is-blocked-day:not(.fc-day-other) .fc-daygrid-day-number { color: #b05454; }
+.fc .fc-day-sun:not(.fc-day-other) .fc-daygrid-day-number { color: #dc2626; }
+.fc .fc-day-sat:not(.fc-day-other) .fc-daygrid-day-number { color: #2563eb; }
+.fc .is-blocked-day:not(.fc-day-other) .fc-daygrid-day-number { color: #dc2626; }
 .fc .is-past-day.fc-day-sun:not(.fc-day-other) .fc-daygrid-day-number,
-.fc .is-past-day.is-blocked-day:not(.fc-day-other) .fc-daygrid-day-number { color: #936767; }
-.fc .is-past-day.fc-day-sat:not(.fc-day-other) .fc-daygrid-day-number { color: #677c98; }
+.fc .is-past-day.is-blocked-day:not(.fc-day-other) .fc-daygrid-day-number { color: #c24141; }
+.fc .is-past-day.fc-day-sat:not(.fc-day-other) .fc-daygrid-day-number { color: #3f6fc7; }
 .fc .is-past-day .fc-daygrid-day-frame { cursor: default; }
 .fc .is-bookable-day:not(.fc-day-other) .fc-daygrid-day-frame { cursor: pointer; }
 .fc .is-bookable-day:not(.fc-day-other):hover { z-index: 1; background: rgba(228, 238, 231, 0.65); box-shadow: inset 0 0 0 2px rgba(100, 132, 116, 0.26); }
@@ -224,13 +224,13 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .is-selected-day.fc-day-today .fc-daygrid-day-number { background: transparent; font-weight: 400; }
 .fc .is-bookable-day .fc-daygrid-day-frame::after { position: absolute; top: 12px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--color-primary); content: ""; }
 .fc .fc-day-other .fc-daygrid-day-number { color: #aaaead; }
-.fc .fc-day-other.fc-day-sun .fc-daygrid-day-number { color: #b79292; }
-.fc .fc-day-other.fc-day-sat .fc-daygrid-day-number { color: #8492a5; }
+.fc .fc-day-other.fc-day-sun .fc-daygrid-day-number { color: rgba(220, 38, 38, 0.35); }
+.fc .fc-day-other.fc-day-sat .fc-daygrid-day-number { color: rgba(37, 99, 235, 0.35); }
 .fc .fc-daygrid-day-events { min-height: 1.2em; margin-top: 5px !important; }
-.fc .fc-daygrid-event { overflow: hidden; margin: 3px 4px !important; padding: 4px 7px !important; border: 0 !important; border-radius: 8px !important; box-shadow: none; }
-.fc .fc-event-title { display: block; overflow: hidden !important; min-width: 0; max-width: 100%; font-size: 0.72rem !important; font-weight: 720 !important; line-height: 1.35 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+.fc .fc-daygrid-event { display: flex; overflow: hidden; align-items: center; justify-content: center; margin: 3px 4px !important; padding: 4px 7px !important; border: 0 !important; border-radius: 8px !important; box-shadow: none; }
+.fc .fc-event-title { display: flex; overflow: hidden !important; min-width: 0; max-width: 100%; align-items: center; justify-content: center; font-size: 0.72rem !important; font-weight: 720 !important; line-height: 1.35 !important; text-align: center; text-overflow: ellipsis !important; white-space: nowrap !important; }
 .event-label-desktop,
-.event-label-mobile { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+.event-label-mobile { display: block; overflow: hidden; min-width: 0; max-width: 100%; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .event-label-mobile { display: none; }
 .fc .consult-event { background: var(--color-primary-soft) !important; color: var(--color-primary-strong) !important; cursor: pointer; }
 .fc .consult-event:hover { background: #d5e5da !important; }
