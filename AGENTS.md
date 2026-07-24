@@ -51,12 +51,99 @@
 
 ---
 
+# 배포 기준
+
+작업 완료 후 반드시 변경된 파일 목록을 확인하고 아래 기준에 따라 배포한다.
+
+## 1. `apps-script` 폴더가 변경된 경우
+
+다음 파일 중 하나라도 변경된 경우에만 Apps Script 배포를 진행한다.
+
+- `apps-script/Code.gs`
+- `apps-script/appsscript.json`
+- `apps-script` 폴더 내 기타 Apps Script 관련 파일
+
+수행 순서:
+
+1. Git commit
+2. Git push
+3. `clasp push`
+4. 원격 Apps Script 코드와 로컬 코드 일치 확인
+5. 새 Apps Script Version 생성
+6. 기존 Deployment ID를 새 Version으로 업데이트
+7. 기존 Web App URL 유지 확인
+8. 배포 URL HTTP 200 확인
+
+주의:
+
+- 새 Apps Script 프로젝트를 만들지 않는다.
+- 새 Deployment를 만들지 않는다.
+- 기존 Script ID와 기존 Deployment ID만 사용한다.
+- 기존 Web App URL을 변경하지 않는다.
+
+## 2. GitHub Pages 정적 파일만 변경된 경우
+
+다음 파일만 변경된 경우에는 Apps Script 배포를 하지 않는다.
+
+- `index.html`
+- `styles.css`
+- `script.js`
+- `admin.html`
+- `admin.css`
+- `admin.js`
+- `README.md`
+- 기타 GitHub Pages 정적 자산
+
+단, `README.md`를 포함해 문서 파일만 변경된 경우에는 아래 3번 문서 전용 기준을 우선 적용한다.
+
+수행 순서:
+
+1. Git commit
+2. Git push
+3. GitHub Pages 배포 상태 확인
+4. 실제 학생 페이지와 관리자 페이지 HTTP 200 확인
+
+이 경우 아래 작업은 절대 하지 않는다.
+
+- `clasp push`
+- Apps Script 새 Version 생성
+- Apps Script Deployment 업데이트
+
+## 3. `README.md` 또는 문서만 변경된 경우
+
+문서만 변경된 경우에는 다음만 수행한다.
+
+1. Git commit
+2. Git push
+
+- Apps Script 배포와 GitHub Pages 동작 테스트는 필요한 경우에만 수행한다.
+
+## 4. 최종 보고 규칙
+
+최종 보고에는 반드시 아래 내용을 포함한다.
+
+- 변경된 파일 목록
+- `apps-script` 폴더 변경 여부
+- 실제 수행한 배포 방식
+  - GitHub Pages만 배포
+  - Apps Script까지 배포
+  - 문서만 push
+- Apps Script Version 생성 여부
+- Apps Script Deployment 업데이트 여부
+- 기존 Deployment ID와 Web App URL 유지 여부
+- Git commit hash
+- 테스트 결과
+
+## 5. 불필요한 배포 금지
+
+- `apps-script` 폴더가 변경되지 않았다면 `clasp push`, 새 Apps Script Version 생성, 기존 Deployment 업데이트를 수행하지 않는다.
+- 정적 화면 수정만으로 Apps Script 새 Version을 만들지 않는다.
+
+---
+
 # Google Apps Script
 
-- `apps-script/Code.gs` 또는 `apps-script/appsscript.json`이 변경된 경우에만 `clasp push`, 새 Apps Script Version 생성, 기존 Deployment 업데이트를 진행한다.
-- HTML, CSS, JavaScript 등 프런트엔드 파일만 변경된 경우에는 Apps Script 새 Version을 만들거나 Deployment를 업데이트하지 않는다.
-- 프런트엔드 파일만 변경된 경우 Git commit/push 후 GitHub Pages 배포만 확인한다.
-- 불필요한 Apps Script Version을 생성하지 않는다.
+- Apps Script 배포 여부와 순서는 위의 배포 기준을 따른다.
 - 기존 Web App URL은 변경하지 않는다.
 - 기존 Google Sheets 구조를 임의로 변경하지 않는다.
 - 새로운 시트나 열이 필요한 경우 먼저 사용자에게 알려준다.
@@ -65,7 +152,8 @@
 
 # GitHub Pages
 
-- GitHub Pages가 활성화된 프로젝트에서는 Push 후 Pages 배포가 완료되는지 확인한다.
+- GitHub Pages 정적 파일이 변경된 경우 Push 후 Pages 배포가 완료되는지 확인한다.
+- 문서만 변경된 경우 GitHub Pages 동작 테스트는 필요한 경우에만 수행한다.
 - GitHub Pages 구조를 임의로 변경하지 않는다.
 - 사용자가 별도의 Git 작업을 하지 않아도 되도록 자동 Commit 및 Push를 기본으로 한다.
 
@@ -113,8 +201,10 @@
 
 ## 추가 작업 여부
 
-- Apps Script 파일 변경 여부와 실제 배포 방식
-- Apps Script 재배포가 필요한지
+- `apps-script` 폴더 변경 여부
+- 실제 수행한 배포 방식
+- Apps Script Version 생성 및 Deployment 업데이트 여부
+- 기존 Deployment ID와 Web App URL 유지 여부
 - Google Sheets 수정이 필요한지
 - 사용자가 직접 해야 하는 작업이 있는지
 
