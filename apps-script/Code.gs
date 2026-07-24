@@ -66,6 +66,30 @@ function getKoreanHolidays(year) {
   } catch(error) {
     console.error("Failed to fetch holidays for year " + year + ": " + error);
   }
+
+  if (Object.keys(holidays).length === 0) {
+    try {
+      const icsUrl = "https://calendar.google.com/calendar/ical/" + encodeURIComponent(calendarId) + "/public/basic.ics";
+      const response = UrlFetchApp.fetch(icsUrl, { muteHttpExceptions: true });
+      if (response.getResponseCode() === 200) {
+        const content = response.getContentText().replace(/\r?\n[ \t]/g, "");
+        const events = content.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g) || [];
+        events.forEach(eventText => {
+          const dateMatch = eventText.match(/^DTSTART(?:;VALUE=DATE)?:(\d{8})/m);
+          const titleMatch = eventText.match(/^SUMMARY:(.*)$/m);
+          if (!dateMatch || dateMatch[1].substring(0, 4) !== String(year)) return;
+          const rawDate = dateMatch[1];
+          const dateStr = rawDate.substring(0, 4) + "-" + rawDate.substring(4, 6) + "-" + rawDate.substring(6, 8);
+          holidays[dateStr] = titleMatch ? titleMatch[1].replace(/\\([,;\\])/g, "$1").trim() : "공휴일";
+        });
+        if (Object.keys(holidays).length > 0) cache.put(cacheKey, JSON.stringify(holidays), 21600);
+      } else {
+        console.error("Holiday ICS request failed for year " + year + ": HTTP " + response.getResponseCode());
+      }
+    } catch(error) {
+      console.error("Failed to fetch holiday ICS for year " + year + ": " + error);
+    }
+  }
   
   return holidays;
 }
