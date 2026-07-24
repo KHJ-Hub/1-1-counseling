@@ -58,7 +58,7 @@ label { -webkit-tap-highlight-color: transparent; }
 .hidden { display: none !important; }
 
 .student-page {
-    width: min(100%, 1120px);
+    width: min(100%, 1200px);
     margin: 0 auto;
     padding: 42px 24px 64px;
 }
@@ -116,6 +116,8 @@ label { -webkit-tap-highlight-color: transparent; }
 
 .calendar-card {
     position: relative;
+    width: min(100%, 1120px);
+    margin-inline: auto;
     padding: clamp(16px, 3vw, 30px);
     border: 1px solid rgba(227, 226, 220, 0.9);
     border-radius: var(--radius-lg);
@@ -201,7 +203,7 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc-theme-standard th { border-color: var(--color-border); background: #faf9f4; }
 .fc .fc-col-header-cell-cushion { padding: 12px 4px; color: var(--color-muted); font-size: 0.8rem; font-weight: 760; text-decoration: none; }
 .fc .fc-daygrid-day { transition: background-color 160ms ease; }
-.fc .fc-daygrid-day-frame { min-height: 112px; padding: 3px; }
+.fc .fc-daygrid-day-frame { min-height: 124px; padding: 3px; }
 .fc .fc-daygrid-day-top { position: relative; z-index: 2; }
 .fc .fc-daygrid-day-number { display: grid; min-width: 30px; min-height: 30px; margin: 3px; padding: 0; border-radius: 50%; color: var(--color-text); font-size: 0.8rem; font-variant-numeric: tabular-nums; text-decoration: none; place-items: center; }
 .fc .fc-day-today .fc-daygrid-day-number { border: 1.5px solid var(--color-primary); background: transparent; color: var(--color-text); font-weight: 800; }
@@ -218,11 +220,17 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .fc-day-other .fc-daygrid-day-number { color: #aaaead; }
 .fc .fc-daygrid-day-events { min-height: 1.2em; margin-top: 5px !important; }
 .fc .fc-daygrid-event { overflow: hidden; margin: 3px 4px !important; padding: 4px 7px !important; border: 0 !important; border-radius: 8px !important; box-shadow: none; }
-.fc .fc-event-title { overflow: hidden !important; font-size: 0.72rem !important; font-weight: 720 !important; line-height: 1.35 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+.fc .fc-event-title { display: block; overflow: hidden !important; min-width: 0; max-width: 100%; font-size: 0.72rem !important; font-weight: 720 !important; line-height: 1.35 !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+.event-label-desktop,
+.event-label-mobile { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+.event-label-mobile { display: none; }
 .fc .consult-event { background: var(--color-primary-soft) !important; color: var(--color-primary-strong) !important; cursor: pointer; }
 .fc .consult-event:hover { background: #d5e5da !important; }
 .fc .completed-consult-event { background: var(--color-blocked) !important; color: #625b6d !important; }
+.fc .completed-consult-event .fc-event-title { display: flex; min-width: 0; align-items: center; gap: 2px; }
 .fc .completed-consult-event .fc-event-title::before { content: "✓ "; }
+.fc .completed-consult-event .event-label-desktop,
+.fc .completed-consult-event .event-label-mobile { min-width: 0; }
 .fc .holiday-event { background: var(--color-blocked) !important; color: #625b6d !important; }
 .fc .vacation-event { padding-block: 2px !important; background: rgba(220, 236, 243, 0.62) !important; color: #5f747b !important; opacity: 0.82; }
 .fc .vacation-event .fc-event-title { font-weight: 650 !important; }
@@ -300,7 +308,7 @@ textarea:focus-visible,
     .service-header { margin-bottom: 20px; }
     .calendar-card { padding: 14px; }
     .fc .fc-header-toolbar { margin-bottom: 16px !important; }
-    .fc .fc-daygrid-day-frame { min-height: 90px; }
+    .fc .fc-daygrid-day-frame { min-height: 88px; }
     .fc .fc-daygrid-event { margin: 2px !important; padding: 3px 4px !important; }
     .fc .fc-event-title { font-size: 0.67rem !important; }
 }
@@ -321,8 +329,11 @@ textarea:focus-visible,
     .fc .fc-daygrid-day-frame { min-height: 76px; padding: 1px; }
     .fc .fc-daygrid-day-number { min-width: 27px; min-height: 27px; margin: 2px; font-size: 0.72rem; }
     .fc .is-bookable-day .fc-daygrid-day-frame::after { top: 9px; right: 5px; width: 5px; height: 5px; }
-    .fc .fc-event-title { font-size: 0.62rem !important; line-height: 1.22 !important; }
-    .fc .fc-daygrid-event { border-radius: 6px !important; }
+    .fc .fc-event-title { font-size: 0.64rem !important; line-height: 1.2 !important; }
+    .fc .fc-daygrid-event { min-height: 17px; margin: 1px 2px !important; padding: 2px 3px !important; border-radius: 6px !important; }
+    .event-label-desktop { display: none; }
+    .event-label-mobile { display: block; }
+    .fc .vacation-event { min-height: 15px; padding-block: 1px !important; opacity: 0.72; }
     .calendar-legend { justify-content: flex-start; padding: 14px 8px 0; gap: 8px 14px; }
     .calendar-guide { padding: 0 8px; text-align: left; }
 

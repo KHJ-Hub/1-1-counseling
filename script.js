@@ -47,6 +47,19 @@ function markSelectedCalendarDate(dayElement) {
     if (dayElement) dayElement.classList.add('is-selected-day');
 }
 
+function getMobileEventLabel(title) {
+    const labels = {
+        "여름방학": "방학",
+        "여름방학식": "방학식",
+        "문화예술체험": "문화체험",
+        "상담완료": "완료",
+        "상담 가능": "가능",
+        "상담 불가": "불가",
+        "🚨예약 마감🚨": "마감"
+    };
+    return labels[title] || title;
+}
+
 function openModal(panelId, focusElement) {
     if (modalBackdrop.classList.contains('hidden')) {
         previouslyFocusedElement = pendingModalTrigger || document.activeElement;
@@ -343,6 +356,27 @@ document.addEventListener('DOMContentLoaded', async function() {
             },
 
             events: data.events,
+
+            eventContent: function(info) {
+                const label = document.createElement('span');
+                label.className = 'fc-event-title';
+
+                const desktopLabel = document.createElement('span');
+                desktopLabel.className = 'event-label-desktop';
+                desktopLabel.textContent = info.event.title;
+
+                const mobileLabel = document.createElement('span');
+                mobileLabel.className = 'event-label-mobile';
+                mobileLabel.textContent = getMobileEventLabel(info.event.title);
+
+                label.append(desktopLabel, mobileLabel);
+                return { domNodes: [label] };
+            },
+
+            eventDidMount: function(info) {
+                info.el.title = info.event.title;
+                info.el.setAttribute('aria-label', info.event.title);
+            },
 
             dateClick: function(info) {
                 if (info.dateStr < getSeoulDateString()) {
