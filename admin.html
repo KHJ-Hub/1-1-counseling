@@ -14,7 +14,7 @@
         <div>
             <span class="service-eyebrow">1학년 1반 · 상담 관리</span>
             <h1>교사용 상담 관리</h1>
-            <p>상담 예약과 학사일정을 한 곳에서 관리합니다.</p>
+            <p>상담 예약과 학교 일정을 한 곳에서 관리합니다.</p>
         </div>
     </header>
 
@@ -48,8 +48,8 @@
                 <button class="admin-tab active" type="button" data-admin-tab="reservations" aria-controls="reservations-panel" aria-selected="true">예약</button>
                 <button class="admin-tab" type="button" data-admin-tab="stats" aria-controls="stats-panel" aria-selected="false">상담 통계</button>
                 <button class="admin-tab" type="button" data-admin-tab="history" aria-controls="history-panel" aria-selected="false">학생 이력</button>
-                <button class="admin-tab" type="button" data-admin-tab="academic" aria-controls="academic-panel" aria-selected="false">학사일정</button>
-                <button class="admin-tab" type="button" data-admin-tab="blocked" aria-controls="blocked-panel" aria-selected="false">상담불가</button>
+                <button class="admin-tab" type="button" data-admin-tab="academic" aria-controls="academic-panel" aria-selected="false">학교 일정</button>
+                <button class="admin-tab" type="button" data-admin-tab="blocked" aria-controls="blocked-panel" aria-selected="false">상담 불가일</button>
                 <button class="admin-tab" type="button" data-admin-tab="availability" aria-controls="availability-panel" aria-selected="false">가능 시간</button>
                 <button class="admin-tab" type="button" data-admin-tab="settings" aria-controls="settings-panel" aria-selected="false">설정</button>
             </nav>
@@ -115,7 +115,13 @@
             </section>
 
             <section id="academic-panel" class="admin-panel hidden" data-admin-panel="academic">
-                <div class="panel-heading"><div><h3>학사일정 관리</h3><p class="admin-muted">등록된 기간은 기존 동작대로 상담 불가 기간에도 포함됩니다.</p></div></div>
+                <div class="panel-heading">
+                    <div>
+                        <h3>학교 일정 관리</h3>
+                        <p class="admin-muted">학교 행사, 방학, 시험, 연수 등 학생 달력에 표시할 일정을 등록합니다. 일정 종류에 따라 상담 가능 여부가 달라질 수 있습니다.</p>
+                        <p class="form-help">방학 일정은 달력에는 표시되지만, 날짜별 가능 시간이 열려 있을 때만 상담 신청이 가능합니다.<br>개교기념일, 재량휴업일 등 상담이 어려운 학교 일정은 상담 신청이 제한될 수 있습니다.</p>
+                    </div>
+                </div>
                 <form id="academic-form" class="editor-form" novalidate>
                     <input id="academic-row" type="hidden">
                     <div>
@@ -140,7 +146,13 @@
             </section>
 
             <section id="blocked-panel" class="admin-panel hidden" data-admin-panel="blocked">
-                <div class="panel-heading"><div><h3>상담 불가 기간 관리</h3><p class="admin-muted">일정명은 시트에 “상담불가”로 저장됩니다.</p></div></div>
+                <div class="panel-heading">
+                    <div>
+                        <h3>상담 불가일 관리</h3>
+                        <p class="admin-muted">출장, 조퇴, 회의, 개인 일정 등 학생에게 자세히 공개하지 않고 상담만 막고 싶은 날짜를 등록합니다. 학생 화면에는 상세 사유 없이 상담 불가로 표시됩니다.</p>
+                        <p class="form-help">하루 전체 상담이 어려운 날에 사용합니다.<br>특정 차시만 막고 싶다면 “가능 시간” 탭에서 해당 차시를 비활성화합니다.</p>
+                    </div>
+                </div>
                 <form id="blocked-form" class="editor-form blocked-editor" novalidate>
                     <input id="blocked-row" type="hidden">
                     <div>
@@ -161,7 +173,13 @@
             </section>
 
             <section id="availability-panel" class="admin-panel hidden" data-admin-panel="availability">
-                <div class="panel-heading"><div><h3>날짜별 상담 가능 시간</h3><p class="admin-muted">학기 중 평일은 기본 가능, 방학은 명시적으로 연 날짜만 가능합니다.</p></div></div>
+                <div class="panel-heading">
+                    <div>
+                        <h3>날짜별 상담 가능 시간</h3>
+                        <p class="admin-muted">날짜별로 실제 상담 가능한 차시만 엽니다. 학기 중 평일은 기본 가능하며, 방학은 명시적으로 연 날짜만 가능합니다.</p>
+                        <p class="form-help">하루 전체가 불가능한 경우에는 “상담 불가일”을 사용할 수 있고, 특정 차시만 불가능한 경우에는 이 화면에서 해당 차시만 해제하세요.</p>
+                    </div>
+                </div>
                 <form id="availability-form" class="editor-form availability-editor" novalidate>
                     <input id="availability-row" type="hidden">
                     <div>
