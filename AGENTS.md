@@ -53,8 +53,10 @@
 
 # Google Apps Script
 
-- Code.gs를 수정한 경우 Git Push만으로는 실제 서비스에 반영되지 않는다는 점을 고려한다.
-- Code.gs가 변경되면 Apps Script에 붙여넣기 및 웹앱 재배포가 필요한지 사용자에게 반드시 알려준다.
+- `apps-script/Code.gs` 또는 `apps-script/appsscript.json`이 변경된 경우에만 `clasp push`, 새 Apps Script Version 생성, 기존 Deployment 업데이트를 진행한다.
+- HTML, CSS, JavaScript 등 프런트엔드 파일만 변경된 경우에는 Apps Script 새 Version을 만들거나 Deployment를 업데이트하지 않는다.
+- 프런트엔드 파일만 변경된 경우 Git commit/push 후 GitHub Pages 배포만 확인한다.
+- 불필요한 Apps Script Version을 생성하지 않는다.
 - 기존 Web App URL은 변경하지 않는다.
 - 기존 Google Sheets 구조를 임의로 변경하지 않는다.
 - 새로운 시트나 열이 필요한 경우 먼저 사용자에게 알려준다.
@@ -111,6 +113,7 @@
 
 ## 추가 작업 여부
 
+- Apps Script 파일 변경 여부와 실제 배포 방식
 - Apps Script 재배포가 필요한지
 - Google Sheets 수정이 필요한지
 - 사용자가 직접 해야 하는 작업이 있는지
