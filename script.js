@@ -49,6 +49,7 @@ function markSelectedCalendarDate(dayElement) {
 }
 
 function getMobileEventLabel(title) {
+    if (title.endsWith("대체공휴일")) return "대체휴일";
     const labels = {
         "여름방학": "방학",
         "여름방학식": "방학식",
@@ -59,6 +60,13 @@ function getMobileEventLabel(title) {
         "🚨예약 마감🚨": "마감"
     };
     return labels[title] || title;
+}
+
+function normalizePublicHolidayTitle(title) {
+    const cleanedTitle = (title || "").replace(/🚫/g, "").trim();
+    if (cleanedTitle.includes("대체공휴일")) return cleanedTitle;
+    const substituteMatch = cleanedTitle.match(/^쉬는 날\s+(.+)$/);
+    return substituteMatch ? `${substituteMatch[1]} 대체공휴일` : cleanedTitle;
 }
 
 function openModal(panelId, focusElement) {
@@ -296,10 +304,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         data.events.forEach(ev => {
             if (ev.extendedProps && ev.extendedProps.type === "holiday") {
-                ev.classNames = ['holiday-event'];
-                if (ev.title) {
-                    ev.title = ev.title.replace(/🚫/g, "").trim();
-                }
+                const isPublicHoliday = publicHolidays.includes(ev.start);
+                ev.classNames = [isPublicHoliday ? 'public-holiday-event' : 'holiday-event'];
+                ev.title = isPublicHoliday
+                    ? normalizePublicHolidayTitle(ev.title)
+                    : (ev.title || "").replace(/🚫/g, "").trim();
             } else if (ev.extendedProps && ev.extendedProps.type === "consult") {
                 ev.classNames = ev.extendedProps.completed ? ['consult-event', 'completed-consult-event'] : ['consult-event'];
                 dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;

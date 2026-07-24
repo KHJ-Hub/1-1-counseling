@@ -157,6 +157,8 @@ label { -webkit-tap-highlight-color: transparent; }
 .legend-dot { display: inline-grid; width: 13px; height: 13px; border-radius: 50%; place-items: center; font-size: 9px; font-style: normal; }
 .legend-dot.available { background: var(--color-primary); }
 .legend-dot.vacation { border: 1px solid #bfd3da; background: rgba(220, 236, 243, 0.68); }
+.legend-dot.academic { background: var(--color-blocked); }
+.legend-dot.holiday { border: 1px solid #fecaca; background: #fee2e2; }
 .legend-dot.completed { background: var(--color-blocked); color: #665e73; }
 .legend-dot.blocked { background: #b6b5b7; }
 .calendar-guide { margin: 11px 0 0; color: var(--color-muted); font-size: 0.78rem; line-height: 1.5; text-align: center; }
@@ -240,6 +242,7 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .completed-consult-event .event-label-desktop,
 .fc .completed-consult-event .event-label-mobile { min-width: 0; }
 .fc .holiday-event { background: var(--color-blocked) !important; color: #625b6d !important; }
+.fc .public-holiday-event { border: 1px solid #fecaca !important; background: #fee2e2 !important; color: #b91c1c !important; }
 .fc .vacation-event { padding-block: 2px !important; background: rgba(220, 236, 243, 0.62) !important; color: #5f747b !important; opacity: 0.82; }
 .fc .vacation-event .fc-event-title { font-weight: 650 !important; }
 .fc .closed-event { background: var(--color-muted-soft) !important; color: #666b68 !important; }
