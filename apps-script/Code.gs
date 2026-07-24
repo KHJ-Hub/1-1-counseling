@@ -502,6 +502,7 @@ function doGet() {
   // ─── 2단계: 구글 캘린더 공휴일 → 학사일정과 겹치지 않는 날만 하루씩 표시 ───
   const currentYear = new Date().getFullYear();
   const krHolidays = Object.assign({}, getKoreanHolidays(currentYear), getKoreanHolidays(currentYear + 1));
+  const publicHolidays = Object.keys(krHolidays);
   for (const date in krHolidays) {
     if (blockedDates.has(date)) continue; // 이미 학사일정에 포함된 날 중복 방지
 
@@ -530,6 +531,7 @@ function doGet() {
   return jsonOutput({
     events: results,
     holidays: [...new Set(holidays)],
+    publicHolidays: publicHolidays,
     vacationDates: [...new Set(vacationDates)],
     availability: getAvailabilityMap(ss),
     operationTypes: operationTypes,

@@ -1,6 +1,7 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
 
 let sheetHolidays = [];
+let publicHolidays = [];
 let vacationDates = [];
 let dateAvailability = {};
 let dateOperationTypes = {};
@@ -286,6 +287,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const data = await response.json();
 
         sheetHolidays = data.holidays || [];
+        publicHolidays = data.publicHolidays || [];
         vacationDates = data.vacationDates || [];
         dateAvailability = data.availability || {};
         dateOperationTypes = data.operationTypes || {};
@@ -340,6 +342,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (day === 0 || day === 6) info.el.classList.add('is-weekend-day');
                 if (sheetHolidays.includes(dateStr)) info.el.classList.add('is-blocked-day');
                 else if (vacationDates.includes(dateStr)) info.el.classList.add('is-vacation-day');
+                if (publicHolidays.includes(dateStr)) info.el.classList.add('is-holiday-date');
                 if (!isPastDate && day !== 0 && day !== 6 && !sheetHolidays.includes(dateStr) && availableSlotCount > (dateCounts[dateStr] || 0)) {
                     info.el.classList.add('is-bookable-day');
                 }

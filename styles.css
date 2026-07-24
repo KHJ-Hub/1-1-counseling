@@ -213,9 +213,9 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .is-past-day .fc-daygrid-day-number { color: #707774; }
 .fc .fc-day-sun:not(.fc-day-other) .fc-daygrid-day-number { color: #dc2626; }
 .fc .fc-day-sat:not(.fc-day-other) .fc-daygrid-day-number { color: #2563eb; }
-.fc .is-blocked-day:not(.fc-day-other) .fc-daygrid-day-number { color: #dc2626; }
+.fc .is-holiday-date:not(.fc-day-other) .fc-daygrid-day-number { color: #dc2626; }
 .fc .is-past-day.fc-day-sun:not(.fc-day-other) .fc-daygrid-day-number,
-.fc .is-past-day.is-blocked-day:not(.fc-day-other) .fc-daygrid-day-number { color: #c24141; }
+.fc .is-past-day.is-holiday-date:not(.fc-day-other) .fc-daygrid-day-number { color: #c24141; }
 .fc .is-past-day.fc-day-sat:not(.fc-day-other) .fc-daygrid-day-number { color: #3f6fc7; }
 .fc .is-past-day .fc-daygrid-day-frame { cursor: default; }
 .fc .is-bookable-day:not(.fc-day-other) .fc-daygrid-day-frame { cursor: pointer; }
