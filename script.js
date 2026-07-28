@@ -6,6 +6,7 @@ let vacationDates = [];
 let dateAvailability = {};
 let dateOperationTypes = {};
 let slotTimes = {};
+let serviceOperating = true;
 let calendar;
 let selectedBookingDate = "";
 let selectedCancelEvent = null;
@@ -147,6 +148,7 @@ function setSubmitting(form, submitting, submittingText) {
 }
 
 function getAvailableSlots(dateStr) {
+    if (!serviceOperating) return [];
     const configured = dateAvailability[dateStr];
     const operationType = dateOperationTypes[dateStr] || (vacationDates.includes(dateStr) ? 'vacation' : 'semester');
     if (operationType === 'closed') return [];
@@ -300,6 +302,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         dateAvailability = data.availability || {};
         dateOperationTypes = data.operationTypes || {};
         slotTimes = data.slotTimes || {};
+        const serviceSettings = data.serviceSettings || {};
+        serviceOperating = serviceSettings.operating !== false;
+        document.title = serviceSettings.studentTitle || '1학년 1반 상담 신청';
+        document.getElementById('student-service-title').textContent = serviceSettings.studentTitle || '1학년 1반 상담 신청';
+        document.getElementById('student-service-eyebrow').textContent = `${serviceSettings.className || '1학년 1반'} · 상담실`;
+        document.getElementById('student-service-notice').textContent = serviceOperating
+            ? (serviceSettings.studentNotice || '편한 날짜와 시간을 골라 상담을 신청해 주세요.')
+            : '현재 상담 신청을 잠시 중지했습니다.';
+        document.getElementById('vacation-guide').textContent = serviceSettings.vacationNotice || '방학 중에는 선생님이 열어둔 날짜와 시간만 신청할 수 있어요.';
+        document.getElementById('booking-password-help').textContent = serviceSettings.passwordNotice || '예약 취소 시 사용할 숫자 4자리를 입력해 주세요.';
         let dateCounts = {};
 
         data.events.forEach(ev => {
@@ -476,6 +488,8 @@ function sendData(payload, requestType) {
             showFormMessage(messageId, "현재 선택한 날짜 또는 시간에는 상담을 신청할 수 없습니다. 새로고침 후 다시 확인해 주세요.");
         } else if (result === "WEEKEND_NOT_ALLOWED") {
             showFormMessage(messageId, "주말에는 상담을 예약할 수 없습니다.");
+        } else if (result === "SERVICE_PAUSED") {
+            showFormMessage(messageId, "현재 상담 신청이 일시 중지되어 있습니다.");
         } else if (result && result.indexOf("HOLIDAY_NOT_ALLOWED:") === 0) {
             const reason = result.split(":")[1] || "공휴일";
             showFormMessage(messageId, reason + "에는 상담을 예약할 수 없습니다.");

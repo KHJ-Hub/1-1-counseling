@@ -22,6 +22,7 @@ const CALENDAR_EVENT_ID_COLUMN = 7;
 const CALENDAR_EVENT_ID_HEADER = "Calendar Event ID";
 const SLOT_START_STATE_KEY = "COUNSELING_SLOT_START_STATE";
 const SUMMARY_STATE_KEY = "COUNSELING_SUMMARY_STATE";
+const OPERATION_SETTINGS_KEY = "COUNSELING_OPERATION_SETTINGS";
 const COUNSELING_TRIGGER_HANDLERS = [
   "checkCounselingSlotStartNotifications",
   "runTodayCounselingSummary",
@@ -36,6 +37,131 @@ const SLOT_PROPERTY_MAP = {
   "자습 3차시": { start: "VACATION_SLOT_3_START", end: "VACATION_SLOT_3_END", defaults: VACATION_SLOT_DEFAULTS[2] },
   "자습 4차시": { start: "VACATION_SLOT_4_START", end: "VACATION_SLOT_4_END", defaults: VACATION_SLOT_DEFAULTS[3] }
 };
+
+function getDefaultOperationSettings() {
+  return {
+    schoolYear: 2026,
+    className: "1학년 1반",
+    studentTitle: "1학년 1반 상담 신청",
+    adminTitle: "교사용 상담 관리",
+    operating: true,
+    studentNotice: "편한 날짜와 시간을 골라 상담을 신청해 주세요.",
+    vacationNotice: "방학 중에는 선생님이 열어둔 날짜와 시간만 신청할 수 있어요.",
+    passwordNotice: "예약 취소 시 사용할 숫자 4자리를 입력해 주세요.",
+    periods: [
+      { id: "default-summer-2026", name: "여름방학", startDate: "2026-07-21", endDate: "2026-08-17", operationType: "vacation" }
+    ],
+    schoolStartDate: "2026-08-18",
+    slotTimes: {}
+  };
+}
+
+function getOperationSettings() {
+  const defaults = getDefaultOperationSettings();
+  const raw = getScriptProperties().getProperty(OPERATION_SETTINGS_KEY);
+  if (!raw) return defaults;
+  try {
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return defaults;
+    return Object.assign({}, defaults, saved, {
+      periods: Array.isArray(saved.periods) ? saved.periods : defaults.periods,
+      slotTimes: saved.slotTimes && typeof saved.slotTimes === "object" && !Array.isArray(saved.slotTimes) ? saved.slotTimes : {}
+    });
+  } catch (error) {
+    logServerError("Operation settings parse failed", error);
+    return defaults;
+  }
+}
+
+function getConfiguredPeriod(date, settings) {
+  const periods = (settings || getOperationSettings()).periods || [];
+  for (let i = periods.length - 1; i >= 0; i--) {
+    const period = periods[i];
+    if (period && period.startDate <= date && date <= period.endDate) return period;
+  }
+  return null;
+}
+
+function isValidTime(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value || "");
+}
+
+function validateOperationSettings(data) {
+  const input = data && data.settings;
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { ok: false, error: "INVALID_SETTINGS" };
+  const schoolYear = Number(input.schoolYear);
+  const className = (input.className || "").toString().trim();
+  const studentTitle = (input.studentTitle || "").toString().trim();
+  const adminTitle = (input.adminTitle || "").toString().trim();
+  const studentNotice = (input.studentNotice || "").toString().trim();
+  const vacationNotice = (input.vacationNotice || "").toString().trim();
+  const passwordNotice = (input.passwordNotice || "").toString().trim();
+  if (!Number.isInteger(schoolYear) || schoolYear < 2000 || schoolYear > 2200 || !className || !studentTitle || !adminTitle) {
+    return { ok: false, error: "INVALID_SETTINGS" };
+  }
+  if ([className, studentTitle, adminTitle].some(value => value.length > 100) ||
+      [studentNotice, vacationNotice, passwordNotice].some(value => value.length > 300)) {
+    return { ok: false, error: "SETTINGS_TOO_LONG" };
+  }
+
+  const periods = Array.isArray(input.periods) ? input.periods : [];
+  if (periods.length > 30) return { ok: false, error: "SETTINGS_TOO_LONG" };
+  const normalizedPeriods = [];
+  for (let i = 0; i < periods.length; i++) {
+    const item = periods[i] || {};
+    const name = (item.name || "").toString().trim();
+    const startDate = (item.startDate || "").toString().trim();
+    const endDate = (item.endDate || "").toString().trim();
+    const operationType = normalizeOperationType(item.operationType);
+    if (!name || name.length > 100 || !isIsoDate(startDate) || !isIsoDate(endDate) || startDate > endDate ||
+        OPERATION_TYPES.indexOf(operationType) === -1) {
+      return { ok: false, error: "INVALID_PERIOD" };
+    }
+    normalizedPeriods.push({
+      id: (item.id || Utilities.getUuid()).toString().substring(0, 100),
+      name: name,
+      startDate: startDate,
+      endDate: endDate,
+      operationType: operationType
+    });
+  }
+
+  const slotTimes = {};
+  const rawSlotTimes = input.slotTimes && typeof input.slotTimes === "object" ? input.slotTimes : {};
+  for (let i = 0; i < CONSULT_SLOTS.length; i++) {
+    const slot = CONSULT_SLOTS[i];
+    const value = rawSlotTimes[slot];
+    if (!value) continue;
+    const start = (value.start || "").toString().trim();
+    const end = (value.end || "").toString().trim();
+    if (!start && !end) continue;
+    if (!isValidTime(start) || !isValidTime(end) || timeToMinutes(end) <= timeToMinutes(start)) {
+      return { ok: false, error: "INVALID_SLOT_TIME" };
+    }
+    slotTimes[slot] = { start: start, end: end };
+  }
+
+  const schoolStartDate = (input.schoolStartDate || "").toString().trim();
+  if (schoolStartDate && !isIsoDate(schoolStartDate)) return { ok: false, error: "INVALID_DATE" };
+  const normalizedSettings = {
+    schoolYear: schoolYear,
+    className: className,
+    studentTitle: studentTitle,
+    adminTitle: adminTitle,
+    operating: input.operating !== false,
+    studentNotice: studentNotice,
+    vacationNotice: vacationNotice,
+    passwordNotice: passwordNotice,
+    periods: normalizedPeriods,
+    schoolStartDate: schoolStartDate,
+    slotTimes: slotTimes
+  };
+  if (JSON.stringify(normalizedSettings).length > 8000) return { ok: false, error: "SETTINGS_TOO_LONG" };
+  return {
+    ok: true,
+    settings: normalizedSettings
+  };
+}
 
 function getKoreanHolidays(year) {
   const cache = CacheService.getScriptCache();
@@ -428,6 +554,14 @@ function getAcademicDateState(ss, date) {
 function getDateOperation(ss, date) {
   const setting = getAvailabilitySettings(ss)[date];
   if (setting) return setting;
+  const configuredPeriod = getConfiguredPeriod(date);
+  if (configuredPeriod) {
+    if (configuredPeriod.operationType === "semester") {
+      const semesterSlots = {}; SEMESTER_SLOTS.forEach(slot => { semesterSlots[slot] = true; });
+      return { operationType: "semester", slots: semesterSlots, note: configuredPeriod.name };
+    }
+    return { operationType: configuredPeriod.operationType, slots: {}, note: configuredPeriod.name };
+  }
   const academic = getAcademicDateState(ss, date);
   if (academic.vacation) return { operationType: "vacation", slots: {}, note: "" };
   const slots = {}; SEMESTER_SLOTS.forEach(slot => { slots[slot] = true; });
@@ -435,6 +569,7 @@ function getDateOperation(ss, date) {
 }
 
 function getAllowedSlotsForDate(ss, date) {
+  if (getOperationSettings().operating === false) return [];
   const operation = getDateOperation(ss, date);
   if (operation.operationType === "closed") return [];
   return Object.keys(operation.slots).filter(slot => operation.slots[slot] === true);
@@ -447,6 +582,7 @@ function isDateBlocked(ss, date) {
 function doGet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const results = [];
+  const operationSettings = getOperationSettings();
   
   const sheet1 = ss.getSheetByName("상담신청현황"); 
   const data1 = sheet1 ? sheet1.getDataRange().getValues() : [];
@@ -546,6 +682,13 @@ function doGet() {
   const availabilitySettings = getAvailabilitySettings(ss);
   const operationTypes = {};
   const availabilityNotes = {};
+  (operationSettings.periods || []).forEach(period => {
+    getDatesStartToIn(period.startDate, period.endDate).forEach(date => {
+      operationTypes[date] = period.operationType;
+      availabilityNotes[date] = period.name;
+      if (period.operationType === "vacation" && vacationDates.indexOf(date) === -1) vacationDates.push(date);
+    });
+  });
   Object.keys(availabilitySettings).forEach(date => {
     operationTypes[date] = availabilitySettings[date].operationType;
     availabilityNotes[date] = availabilitySettings[date].note;
@@ -560,7 +703,16 @@ function doGet() {
     availability: getAvailabilityMap(ss),
     operationTypes: operationTypes,
     availabilityNotes: availabilityNotes,
-    slotTimes: slotTimes
+    slotTimes: slotTimes,
+    serviceSettings: {
+      schoolYear: operationSettings.schoolYear,
+      className: operationSettings.className,
+      studentTitle: operationSettings.studentTitle,
+      operating: operationSettings.operating,
+      studentNotice: operationSettings.studentNotice,
+      vacationNotice: operationSettings.vacationNotice,
+      passwordNotice: operationSettings.passwordNotice
+    }
   });
 }
 
@@ -593,6 +745,7 @@ function doPost(e) {
   const trimmedPwd = password ? password.toString().trim() : "";
 
   if (action === "save") {
+    if (getOperationSettings().operating === false) return textOutput("SERVICE_PAUSED");
     if (!trimmedName) return textOutput("NAME_REQUIRED");
     if (trimmedName.length > 100) return textOutput("INVALID_NAME");
     if (!isIsoDate(date)) return textOutput("INVALID_DATE");
@@ -730,6 +883,9 @@ function handleAdminAction(data) {
   if (data.action === "adminChangePassword") return adminChangePassword(data);
   if (data.action === "adminGetCounselingStats") return adminGetCounselingStats(data);
   if (data.action === "adminGetIntegrationStatus") return adminGetIntegrationStatus();
+  if (data.action === "adminGetOperationSettings") return adminGetOperationSettings();
+  if (data.action === "adminSaveOperationSettings") return adminSaveOperationSettings(data);
+  if (data.action === "adminBulkSetAvailability") return adminBulkSetAvailability(data);
   if (data.action === "adminTestDiscord") return adminRunIntegrationTest(testDiscordNotification);
   if (data.action === "adminTestTodaySummary") return adminRunIntegrationTest(testTodayCounselingSummary);
   if (data.action === "adminTestTomorrowSummary") return adminRunIntegrationTest(testTomorrowCounselingSummary);
@@ -953,6 +1109,135 @@ function adminDeleteAvailability(data) {
   }
 }
 
+function adminBulkSetAvailability(data) {
+  const startDate = (data.startDate || "").toString().trim();
+  const endDate = (data.endDate || "").toString().trim();
+  const weekdays = Array.isArray(data.weekdays) ? data.weekdays.map(Number).filter(value => Number.isInteger(value) && value >= 0 && value <= 6) : [];
+  const input = validateAvailabilityInput({
+    date: startDate,
+    operationType: data.operationType,
+    slots: data.slots,
+    note: data.note
+  });
+  if (!isIsoDate(startDate) || !isIsoDate(endDate) || startDate > endDate) return jsonOutput({ ok: false, error: "INVALID_DATE_RANGE" });
+  if (!input.ok) return jsonOutput(input);
+  if (weekdays.length === 0) return jsonOutput({ ok: false, error: "WEEKDAY_REQUIRED" });
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(AVAILABILITY_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "AVAILABILITY_SHEET_NOT_FOUND" });
+  if (!hasExtendedAvailabilityHeaders(sheet)) return jsonOutput({ ok: false, error: "AVAILABILITY_COLUMNS_REQUIRED" });
+  const overwrite = data.overwrite === true;
+  const dates = getDatesStartToIn(startDate, endDate).filter(date => {
+    const day = new Date(date + "T00:00:00+09:00").getDay();
+    return weekdays.indexOf(day) !== -1;
+  });
+  if (dates.length > 370) return jsonOutput({ ok: false, error: "BULK_RANGE_TOO_LARGE" });
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const rows = sheet.getDataRange().getValues();
+    const existingRows = {};
+    rows.slice(1).forEach((row, index) => {
+      const date = parseKoreanDate(row[0]);
+      if (date) existingRows[date] = index + 2;
+    });
+    const flags = input.slots.concat([false, false, false, false]).slice(0, 4);
+    const newRows = [];
+    let added = 0, updated = 0, skipped = 0;
+    dates.forEach(date => {
+      const values = [date, flags[0], flags[1], flags[2], input.operationType, flags[3], input.note];
+      if (existingRows[date]) {
+        if (!overwrite) {
+          skipped++;
+          return;
+        }
+        sheet.getRange(existingRows[date], 1, 1, 7).setValues([values]);
+        updated++;
+      } else {
+        newRows.push(values);
+        added++;
+      }
+    });
+    if (newRows.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 7).setValues(newRows);
+    return jsonOutput({ ok: true, result: { matched: dates.length, added: added, updated: updated, skipped: skipped } });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function adminGetOperationSettings() {
+  const settings = getOperationSettings();
+  const resolvedSlotTimes = {};
+  CONSULT_SLOTS.forEach(slot => {
+    const config = getSlotTimeConfig(slot);
+    resolvedSlotTimes[slot] = config ? { start: config.start, end: config.end } : { start: "", end: "" };
+  });
+  const today = localIsoDate(new Date());
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const availabilitySettings = getAvailabilitySettings(ss);
+  const calendarSheet = ss.getSheetByName(CALENDAR_SHEET_NAME);
+  const calendarRows = calendarSheet ? calendarSheet.getDataRange().getValues().slice(1) : [];
+  const academicStateForDate = date => {
+    const state = { vacation: false, blocked: false };
+    calendarRows.forEach(row => {
+      const start = parseKoreanDate(row[0]);
+      const end = row[1] ? parseKoreanDate(row[1]) : start;
+      if (!start || !end || date < start || date > end) return;
+      if (isVacationTitle(row[2])) state.vacation = true;
+      else state.blocked = true;
+    });
+    return state;
+  };
+  const operationForDate = date => {
+    if (availabilitySettings[date]) return availabilitySettings[date];
+    const period = getConfiguredPeriod(date, settings);
+    if (period) return { operationType: period.operationType, slots: period.operationType === "semester" ? { "야자 1차시": true, "야자 2차시": true, "야자 3차시": true } : {} };
+    const academic = academicStateForDate(date);
+    return { operationType: academic.vacation ? "vacation" : "semester", slots: academic.vacation ? {} : { "야자 1차시": true, "야자 2차시": true, "야자 3차시": true }, blocked: academic.blocked };
+  };
+  const todayOperation = operationForDate(today);
+  const todayDay = new Date(today + "T00:00:00+09:00").getDay();
+  const todayHolidays = getKoreanHolidays(Number(today.substring(0, 4)));
+  const todayAvailable = settings.operating !== false && todayDay !== 0 && todayDay !== 6 &&
+    !todayHolidays[today] && !todayOperation.blocked &&
+    Object.keys(todayOperation.slots || {}).some(slot => todayOperation.slots[slot] === true);
+  let nextAvailableDate = "";
+  const holidayCache = {};
+  for (let offset = 0; offset <= 366; offset++) {
+    const date = addDays(today, offset);
+    const day = new Date(date + "T00:00:00+09:00").getDay();
+    const year = date.substring(0, 4);
+    if (!holidayCache[year]) holidayCache[year] = getKoreanHolidays(Number(year));
+    const operation = operationForDate(date);
+    if (day === 0 || day === 6 || holidayCache[year][date] || operation.blocked || settings.operating === false) continue;
+    if (Object.keys(operation.slots || {}).some(slot => operation.slots[slot] === true)) {
+      nextAvailableDate = date;
+      break;
+    }
+  }
+  const integration = JSON.parse(adminGetIntegrationStatus().getContent());
+  return jsonOutput({
+    ok: true,
+    settings: Object.assign({}, settings, { slotTimes: resolvedSlotTimes }),
+    dashboard: {
+      today: today,
+      operationType: todayOperation.operationType,
+      todayAvailable: todayAvailable,
+      nextAvailableDate: nextAvailableDate,
+      discordConfigured: Boolean(integration.status && integration.status.discordConfigured),
+      triggersInstalled: Boolean(integration.status && integration.status.triggersInstalled)
+    }
+  });
+}
+
+function adminSaveOperationSettings(data) {
+  const validated = validateOperationSettings(data);
+  if (!validated.ok) return jsonOutput(validated);
+  getScriptProperties().setProperty(OPERATION_SETTINGS_KEY, JSON.stringify(validated.settings));
+  return jsonOutput({ ok: true, settings: validated.settings });
+}
+
 function adminListCalendarItems() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CALENDAR_SHEET_NAME);
   if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
@@ -1084,9 +1369,14 @@ function adminChangePassword(data) {
 function getSlotTimeConfig(slot) {
   const propertyKeys = SLOT_PROPERTY_MAP[slot];
   if (!propertyKeys) return null;
+  const configuredTime = (getOperationSettings().slotTimes || {})[slot];
   const properties = getScriptProperties();
-  const start = properties.getProperty(propertyKeys.start) || (propertyKeys.defaults ? propertyKeys.defaults[0] : "");
-  const end = properties.getProperty(propertyKeys.end) || (propertyKeys.defaults ? propertyKeys.defaults[1] : "");
+  const start = configuredTime && configuredTime.start
+    ? configuredTime.start
+    : properties.getProperty(propertyKeys.start) || (propertyKeys.defaults ? propertyKeys.defaults[0] : "");
+  const end = configuredTime && configuredTime.end
+    ? configuredTime.end
+    : properties.getProperty(propertyKeys.end) || (propertyKeys.defaults ? propertyKeys.defaults[1] : "");
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) {
     console.error("Counseling slot time skipped: invalid or missing properties for " + slot + ".");
     return null;

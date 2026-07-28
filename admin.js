@@ -11,6 +11,7 @@ let adminToken = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
 let reservations = [];
 let calendarItems = [];
 let availabilityItems = [];
+let operationSettings = null;
 let pendingDelete = null;
 let confirmTrigger = null;
 let adminSlotTimes = {
@@ -58,6 +59,12 @@ function errorMessage(code) {
         AVAILABILITY_COLUMNS_REQUIRED: '상담가능시간 시트 E1~G1에 운영유형, 4차시, 비고 헤더를 추가해 주세요.',
         NOTE_TOO_LONG: '비고는 200자 이하로 입력해 주세요.',
         AVAILABILITY_EXISTS: '해당 날짜의 설정이 이미 있습니다. 기존 항목을 수정해 주세요.',
+        INVALID_SETTINGS: '학급 및 운영 설정의 필수 값을 확인해 주세요.',
+        SETTINGS_TOO_LONG: '운영 설정 문구가 허용 길이를 초과했습니다.',
+        INVALID_PERIOD: '운영 기간의 이름과 날짜를 확인해 주세요.',
+        INVALID_SLOT_TIME: '차시 시간을 HH:mm 형식으로 입력하고 종료 시간을 시작 시간보다 늦게 설정해 주세요.',
+        WEEKDAY_REQUIRED: '일괄 적용할 요일을 하나 이상 선택해 주세요.',
+        BULK_RANGE_TOO_LARGE: '일괄 적용 기간은 최대 370일입니다.',
         WRONG_CURRENT_PASSWORD: '현재 관리자 비밀번호가 올바르지 않습니다.',
         ADMIN_PASSWORD_POLICY: '관리자 비밀번호는 4자 이상 64자 이하로 입력해 주세요.',
         INVALID_ACTION: '지원하지 않는 관리자 작업입니다.',
@@ -394,6 +401,90 @@ function renderIntegrationStatus(status) {
     }));
 }
 
+function operationTypeLabel(value) {
+    return value === 'vacation' ? '방학' : value === 'closed' ? '상담 불가' : '학기 중';
+}
+
+function renderOperationStatus(dashboard = {}) {
+    const settings = operationSettings || {};
+    const vacationPeriods = (settings.periods || []).filter(item => item.operationType === 'vacation');
+    const items = [
+        ['학년도', settings.schoolYear ? `${settings.schoolYear}학년도` : '-'],
+        ['학급', settings.className || '-'],
+        ['현재 운영모드', operationTypeLabel(dashboard.operationType)],
+        ['방학 기간', vacationPeriods.length ? vacationPeriods.map(item => `${item.name} ${item.startDate}~${item.endDate}`).join(' · ') : '설정 없음'],
+        ['오늘 상담', dashboard.todayAvailable ? '가능' : '불가'],
+        ['다음 상담 가능일', dashboard.nextAvailableDate || '예정 없음'],
+        ['Discord', dashboard.discordConfigured ? '설정됨' : '미설정'],
+        ['트리거', dashboard.triggersInstalled ? '설치됨' : '미설치']
+    ];
+    document.getElementById('operation-status-grid').replaceChildren(...items.map(([label, value]) => {
+        const card = document.createElement('article');
+        card.className = 'operation-status-card';
+        card.append(createTextElement('span', 'stat-label', label), createTextElement('strong', 'operation-status-value', value));
+        return card;
+    }));
+}
+
+function createPeriodRow(period = {}) {
+    const row = document.createElement('div');
+    row.className = 'operation-period-row';
+    row.dataset.periodId = period.id || '';
+    const fields = [
+        ['text', '기간 이름', period.name || '', 'period-name'],
+        ['date', '시작일', period.startDate || '', 'period-start'],
+        ['date', '종료일', period.endDate || '', 'period-end']
+    ];
+    fields.forEach(([type, labelText, value, className]) => {
+        const label = createTextElement('label', 'form-label', labelText);
+        const input = document.createElement('input');
+        input.type = type; input.className = `form-input ${className}`; input.value = value; input.required = true;
+        label.appendChild(input); row.appendChild(label);
+    });
+    const typeLabel = createTextElement('label', 'form-label', '운영 유형');
+    const select = document.createElement('select'); select.className = 'form-input period-operation';
+    [['semester', '학기 중'], ['vacation', '방학'], ['closed', '상담 불가']].forEach(([value, text]) => {
+        const option = document.createElement('option'); option.value = value; option.textContent = text; option.selected = period.operationType === value;
+        select.appendChild(option);
+    });
+    typeLabel.appendChild(select); row.appendChild(typeLabel);
+    const remove = createTextElement('button', 'admin-button danger remove-period', '삭제');
+    remove.type = 'button'; remove.setAttribute('aria-label', `${period.name || '운영 기간'} 삭제`);
+    row.appendChild(remove);
+    return row;
+}
+
+function renderOperationSettings(settings, dashboard) {
+    operationSettings = settings;
+    document.getElementById('setting-school-year').value = settings.schoolYear || '';
+    document.getElementById('setting-class-name').value = settings.className || '';
+    document.getElementById('setting-student-title').value = settings.studentTitle || '';
+    document.getElementById('setting-admin-title').value = settings.adminTitle || '';
+    document.getElementById('setting-operating').value = String(settings.operating !== false);
+    document.getElementById('setting-school-start').value = settings.schoolStartDate || '';
+    document.getElementById('setting-student-notice').value = settings.studentNotice || '';
+    document.getElementById('setting-vacation-notice').value = settings.vacationNotice || '';
+    document.getElementById('setting-password-notice').value = settings.passwordNotice || '';
+    const periodList = document.getElementById('operation-period-list');
+    periodList.replaceChildren(...(settings.periods || []).map(createPeriodRow));
+    const slotContainer = document.getElementById('slot-time-settings');
+    slotContainer.replaceChildren(...Object.values(ADMIN_SLOT_NAMES).flat().map(slot => {
+        const value = (settings.slotTimes || {})[slot] || {};
+        const row = document.createElement('div'); row.className = 'slot-time-row'; row.dataset.slot = slot;
+        row.appendChild(createTextElement('strong', '', slot));
+        [['시작', 'slot-start', value.start || ''], ['종료', 'slot-end', value.end || '']].forEach(([labelText, className, time]) => {
+            const label = createTextElement('label', 'form-label', labelText);
+            const input = document.createElement('input'); input.type = 'time'; input.className = `form-input ${className}`; input.value = time;
+            label.appendChild(input); row.appendChild(label);
+        });
+        return row;
+    }));
+    document.title = `${settings.adminTitle || '교사용 상담 관리'} | ${settings.className || '1학년 1반'}`;
+    document.getElementById('admin-service-title').textContent = settings.adminTitle || '교사용 상담 관리';
+    document.getElementById('admin-service-eyebrow').textContent = `${settings.className || '1학년 1반'} · 상담 관리`;
+    renderOperationStatus(dashboard);
+}
+
 async function loadIntegrationStatus() {
     const result = await adminRequest('adminGetIntegrationStatus');
     renderIntegrationStatus(result.status || {});
@@ -404,12 +495,13 @@ async function loadAdminData(showSuccess = false) {
     setButtonBusy(refreshButton, true, '불러오는 중…');
     showMessage('global-message', '');
     try {
-        const [reservationResult, calendarResult, availabilityResult, statsResult, integrationResult] = await Promise.all([
+        const [reservationResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
             adminRequest('adminListReservations'),
             adminRequest('adminListCalendarItems'),
             adminRequest('adminListAvailability'),
             adminRequest('adminGetCounselingStats'),
-            adminRequest('adminGetIntegrationStatus')
+            adminRequest('adminGetIntegrationStatus'),
+            adminRequest('adminGetOperationSettings')
         ]);
         reservations = reservationResult.reservations || [];
         calendarItems = calendarResult.items || [];
@@ -421,6 +513,7 @@ async function loadAdminData(showSuccess = false) {
         renderAllData();
         renderStats(statsResult.stats || {});
         renderIntegrationStatus(integrationResult.status || {});
+        renderOperationSettings(operationResult.settings || {}, operationResult.dashboard || {});
         if (showSuccess) showMessage('global-message', 'Google Sheets의 최신 데이터를 불러왔습니다.', true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('global-message', errorMessage(error.code));
@@ -760,6 +853,111 @@ document.getElementById('availability-form').addEventListener('submit', async ev
         showMessage('availability-message', row ? '가능 시간 설정을 수정했습니다.' : '가능 시간 설정을 추가했습니다.', true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('availability-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
+});
+
+function renderBulkSlotChecks(operationType) {
+    const fieldset = document.getElementById('bulk-slot-checks');
+    fieldset.querySelectorAll('label').forEach(label => label.remove());
+    (ADMIN_SLOT_NAMES[operationType] || []).forEach((name, index) => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox'; input.id = `bulk-slot-${index + 1}`; input.checked = true;
+        label.append(input, document.createTextNode(` ${name}${adminSlotTimes[name] ? ` (${adminSlotTimes[name]})` : ''}`));
+        fieldset.appendChild(label);
+    });
+    fieldset.disabled = operationType === 'closed';
+}
+
+const bulkWeekdays = document.getElementById('bulk-weekdays');
+['일', '월', '화', '수', '목', '금', '토'].forEach((labelText, day) => {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox'; input.value = String(day); input.checked = day >= 1 && day <= 5;
+    label.append(input, document.createTextNode(` ${labelText}`));
+    bulkWeekdays.appendChild(label);
+});
+document.getElementById('bulk-operation').addEventListener('change', event => renderBulkSlotChecks(event.target.value));
+renderBulkSlotChecks('semester');
+
+document.getElementById('bulk-availability-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const operationType = document.getElementById('bulk-operation').value;
+    const startDate = document.getElementById('bulk-start-date').value;
+    const endDate = document.getElementById('bulk-end-date').value;
+    const weekdays = Array.from(document.querySelectorAll('#bulk-weekdays input:checked')).map(input => Number(input.value));
+    const slots = (ADMIN_SLOT_NAMES[operationType] || []).map((slot, index) => document.getElementById(`bulk-slot-${index + 1}`).checked);
+    const overwrite = document.getElementById('bulk-existing-policy').value === 'overwrite';
+    const note = document.getElementById('bulk-note').value.trim();
+    if (!startDate || !endDate || weekdays.length === 0) {
+        showMessage('bulk-availability-message', '기간과 적용 요일을 입력해 주세요.');
+        return;
+    }
+    const policyText = overwrite ? '기존 설정을 덮어씁니다.' : '기존 설정은 건너뜁니다.';
+    if (!window.confirm(`${startDate}~${endDate} 기간에 ${operationTypeLabel(operationType)} 설정을 일괄 적용할까요?\n${policyText}`)) return;
+    const button = document.getElementById('bulk-availability-submit');
+    setButtonBusy(button, true, '적용 중…');
+    showMessage('bulk-availability-message', '');
+    try {
+        const response = await adminRequest('adminBulkSetAvailability', { startDate, endDate, weekdays, operationType, slots, note, overwrite });
+        const result = response.result || {};
+        await loadAdminData();
+        showMessage('bulk-availability-message', `일괄 적용 완료: 추가 ${result.added || 0}건, 변경 ${result.updated || 0}건, 건너뜀 ${result.skipped || 0}건`, true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('bulk-availability-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
+});
+
+document.getElementById('add-operation-period').addEventListener('click', () => {
+    document.getElementById('operation-period-list').appendChild(createPeriodRow({ operationType: 'vacation' }));
+});
+document.getElementById('operation-period-list').addEventListener('click', event => {
+    const button = event.target.closest('.remove-period');
+    if (button) button.closest('.operation-period-row').remove();
+});
+
+document.getElementById('operation-settings-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const periods = Array.from(document.querySelectorAll('.operation-period-row')).map(row => ({
+        id: row.dataset.periodId,
+        name: row.querySelector('.period-name').value.trim(),
+        startDate: row.querySelector('.period-start').value,
+        endDate: row.querySelector('.period-end').value,
+        operationType: row.querySelector('.period-operation').value
+    }));
+    const slotTimes = {};
+    document.querySelectorAll('.slot-time-row').forEach(row => {
+        slotTimes[row.dataset.slot] = {
+            start: row.querySelector('.slot-start').value,
+            end: row.querySelector('.slot-end').value
+        };
+    });
+    const settings = {
+        schoolYear: Number(document.getElementById('setting-school-year').value),
+        className: document.getElementById('setting-class-name').value.trim(),
+        studentTitle: document.getElementById('setting-student-title').value.trim(),
+        adminTitle: document.getElementById('setting-admin-title').value.trim(),
+        operating: document.getElementById('setting-operating').value === 'true',
+        schoolStartDate: document.getElementById('setting-school-start').value,
+        studentNotice: document.getElementById('setting-student-notice').value.trim(),
+        vacationNotice: document.getElementById('setting-vacation-notice').value.trim(),
+        passwordNotice: document.getElementById('setting-password-notice').value.trim(),
+        periods,
+        slotTimes
+    };
+    const button = document.getElementById('operation-settings-submit');
+    setButtonBusy(button, true, '저장 중…');
+    showMessage('operation-settings-message', '');
+    try {
+        await adminRequest('adminSaveOperationSettings', { settings });
+        await loadAdminData();
+        showMessage('operation-settings-message', '운영 설정을 저장했습니다. 학생 화면에는 새로고침 후 반영됩니다.', true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('operation-settings-message', errorMessage(error.code));
     } finally {
         setButtonBusy(button, false, '');
     }
