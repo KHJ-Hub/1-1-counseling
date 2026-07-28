@@ -1205,7 +1205,7 @@ function adminGetOperationSettings() {
   let nextAvailableDate = "";
   const holidayCache = {};
   for (let offset = 0; offset <= 366; offset++) {
-    const date = addDays(today, offset);
+    const date = localIsoDate(addDays(new Date(today + "T00:00:00+09:00"), offset));
     const day = new Date(date + "T00:00:00+09:00").getDay();
     const year = date.substring(0, 4);
     if (!holidayCache[year]) holidayCache[year] = getKoreanHolidays(Number(year));
