@@ -65,6 +65,8 @@ function errorMessage(code) {
         INVALID_SLOT_TIME: '차시 시간을 HH:mm 형식으로 입력하고 종료 시간을 시작 시간보다 늦게 설정해 주세요.',
         WEEKDAY_REQUIRED: '일괄 적용할 요일을 하나 이상 선택해 주세요.',
         BULK_RANGE_TOO_LARGE: '일괄 적용 기간은 최대 370일입니다.',
+        BACKUP_SOURCE_NOT_FOUND: '백업할 원본 시트를 찾지 못했습니다.',
+        BACKUP_FAILED: '백업 중 오류가 발생했습니다. 원본 데이터는 변경되지 않았습니다.',
         WRONG_CURRENT_PASSWORD: '현재 관리자 비밀번호가 올바르지 않습니다.',
         ADMIN_PASSWORD_POLICY: '관리자 비밀번호는 4자 이상 64자 이하로 입력해 주세요.',
         INVALID_ACTION: '지원하지 않는 관리자 작업입니다.',
@@ -958,6 +960,25 @@ document.getElementById('operation-settings-form').addEventListener('submit', as
         showMessage('operation-settings-message', '운영 설정을 저장했습니다. 학생 화면에는 새로고침 후 반영됩니다.', true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('operation-settings-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
+});
+
+document.getElementById('backup-current-data').addEventListener('click', async event => {
+    if (!window.confirm('현재 데이터를 백업 시트로 복사합니다. 원본 데이터는 삭제되지 않습니다. 계속할까요?')) return;
+    const button = event.currentTarget;
+    setButtonBusy(button, true, '백업 중…');
+    showMessage('backup-message', '');
+    try {
+        const result = await adminRequest('adminBackupCurrentData');
+        const backedUpSheets = result.backedUpSheets || [];
+        const skippedSheets = result.skippedSheets || [];
+        let message = `백업이 완료되었습니다. 생성된 시트: ${backedUpSheets.join(', ')}`;
+        if (skippedSheets.length > 0) message += ` · 건너뜀: ${skippedSheets.join(', ')}`;
+        showMessage('backup-message', message, true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('backup-message', errorMessage(error.code));
     } finally {
         setButtonBusy(button, false, '');
     }

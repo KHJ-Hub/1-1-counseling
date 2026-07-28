@@ -23,6 +23,7 @@ const CALENDAR_EVENT_ID_HEADER = "Calendar Event ID";
 const SLOT_START_STATE_KEY = "COUNSELING_SLOT_START_STATE";
 const SUMMARY_STATE_KEY = "COUNSELING_SUMMARY_STATE";
 const OPERATION_SETTINGS_KEY = "COUNSELING_OPERATION_SETTINGS";
+const BACKUP_SOURCE_SHEET_NAMES = [CONSULT_SHEET_NAME, AVAILABILITY_SHEET_NAME, CALENDAR_SHEET_NAME];
 const COUNSELING_TRIGGER_HANDLERS = [
   "checkCounselingSlotStartNotifications",
   "runTodayCounselingSummary",
@@ -886,6 +887,7 @@ function handleAdminAction(data) {
   if (data.action === "adminGetOperationSettings") return adminGetOperationSettings();
   if (data.action === "adminSaveOperationSettings") return adminSaveOperationSettings(data);
   if (data.action === "adminBulkSetAvailability") return adminBulkSetAvailability(data);
+  if (data.action === "adminBackupCurrentData") return adminBackupCurrentData();
   if (data.action === "adminTestDiscord") return adminRunIntegrationTest(testDiscordNotification);
   if (data.action === "adminTestTodaySummary") return adminRunIntegrationTest(testTodayCounselingSummary);
   if (data.action === "adminTestTomorrowSummary") return adminRunIntegrationTest(testTomorrowCounselingSummary);
@@ -1236,6 +1238,72 @@ function adminSaveOperationSettings(data) {
   if (!validated.ok) return jsonOutput(validated);
   getScriptProperties().setProperty(OPERATION_SETTINGS_KEY, JSON.stringify(validated.settings));
   return jsonOutput({ ok: true, settings: validated.settings });
+}
+
+function sanitizeBackupSheetName(value) {
+  return (value || "").toString().replace(/[:\\\/?*\[\]]/g, "_").replace(/\s+/g, " ").trim();
+}
+
+function getUniqueBackupSheetName(ss, baseName, timestamp) {
+  const safeBase = sanitizeBackupSheetName(baseName).substring(0, 100);
+  if (!ss.getSheetByName(safeBase)) return safeBase;
+  const suffix = "_" + timestamp;
+  let candidate = safeBase.substring(0, 100 - suffix.length) + suffix;
+  let sequence = 2;
+  while (ss.getSheetByName(candidate)) {
+    const numberedSuffix = suffix + "_" + sequence;
+    candidate = safeBase.substring(0, 100 - numberedSuffix.length) + numberedSuffix;
+    sequence++;
+  }
+  return candidate;
+}
+
+function adminBackupCurrentData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const settings = getOperationSettings();
+  const configuredYear = Number(settings.schoolYear);
+  const schoolYear = Number.isInteger(configuredYear) && configuredYear >= 2000 && configuredYear <= 2200
+    ? configuredYear
+    : Number(Utilities.formatDate(new Date(), TIME_ZONE, "yyyy"));
+  const timestamp = Utilities.formatDate(new Date(), TIME_ZONE, "yyyyMMdd_HHmm");
+  const backedUpSheets = [];
+  const skippedSheets = [];
+  const sourceSheetNames = BACKUP_SOURCE_SHEET_NAMES.slice();
+  ss.getSheets().forEach(sheet => {
+    const sheetName = sheet.getName();
+    const isRelatedSeparateSheet = /(상담\s*불가|학생\s*이력|상담\s*메모)/.test(sheetName);
+    if (isRelatedSeparateSheet && sheetName.indexOf("_백업") === -1 && sourceSheetNames.indexOf(sheetName) === -1) {
+      sourceSheetNames.push(sheetName);
+    }
+  });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    sourceSheetNames.forEach(sourceName => {
+      const sourceSheet = ss.getSheetByName(sourceName);
+      if (!sourceSheet) {
+        skippedSheets.push(sourceName + " 시트 없음");
+        return;
+      }
+      const backupName = getUniqueBackupSheetName(ss, schoolYear + "_" + sourceName + "_백업", timestamp);
+      try {
+        sourceSheet.copyTo(ss).setName(backupName);
+        backedUpSheets.push(backupName);
+      } catch (error) {
+        logServerError("Sheet backup failed [" + sourceName + "]", error);
+        throw new Error("BACKUP_COPY_FAILED");
+      }
+    });
+    if (backedUpSheets.length === 0) {
+      return jsonOutput({ ok: false, error: "BACKUP_SOURCE_NOT_FOUND" });
+    }
+    return jsonOutput({ ok: true, backedUpSheets: backedUpSheets, skippedSheets: skippedSheets });
+  } catch (error) {
+    logServerError("Current data backup failed", error);
+    return jsonOutput({ ok: false, error: "BACKUP_FAILED" });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function adminListCalendarItems() {

@@ -6,7 +6,7 @@
     <title>상담 관리 | 1학년 1반</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
     <link rel="stylesheet" href="styles.css?v=20260720-unified-design">
-    <link rel="stylesheet" href="admin.css?v=20260724-operation-settings">
+    <link rel="stylesheet" href="admin.css?v=20260728-backup-actions">
 </head>
 <body class="admin-body">
     <header class="admin-header">
@@ -95,7 +95,7 @@
                     <div><label class="form-label" for="stats-end-date">종료일</label><input id="stats-end-date" class="form-input" type="date"></div>
                     <div><label class="form-label" for="stats-name">학생 이름</label><input id="stats-name" class="form-input" type="search" maxlength="100"></div>
                     <div><label class="form-label" for="stats-completed">완료 여부</label><select id="stats-completed" class="form-input"><option value="">전체</option><option value="true">완료</option><option value="false">미완료</option></select></div>
-                    <div class="stats-filter-actions"><button id="stats-reset" class="admin-button secondary" type="button">초기화</button><button id="stats-submit" class="admin-button primary" type="submit">통계 조회</button></div>
+                    <div class="stats-filter-actions admin-actions"><button id="stats-reset" class="admin-button secondary" type="button">초기화</button><button id="stats-submit" class="admin-button primary" type="submit">통계 조회</button></div>
                 </form>
                 <p id="stats-message" class="admin-message hidden" role="status"></p>
                 <div id="stats-summary" class="stats-summary-grid"></div>
@@ -239,18 +239,29 @@
                             <div class="subsection-heading"><h4>차시 시간표</h4><span class="form-help">관리자 저장값이 기존 Script Properties보다 우선합니다.</span></div>
                             <div id="slot-time-settings" class="slot-time-settings"></div>
                         </section>
-                        <div class="editor-actions"><button id="operation-settings-submit" class="admin-button primary" type="submit">운영 설정 저장</button></div>
+                        <div class="editor-actions admin-actions"><button id="operation-settings-submit" class="admin-button primary" type="submit">운영 설정 저장</button></div>
                     </form>
                     <p id="operation-settings-message" class="admin-message hidden" role="alert"></p>
                 </div>
                 <div class="settings-section">
-                    <div class="panel-heading"><div><h3>새 학년도 준비</h3><p class="admin-muted">기존 예약 데이터는 삭제하지 않고 보관하세요. 새 학년도에는 위 학년도·학급명을 변경하고, 상담 가능 시간 설정을 검토한 뒤 필요한 날짜만 수정하는 것을 권장합니다.</p></div></div>
-                    <ul class="setup-guide"><li>현재 예약과 상담 이력은 연도별 보관을 권장합니다.</li><li>상담 가능 시간 초기화가 필요하면 시트 데이터를 직접 삭제하기 전에 백업하세요.</li><li>이 화면에서는 위험한 일괄 삭제를 제공하지 않습니다.</li></ul>
+                    <div class="panel-heading"><div><h3>새 학년도 준비</h3><p class="admin-muted">새 학년도 시작 전, 현재 데이터를 백업한 뒤 학년도·학급명과 상담 가능 시간을 새 학년도에 맞게 조정하세요.</p></div></div>
+                    <div class="setup-guide">
+                        <ul>
+                            <li>기존 예약과 상담 이력은 삭제하지 않고 보관하는 것을 권장합니다.</li>
+                            <li>백업 버튼은 원본 데이터를 삭제하지 않고 복사본만 만듭니다.</li>
+                            <li>상담 가능 시간 초기화가 필요하면 백업 후 필요한 항목만 직접 정리하세요.</li>
+                            <li>이 화면에서는 위험한 일괄 삭제 기능을 제공하지 않습니다.</li>
+                        </ul>
+                        <div class="admin-actions backup-actions">
+                            <button id="backup-current-data" class="admin-button primary" type="button">현재 데이터 백업하기</button>
+                        </div>
+                        <p id="backup-message" class="admin-message hidden" role="status" aria-live="polite"></p>
+                    </div>
                 </div>
                 <div class="settings-section">
                     <div class="panel-heading"><div><h3>알림 및 연동 설정 안내</h3><p class="admin-muted">실제 URL·Calendar ID·비밀값은 화면과 API 응답에 표시하지 않습니다.</p></div></div>
                     <div id="integration-status" class="integration-status" aria-live="polite"></div>
-                    <div class="integration-actions">
+                    <div class="integration-actions admin-actions">
                         <button id="integration-refresh" class="admin-button secondary" type="button">설정 상태 새로고침</button>
                         <button class="admin-button secondary integration-test" data-test-action="adminTestDiscord" type="button">Discord 테스트</button>
                         <button class="admin-button secondary integration-test" data-test-action="adminTestTodaySummary" type="button">오늘 일정 테스트</button>
@@ -291,6 +302,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260724-operation-settings"></script>
+    <script src="admin.js?v=20260728-backup-actions"></script>
 </body>
 </html>
