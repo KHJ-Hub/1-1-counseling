@@ -99,7 +99,8 @@
 .stats-filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 13px; }
 .admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .admin-actions .admin-button { min-width: 0; }
-.stats-filter-actions { justify-content: flex-end; }
+.stats-filter-actions { grid-column: 1 / -1; width: 100%; justify-content: flex-end; padding-top: 2px; }
+.stats-filter-actions .admin-button { min-width: 96px; }
 
 .stats-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 18px; gap: 12px; }
 .stat-card { position: relative; overflow: hidden; padding: 19px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
