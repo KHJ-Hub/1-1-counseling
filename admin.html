@@ -123,17 +123,28 @@
                         <p class="form-help">법정공휴일과 대체공휴일은 자동으로 달력에 표시됩니다. 이곳에는 학교 자체 일정만 등록해 주세요.<br>방학 일정은 날짜별 가능 시간이 열려 있을 때만 상담 신청이 가능합니다. 개교기념일·재량휴업일 등 상담이 어려운 일정은 상담 신청이 제한될 수 있습니다.</p>
                     </div>
                 </div>
-                <form id="academic-form" class="editor-form admin-inline-form" novalidate>
+                <form id="academic-form" class="editor-form admin-inline-form academic-editor" novalidate>
                     <input id="academic-row" type="hidden">
                     <div>
                         <label class="form-label" for="academic-title">일정명</label>
                         <input id="academic-title" class="form-input" type="text" maxlength="100" required>
                     </div>
                     <div>
+                        <label class="form-label" for="academic-schedule-type">일정 유형</label>
+                        <select id="academic-schedule-type" class="form-input">
+                            <option value="single">하루 일정</option>
+                            <option value="period">기간 일정</option>
+                        </select>
+                    </div>
+                    <div id="academic-single-date-field">
+                        <label class="form-label" for="academic-date">날짜</label>
+                        <input id="academic-date" class="form-input" type="date" required>
+                    </div>
+                    <div id="academic-period-start-field" class="hidden">
                         <label class="form-label" for="academic-start">시작일</label>
                         <input id="academic-start" class="form-input" type="date" required>
                     </div>
-                    <div>
+                    <div id="academic-period-end-field" class="hidden">
                         <label class="form-label" for="academic-end">종료일</label>
                         <input id="academic-end" class="form-input" type="date" required>
                     </div>

@@ -456,16 +456,30 @@ function renderOperationStatus(dashboard = {}) {
         ['학년도', settings.schoolYear ? `${settings.schoolYear}학년도` : '-'],
         ['학급', settings.className || '-'],
         ['현재 운영모드', operationTypeLabel(dashboard.operationType)],
-        ['방학 기간', vacationPeriods.length ? vacationPeriods.map(item => `${item.name} ${item.startDate}~${item.endDate}`).join(' · ') : '설정 없음'],
+        ['방학 기간', vacationPeriods, 'vacation-periods'],
         ['오늘 상담', dashboard.todayAvailable ? '가능' : '불가'],
         ['다음 상담 가능일', dashboard.nextAvailableDate || '예정 없음'],
         ['Discord', dashboard.discordConfigured ? '설정됨' : '미설정'],
         ['트리거', dashboard.triggersInstalled ? '설치됨' : '미설치']
     ];
-    document.getElementById('operation-status-grid').replaceChildren(...items.map(([label, value]) => {
+    document.getElementById('operation-status-grid').replaceChildren(...items.map(([label, value, type]) => {
         const card = document.createElement('article');
         card.className = 'operation-status-card';
-        card.append(createTextElement('span', 'stat-label', label), createTextElement('strong', 'operation-status-value', value));
+        const valueElement = document.createElement('strong');
+        valueElement.className = 'operation-status-value';
+        if (type === 'vacation-periods') {
+            valueElement.classList.add('vacation-period-list');
+            if (value.length === 0) {
+                valueElement.textContent = '없음';
+            } else {
+                value.forEach(period => {
+                    valueElement.appendChild(createTextElement('span', 'vacation-period-line', `${period.name} ${period.startDate} ~ ${period.endDate}`));
+                });
+            }
+        } else {
+            valueElement.textContent = value;
+        }
+        card.append(createTextElement('span', 'stat-label', label), valueElement);
         return card;
     }));
 }
@@ -579,6 +593,18 @@ function showTab(tabName) {
     });
 }
 
+function syncAcademicScheduleFields() {
+    const form = document.getElementById('academic-form');
+    const isPeriod = document.getElementById('academic-schedule-type').value === 'period';
+    document.getElementById('academic-single-date-field').classList.toggle('hidden', isPeriod);
+    document.getElementById('academic-period-start-field').classList.toggle('hidden', !isPeriod);
+    document.getElementById('academic-period-end-field').classList.toggle('hidden', !isPeriod);
+    document.getElementById('academic-date').required = !isPeriod;
+    document.getElementById('academic-start').required = isPeriod;
+    document.getElementById('academic-end').required = isPeriod;
+    form.classList.toggle('is-period-schedule', isPeriod);
+}
+
 function resetCalendarForm(kind) {
     const form = document.getElementById(kind + '-form');
     form.reset();
@@ -586,6 +612,10 @@ function resetCalendarForm(kind) {
     delete form.dataset.expectedEndDate;
     delete form.dataset.expectedTitle;
     document.getElementById(kind + '-row').value = '';
+    if (kind === 'academic') {
+        document.getElementById('academic-schedule-type').value = 'single';
+        syncAcademicScheduleFields();
+    }
     document.getElementById(kind + '-submit').textContent = kind === 'academic' ? '일정 추가' : '기간 추가';
     document.getElementById(kind + '-cancel-edit').classList.add('hidden');
     showMessage(kind + '-message', '');
@@ -598,7 +628,12 @@ function startCalendarEdit(item) {
     document.getElementById(kind + '-row').value = item.row;
     document.getElementById(kind + '-start').value = item.startDate;
     document.getElementById(kind + '-end').value = item.endDate;
-    if (kind === 'academic') document.getElementById('academic-title').value = item.title;
+    if (kind === 'academic') {
+        document.getElementById('academic-title').value = item.title;
+        document.getElementById('academic-schedule-type').value = item.startDate === item.endDate ? 'single' : 'period';
+        document.getElementById('academic-date').value = item.startDate;
+        syncAcademicScheduleFields();
+    }
     form.dataset.expectedStartDate = item.startDate;
     form.dataset.expectedEndDate = item.endDate;
     form.dataset.expectedTitle = item.title;
@@ -1045,8 +1080,10 @@ document.getElementById('backup-current-data').addEventListener('click', async e
         event.preventDefault();
         const form = event.currentTarget;
         const row = document.getElementById(kind + '-row').value;
-        const startDate = document.getElementById(kind + '-start').value;
-        const endDate = document.getElementById(kind + '-end').value;
+        const isSingleAcademicSchedule = kind === 'academic' && document.getElementById('academic-schedule-type').value === 'single';
+        const singleDate = isSingleAcademicSchedule ? document.getElementById('academic-date').value : '';
+        const startDate = isSingleAcademicSchedule ? singleDate : document.getElementById(kind + '-start').value;
+        const endDate = isSingleAcademicSchedule ? singleDate : document.getElementById(kind + '-end').value;
         const title = kind === 'academic' ? document.getElementById('academic-title').value.trim() : '상담불가';
         const button = document.getElementById(kind + '-submit');
 
@@ -1078,6 +1115,9 @@ document.getElementById('backup-current-data').addEventListener('click', async e
         }
     });
 });
+
+document.getElementById('academic-schedule-type').addEventListener('change', syncAcademicScheduleFields);
+syncAcademicScheduleFields();
 
 document.getElementById('confirm-cancel').addEventListener('click', closeConfirm);
 document.getElementById('confirm-backdrop').addEventListener('click', event => {
