@@ -304,9 +304,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         slotTimes = data.slotTimes || {};
         const serviceSettings = data.serviceSettings || {};
         serviceOperating = serviceSettings.operating !== false;
-        document.title = serviceSettings.studentTitle || '1학년 1반 상담 신청';
-        document.getElementById('student-service-title').textContent = serviceSettings.studentTitle || '1학년 1반 상담 신청';
-        document.getElementById('student-service-eyebrow').textContent = `${serviceSettings.className || '1학년 1반'} · 상담실`;
+        const schoolYear = serviceSettings.schoolYear || 2026;
+        const className = serviceSettings.className || '1학년 1반';
+        document.title = `학생 상담 신청 | ${schoolYear}학년도 · ${className}`;
+        document.getElementById('student-service-title').textContent = '학생 상담 신청';
+        document.getElementById('student-service-eyebrow').textContent = `${schoolYear}학년도 · ${className}`;
         document.getElementById('student-service-notice').textContent = serviceOperating
             ? (serviceSettings.studentNotice || '편한 날짜와 시간을 골라 상담을 신청해 주세요.')
             : '현재 상담 신청을 잠시 중지했습니다.';

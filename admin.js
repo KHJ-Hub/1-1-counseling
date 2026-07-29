@@ -481,9 +481,11 @@ function renderOperationSettings(settings, dashboard) {
         });
         return row;
     }));
-    document.title = `${settings.adminTitle || '교사용 상담 관리'} | ${settings.className || '1학년 1반'}`;
-    document.getElementById('admin-service-title').textContent = settings.adminTitle || '교사용 상담 관리';
-    document.getElementById('admin-service-eyebrow').textContent = `${settings.className || '1학년 1반'} · 상담 관리`;
+    const schoolYear = settings.schoolYear || 2026;
+    const className = settings.className || '1학년 1반';
+    document.title = `교사용 학생 상담 관리 | ${schoolYear}학년도 · ${className}`;
+    document.getElementById('admin-service-title').textContent = '교사용 학생 상담 관리';
+    document.getElementById('admin-service-eyebrow').textContent = `${schoolYear}학년도 · ${className}`;
     renderOperationStatus(dashboard);
 }
 
