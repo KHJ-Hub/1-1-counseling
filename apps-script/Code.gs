@@ -193,13 +193,20 @@ function filterSchoolPolicyHolidays(holidays) {
   return filtered;
 }
 
+// 일부 외부 캘린더가 2026년 공휴일 개정 내용을 늦게 반영하는 경우를 보완한다.
+function applySchoolPolicyHolidaySupplements(year, holidays) {
+  const supplemented = filterSchoolPolicyHolidays(holidays);
+  if (Number(year) >= 2026) supplemented[year + "-07-17"] = "제헌절";
+  return supplemented;
+}
+
 function getKoreanHolidays(year) {
   const cache = CacheService.getScriptCache();
   const cacheKey = "HOLIDAYS_" + year;
   const cachedData = cache.get(cacheKey);
   if (cachedData) {
     try {
-      const cachedHolidays = filterSchoolPolicyHolidays(JSON.parse(cachedData));
+      const cachedHolidays = applySchoolPolicyHolidaySupplements(year, JSON.parse(cachedData));
       // 이전 버전이 저장한 기념일 캐시도 즉시 학교 운영 정책에 맞춰 정리한다.
       cache.put(cacheKey, JSON.stringify(cachedHolidays), 21600);
       return cachedHolidays;
@@ -222,7 +229,7 @@ function getKoreanHolidays(year) {
           holidays[dateStr] = event.getTitle();
         }
       });
-      cache.put(cacheKey, JSON.stringify(holidays), 21600);
+      cache.put(cacheKey, JSON.stringify(applySchoolPolicyHolidaySupplements(year, holidays)), 21600);
     }
   } catch(error) {
     console.error("Failed to fetch holidays for year " + year + ": " + error);
@@ -244,7 +251,7 @@ function getKoreanHolidays(year) {
           const title = titleMatch ? titleMatch[1].replace(/\\([,;\\])/g, "$1").trim() : "공휴일";
           if (isSchoolPolicyPublicHolidayTitle(title)) holidays[dateStr] = title;
         });
-        if (Object.keys(holidays).length > 0) cache.put(cacheKey, JSON.stringify(holidays), 21600);
+        if (Object.keys(holidays).length > 0) cache.put(cacheKey, JSON.stringify(applySchoolPolicyHolidaySupplements(year, holidays)), 21600);
       } else {
         console.error("Holiday ICS request failed for year " + year + ": HTTP " + response.getResponseCode());
       }
@@ -253,7 +260,7 @@ function getKoreanHolidays(year) {
     }
   }
   
-  return holidays;
+  return applySchoolPolicyHolidaySupplements(year, holidays);
 }
 
 function textOutput(value) {
