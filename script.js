@@ -167,6 +167,7 @@ function openBookingModal(dateStr, occupiedSlots, availableSlots) {
     slotList.replaceChildren();
     const operationType = dateOperationTypes[dateStr] || (vacationDates.includes(dateStr) ? 'vacation' : 'semester');
     const slots = operationType === 'vacation' ? ['자습 1차시', '자습 2차시', '자습 3차시', '자습 4차시'] : ['야자 1차시', '야자 2차시', '야자 3차시'];
+    slotList.className = `slot-list slot-count-${slots.length} ${operationType}-slots`;
     slots.forEach(slot => {
         const option = document.createElement('label'); option.className = 'slot-option'; option.dataset.slotOption = '';
         const input = document.createElement('input'); input.type = 'radio'; input.name = 'booking-slot'; input.value = slot;
