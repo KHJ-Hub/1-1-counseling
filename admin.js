@@ -51,6 +51,7 @@ function errorMessage(code) {
         INVALID_DATE: '날짜를 올바르게 입력해 주세요.',
         INVALID_DATE_RANGE: '종료일은 시작일보다 빠를 수 없습니다.',
         TITLE_REQUIRED: '학사일정 이름을 입력해 주세요.',
+        PUBLIC_HOLIDAY_MANAGED_AUTOMATICALLY: '법정공휴일과 대체공휴일은 자동으로 달력에 표시됩니다. 학교 자체 일정만 등록해 주세요.',
         TITLE_TOO_LONG: '학사일정 이름은 100자 이하로 입력해 주세요.',
         NAME_REQUIRED: '학생 이름을 입력해 주세요.',
         INVALID_COMPLETED: '상담 완료 상태를 확인해 주세요.',

@@ -444,6 +444,9 @@ function validateCalendarInput(data) {
   if (kind === "academic" && !title) {
     return { ok: false, error: "TITLE_REQUIRED" };
   }
+  if (kind === "academic" && isAutoPublicHolidayTitle(title)) {
+    return { ok: false, error: "PUBLIC_HOLIDAY_MANAGED_AUTOMATICALLY" };
+  }
   if (title.length > 100) return { ok: false, error: "TITLE_TOO_LONG" };
 
   return {
@@ -537,6 +540,11 @@ function isVacationTitle(title) {
   return (title || "").toString().indexOf("방학") !== -1;
 }
 
+function isAutoPublicHolidayTitle(title) {
+  const normalized = (title || "").toString().replace(/🚫/g, "").replace(/\s+/g, "").trim();
+  return /(?:새해첫날|신정|설날|설연휴|삼일절|3[·.]?1절|식목일|노동절|근로자의날|어린이날|부처님오신날|석가탄신일|현충일|광복절|추석|추석연휴|개천절|한글날|크리스마스|성탄절|기독탄신일|대체공휴일|대체휴일)/.test(normalized);
+}
+
 function getAcademicDateState(ss, date) {
   const sheet = ss.getSheetByName(CALENDAR_SHEET_NAME);
   const state = { vacation: false, blocked: false };
@@ -546,6 +554,7 @@ function getAcademicDateState(ss, date) {
     const startDate = parseKoreanDate(rows[i][0]);
     const endDate = rows[i][1] ? parseKoreanDate(rows[i][1]) : startDate;
     if (!startDate || !endDate || date < startDate || date > endDate) continue;
+    if (isAutoPublicHolidayTitle(rows[i][2])) continue;
     if (isVacationTitle(rows[i][2])) state.vacation = true;
     else state.blocked = true;
   }
@@ -638,6 +647,7 @@ function doGet() {
       const startFmt = parseKoreanDate(startDateVal);
       const endFmt   = endDateVal ? parseKoreanDate(endDateVal) : startFmt;
       if (!startFmt || !endFmt) continue;
+      if (isAutoPublicHolidayTitle(hTitle)) continue;
 
       // 기간 내 날짜를 holidays 배열(클릭 차단용)에 등록
       getDatesStartToIn(startFmt, endFmt).forEach(d => {
@@ -660,13 +670,11 @@ function doGet() {
     }
   }
 
-  // ─── 2단계: 구글 캘린더 공휴일 → 학사일정과 겹치지 않는 날만 하루씩 표시 ───
+  // ─── 2단계: 구글 캘린더 공휴일 → 학교 일정과 독립적으로 하루씩 표시 ───
   const currentYear = new Date().getFullYear();
   const krHolidays = Object.assign({}, getKoreanHolidays(currentYear), getKoreanHolidays(currentYear + 1));
   const publicHolidays = Object.keys(krHolidays);
   for (const date in krHolidays) {
-    if (blockedDates.has(date)) continue; // 이미 학사일정에 포함된 날 중복 방지
-
     holidays.push(date);
     let calendarEnd = new Date(date + "T00:00:00+09:00");
     calendarEnd.setDate(calendarEnd.getDate() + 1);
@@ -1318,6 +1326,7 @@ function adminListCalendarItems() {
     const endDate = rows[i][1] ? parseKoreanDate(rows[i][1]) : startDate;
     if (!startDate || !endDate) continue;
     const rawTitle = rows[i][2] ? rows[i][2].toString().trim() : "";
+    if (rawTitle && isAutoPublicHolidayTitle(rawTitle)) continue;
     items.push({
       row: i + 1,
       startDate: startDate,
@@ -1325,20 +1334,6 @@ function adminListCalendarItems() {
       title: rawTitle || BLOCKED_PERIOD_TITLE,
       kind: !rawTitle || rawTitle === BLOCKED_PERIOD_TITLE ? "blocked" : "academic",
       readonly: false
-    });
-  }
-
-  const currentYear = new Date().getFullYear();
-  const krHolidays = Object.assign({}, getKoreanHolidays(currentYear), getKoreanHolidays(currentYear + 1));
-  let rowId = -1000;
-  for (const date in krHolidays) {
-    items.push({
-      row: rowId--,
-      startDate: date,
-      endDate: date,
-      title: krHolidays[date],
-      kind: "academic",
-      readonly: true
     });
   }
 
