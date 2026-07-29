@@ -6,7 +6,7 @@
     <title>교사용 학생 상담 관리 | 2026학년도 · 1학년 1반</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
     <link rel="stylesheet" href="styles.css?v=20260720-unified-design">
-    <link rel="stylesheet" href="admin.css?v=20260729-history-cards">
+    <link rel="stylesheet" href="admin.css?v=20260730-settings-accordion">
 </head>
 <body class="admin-body">
     <header class="admin-header">
@@ -220,32 +220,53 @@
 
             <section id="settings-panel" class="admin-panel hidden" data-admin-panel="settings">
                 <div class="settings-section">
-                    <div class="panel-heading"><div><h3>학급 및 운영 설정</h3><p class="admin-muted">학생·관리자 화면의 제목과 안내문, 운영 기간, 차시 시간을 코드 수정 없이 관리합니다.</p></div></div>
                     <form id="operation-settings-form" class="operation-settings-form admin-stacked-form" novalidate>
-                        <div><label class="form-label" for="setting-school-year">학년도</label><input id="setting-school-year" class="form-input" type="number" min="2000" max="2200" required></div>
-                        <div><label class="form-label" for="setting-class-name">학년/반</label><input id="setting-class-name" class="form-input" type="text" maxlength="100" required></div>
-                        <div><label class="form-label" for="setting-student-title">학생 화면 제목</label><input id="setting-student-title" class="form-input" type="text" maxlength="100" required></div>
-                        <div><label class="form-label" for="setting-admin-title">관리자 화면 제목</label><input id="setting-admin-title" class="form-input" type="text" maxlength="100" required></div>
-                        <div><label class="form-label" for="setting-operating">상담 운영 상태</label><select id="setting-operating" class="form-input"><option value="true">운영 중</option><option value="false">일시 중지</option></select></div>
-                        <div><label class="form-label" for="setting-school-start">개학일</label><input id="setting-school-start" class="form-input" type="date"></div>
-                        <div class="wide-field"><label class="form-label" for="setting-student-notice">학생 화면 상단 안내문</label><textarea id="setting-student-notice" class="form-input" maxlength="300"></textarea></div>
-                        <div class="wide-field"><label class="form-label" for="setting-vacation-notice">방학 안내문</label><textarea id="setting-vacation-notice" class="form-input" maxlength="300"></textarea></div>
-                        <div class="wide-field"><label class="form-label" for="setting-password-notice">예약 비밀번호 안내문</label><textarea id="setting-password-notice" class="form-input" maxlength="300"></textarea></div>
-                        <section class="wide-field nested-settings">
-                            <div class="subsection-heading"><h4>운영 기간</h4><button id="add-operation-period" class="admin-button secondary" type="button">기간 추가</button></div>
-                            <div id="operation-period-list" class="operation-period-list"></div>
-                        </section>
-                        <section class="wide-field nested-settings">
-                            <div class="subsection-heading"><h4>차시 시간표</h4><span class="form-help">관리자 저장값이 기존 Script Properties보다 우선합니다.</span></div>
-                            <div id="slot-time-settings" class="slot-time-settings"></div>
-                        </section>
+                        <details class="settings-accordion" data-settings-accordion="operating" open>
+                            <summary class="settings-accordion-summary"><div><h3>상담 운영 상태</h3><p>상담 신청을 전체적으로 열거나 닫고, 학생에게 보이는 안내문을 수정합니다.</p></div></summary>
+                            <div class="settings-accordion-body settings-field-grid">
+                                <div><label class="form-label" for="setting-operating">상담 운영 상태</label><select id="setting-operating" class="form-input"><option value="true">운영 중</option><option value="false">일시 중지</option></select></div>
+                                <div class="settings-field-wide"><label class="form-label" for="setting-student-notice">학생 화면 상단 안내문</label><textarea id="setting-student-notice" class="form-input" maxlength="300"></textarea></div>
+                                <div class="settings-field-wide"><label class="form-label" for="setting-vacation-notice">방학 안내문</label><textarea id="setting-vacation-notice" class="form-input" maxlength="300"></textarea></div>
+                                <div class="settings-field-wide"><label class="form-label" for="setting-password-notice">예약 비밀번호 안내문</label><textarea id="setting-password-notice" class="form-input" maxlength="300"></textarea></div>
+                            </div>
+                        </details>
+
+                        <details class="settings-accordion" data-settings-accordion="basic">
+                            <summary class="settings-accordion-summary"><div><h3>기본 정보</h3><p>학년도와 학급명, 화면 제목을 관리합니다. 보통 새 학년도 시작 전에만 수정합니다.</p></div></summary>
+                            <div class="settings-accordion-body settings-field-grid">
+                                <div><label class="form-label" for="setting-school-year">학년도</label><input id="setting-school-year" class="form-input" type="number" min="2000" max="2200" required></div>
+                                <div><label class="form-label" for="setting-class-name">학년/반</label><input id="setting-class-name" class="form-input" type="text" maxlength="100" required></div>
+                                <div><label class="form-label" for="setting-student-title">학생 화면 제목</label><input id="setting-student-title" class="form-input" type="text" maxlength="100" required></div>
+                                <div><label class="form-label" for="setting-admin-title">관리자 화면 제목</label><input id="setting-admin-title" class="form-input" type="text" maxlength="100" required></div>
+                                <div><label class="form-label" for="setting-school-start">개학일</label><input id="setting-school-start" class="form-input" type="date"></div>
+                            </div>
+                        </details>
+
+                        <details class="settings-accordion" data-settings-accordion="periods" open>
+                            <summary class="settings-accordion-summary"><div><h3>운영 기간</h3><p>등록된 기간에 따라 현재 운영모드가 자동으로 판단됩니다.</p></div></summary>
+                            <div class="settings-accordion-body">
+                                <p class="settings-mode-guide">현재 운영모드는 등록된 운영 기간과 오늘 날짜를 기준으로 자동 판단됩니다. 상담 운영 상태는 전체 신청을 열고 닫는 스위치이며, 학기 중/방학 모드는 수동으로 매번 바꾸지 않아도 됩니다. 방학이 끝나면 별도 조작 없이 학기 중 모드로 돌아갑니다.</p>
+                                <div class="subsection-heading"><h4>기간 목록</h4><button id="add-operation-period" class="admin-button secondary" type="button">기간 추가</button></div>
+                                <div id="operation-period-list" class="operation-period-list"></div>
+                            </div>
+                        </details>
+
+                        <details class="settings-accordion" data-settings-accordion="slot-times">
+                            <summary class="settings-accordion-summary"><div><h3>차시 시간표</h3><p>상담 가능한 차시의 실제 시작·종료 시간을 관리합니다. 시간표가 바뀔 때만 수정합니다.</p></div></summary>
+                            <div class="settings-accordion-body">
+                                <p class="form-help">관리자 저장값이 기존 Script Properties보다 우선합니다.</p>
+                                <div id="slot-time-settings" class="slot-time-settings"></div>
+                            </div>
+                        </details>
                         <div class="editor-actions admin-form-actions"><button id="operation-settings-submit" class="admin-button primary" type="submit">운영 설정 저장</button></div>
                     </form>
                     <p id="operation-settings-message" class="admin-message hidden" role="alert"></p>
                 </div>
                 <div class="settings-section">
-                    <div class="panel-heading"><div><h3>새 학년도 준비</h3><p class="admin-muted">새 학년도 시작 전, 현재 데이터를 백업한 뒤 학년도·학급명과 상담 가능 시간을 새 학년도에 맞게 조정하세요.</p></div></div>
-                    <div class="setup-guide">
+                    <details class="settings-accordion" data-settings-accordion="new-school-year">
+                        <summary class="settings-accordion-summary"><div><h3>새 학년도 준비</h3><p>새 학년으로 넘어가기 전에 기존 데이터를 백업하고 기본 정보를 변경합니다.</p></div></summary>
+                        <div class="settings-accordion-body setup-guide">
+                            <p class="admin-muted">새 학년도 시작 전, 현재 데이터를 백업한 뒤 학년도·학급명과 상담 가능 시간을 새 학년도에 맞게 조정하세요.</p>
                         <ul>
                             <li>기존 예약과 상담 이력은 삭제하지 않고 보관하는 것을 권장합니다.</li>
                             <li>백업 버튼은 원본 데이터를 삭제하지 않고 복사본만 만듭니다.</li>
@@ -256,7 +277,8 @@
                             <button id="backup-current-data" class="admin-button primary" type="button">현재 데이터 백업하기</button>
                         </div>
                         <p id="backup-message" class="admin-message hidden" role="status" aria-live="polite"></p>
-                    </div>
+                        </div>
+                    </details>
                 </div>
                 <div class="settings-section">
                     <div class="panel-heading"><div><h3>알림 및 연동 설정 안내</h3><p class="admin-muted">실제 URL·Calendar ID·비밀값은 화면과 API 응답에 표시하지 않습니다.</p></div></div>
@@ -302,6 +324,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260730-public-holiday-separation"></script>
+    <script src="admin.js?v=20260730-settings-accordion"></script>
 </body>
 </html>

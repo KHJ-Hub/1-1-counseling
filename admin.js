@@ -1,5 +1,6 @@
 const ADMIN_GAS_URL = "https://script.google.com/macros/s/AKfycbxb_Ed3RuWJ0Coh_JKBHaPWZxZvJUUY1JqC4XOYnAv6WWyX1oFs3EawJ-m6aEaew_FVvA/exec";
 const ADMIN_SESSION_KEY = "counselingAdminSession";
+const SETTINGS_ACCORDION_STORAGE_KEY = "counselingAdminSettingsAccordions";
 const forceAdminLogin = new URLSearchParams(window.location.search).get('reauth') === '1';
 
 if (forceAdminLogin) {
@@ -19,6 +20,32 @@ let adminSlotTimes = {
     '자습 3차시': '13:00~14:50', '자습 4차시': '15:10~17:00'
 };
 const ADMIN_SLOT_NAMES = { semester: ['야자 1차시', '야자 2차시', '야자 3차시'], vacation: ['자습 1차시', '자습 2차시', '자습 3차시', '자습 4차시'], closed: [] };
+
+function initializeSettingsAccordions() {
+    const accordions = Array.from(document.querySelectorAll('[data-settings-accordion]'));
+    let savedState = {};
+    try {
+        savedState = JSON.parse(localStorage.getItem(SETTINGS_ACCORDION_STORAGE_KEY) || '{}') || {};
+    } catch (error) {
+        savedState = {};
+    }
+
+    accordions.forEach(accordion => {
+        const key = accordion.dataset.settingsAccordion;
+        if (Object.prototype.hasOwnProperty.call(savedState, key)) accordion.open = Boolean(savedState[key]);
+        accordion.addEventListener('toggle', () => {
+            try {
+                const nextState = JSON.parse(localStorage.getItem(SETTINGS_ACCORDION_STORAGE_KEY) || '{}') || {};
+                nextState[key] = accordion.open;
+                localStorage.setItem(SETTINGS_ACCORDION_STORAGE_KEY, JSON.stringify(nextState));
+            } catch (error) {
+                // 브라우저 저장소를 사용할 수 없어도 아코디언 동작은 유지합니다.
+            }
+        });
+    });
+}
+
+initializeSettingsAccordions();
 
 class AdminApiError extends Error {
     constructor(code) {

@@ -132,6 +132,19 @@
 .operation-status-card strong { display: block; overflow-wrap: anywhere; color: var(--color-primary-strong); line-height: 1.42; }
 .operation-settings-form,
 .bulk-availability-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 13px; }
+.settings-accordion { grid-column: 1 / -1; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
+.settings-accordion-summary { display: flex; align-items: center; justify-content: space-between; min-height: 74px; padding: 16px 18px; color: var(--color-text); cursor: pointer; gap: 14px; list-style: none; }
+.settings-accordion-summary::-webkit-details-marker { display: none; }
+.settings-accordion-summary::after { flex: 0 0 auto; color: var(--color-primary-strong); font-size: 1.2rem; font-weight: 800; content: "⌄"; transition: transform 160ms ease; }
+.settings-accordion[open] .settings-accordion-summary { border-bottom: 1px solid var(--color-border); background: #faf9f4; }
+.settings-accordion[open] .settings-accordion-summary::after { transform: rotate(180deg); }
+.settings-accordion-summary h3 { margin: 0 0 4px; font-size: 1.06rem; letter-spacing: -0.025em; }
+.settings-accordion-summary p { margin: 0; color: var(--color-muted); font-size: 0.86rem; font-weight: 500; line-height: 1.5; }
+.settings-accordion-summary:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
+.settings-accordion-body { padding: 18px; }
+.settings-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 13px; }
+.settings-field-wide { grid-column: 1 / -1; }
+.settings-mode-guide { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #c9ddce; border-radius: var(--radius-sm); background: var(--color-primary-soft); color: var(--color-primary-strong); font-size: 0.88rem; line-height: 1.58; }
 .operation-settings-form .wide-field,
 .operation-settings-form .nested-settings,
 .operation-settings-form .editor-actions,
@@ -273,6 +286,8 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .bulk-availability-form .editor-actions,
     .operation-period-row .remove-period { grid-column: auto; }
     .operation-period-row .remove-period { width: 100%; justify-self: stretch; }
+    .settings-field-grid { grid-template-columns: 1fr; }
+    .settings-field-wide { grid-column: auto; }
     .availability-editor .editor-actions,
     .admin-stacked-form .admin-form-actions { grid-column: auto; }
     .stats-summary-grid,
@@ -313,6 +328,10 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .slot-checks { grid-template-columns: 1fr; }
     .operation-status-grid { grid-template-columns: 1fr; }
     .nested-settings { padding: 14px; }
+    .settings-accordion-summary { min-height: 70px; padding: 14px; }
+    .settings-accordion-summary h3 { font-size: 1rem; }
+    .settings-accordion-summary p { font-size: 0.82rem; }
+    .settings-accordion-body { padding: 14px; }
     .subsection-heading { flex-direction: column; }
     .subsection-heading .admin-button { width: 100%; }
     #confirm-backdrop { align-items: flex-end; padding: 0; }
