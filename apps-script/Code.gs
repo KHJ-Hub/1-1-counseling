@@ -684,7 +684,7 @@ function doGet() {
       title: "🚫 " + krHolidays[date] + " 🚫",
       start: date, end: calendarEndStr, allDay: true,
       backgroundColor: "#e8e6f2", borderColor: "#e8e6f2", textColor: "#5a5570",
-      extendedProps: { type: "holiday", reason: krHolidays[date] }
+      extendedProps: { type: "holiday", reason: krHolidays[date], isPublicHoliday: true }
     });
   }
 

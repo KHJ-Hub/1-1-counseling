@@ -316,10 +316,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('vacation-guide').textContent = serviceSettings.vacationNotice || '방학 중에는 선생님이 열어둔 날짜와 시간만 신청할 수 있어요.';
         document.getElementById('booking-password-help').textContent = serviceSettings.passwordNotice || '예약 취소 시 사용할 숫자 4자리를 입력해 주세요.';
         let dateCounts = {};
+        data.events = data.events.filter(ev => !(ev.extendedProps && ev.extendedProps.isPublicHoliday === true && vacationDates.includes(ev.start)));
 
         data.events.forEach(ev => {
             if (ev.extendedProps && ev.extendedProps.type === "holiday") {
-                const isPublicHoliday = publicHolidays.includes(ev.start);
+                const isPublicHoliday = ev.extendedProps.isPublicHoliday === true ||
+                    (!Object.prototype.hasOwnProperty.call(ev.extendedProps, 'isPublicHoliday') && publicHolidays.includes(ev.start));
                 ev.classNames = [isPublicHoliday ? 'public-holiday-event' : 'holiday-event'];
                 ev.title = isPublicHoliday
                     ? normalizePublicHolidayTitle(ev.title)
