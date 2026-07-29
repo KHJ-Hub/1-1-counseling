@@ -6,7 +6,7 @@
     <title>상담 관리 | 1학년 1반</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
     <link rel="stylesheet" href="styles.css?v=20260720-unified-design">
-    <link rel="stylesheet" href="admin.css?v=20260729-stats-actionbar">
+    <link rel="stylesheet" href="admin.css?v=20260729-admin-form-actions">
 </head>
 <body class="admin-body">
     <header class="admin-header">
@@ -90,12 +90,12 @@
 
             <section id="stats-panel" class="admin-panel hidden" data-admin-panel="stats">
                 <div class="panel-heading"><div><h3>상담 통계</h3><p class="admin-muted">필터 조건에 맞는 상담 현황을 집계합니다. 비밀번호와 상담 메모는 통계에 사용하거나 표시하지 않습니다.</p></div></div>
-                <form id="stats-filter-form" class="stats-filter-grid">
+                <form id="stats-filter-form" class="stats-filter-grid admin-inline-form">
                     <div><label class="form-label" for="stats-start-date">시작일</label><input id="stats-start-date" class="form-input" type="date"></div>
                     <div><label class="form-label" for="stats-end-date">종료일</label><input id="stats-end-date" class="form-input" type="date"></div>
                     <div><label class="form-label" for="stats-name">학생 이름</label><input id="stats-name" class="form-input" type="search" maxlength="100"></div>
                     <div><label class="form-label" for="stats-completed">완료 여부</label><select id="stats-completed" class="form-input"><option value="">전체</option><option value="true">완료</option><option value="false">미완료</option></select></div>
-                    <div class="stats-filter-actions admin-actions"><button id="stats-reset" class="admin-button secondary" type="button">초기화</button><button id="stats-submit" class="admin-button primary" type="submit">통계 조회</button></div>
+                    <div class="stats-filter-actions admin-form-actions"><button id="stats-reset" class="admin-button secondary" type="button">초기화</button><button id="stats-submit" class="admin-button primary" type="submit">통계 조회</button></div>
                 </form>
                 <p id="stats-message" class="admin-message hidden" role="status"></p>
                 <div id="stats-summary" class="stats-summary-grid"></div>
@@ -109,7 +109,7 @@
                         <label class="form-label" for="history-name">학생 이름</label>
                         <input id="history-name" class="form-input" type="search" maxlength="100" required>
                     </div>
-                    <button id="history-submit" class="admin-button primary" type="submit">이력 조회</button>
+                    <div class="admin-form-actions"><button id="history-submit" class="admin-button primary" type="submit">이력 조회</button></div>
                 </form>
                 <p id="history-message" class="admin-message hidden" role="status"></p>
                 <div id="history-list" class="admin-list"></div>
@@ -123,7 +123,7 @@
                         <p class="form-help">방학 일정은 달력에는 표시되지만, 날짜별 가능 시간이 열려 있을 때만 상담 신청이 가능합니다.<br>개교기념일, 재량휴업일 등 상담이 어려운 학교 일정은 상담 신청이 제한될 수 있습니다.</p>
                     </div>
                 </div>
-                <form id="academic-form" class="editor-form" novalidate>
+                <form id="academic-form" class="editor-form admin-inline-form" novalidate>
                     <input id="academic-row" type="hidden">
                     <div>
                         <label class="form-label" for="academic-title">일정명</label>
@@ -137,7 +137,7 @@
                         <label class="form-label" for="academic-end">종료일</label>
                         <input id="academic-end" class="form-input" type="date" required>
                     </div>
-                    <div class="editor-actions">
+                    <div class="editor-actions admin-form-actions">
                         <button id="academic-cancel-edit" class="admin-button secondary hidden" type="button">수정 취소</button>
                         <button id="academic-submit" class="admin-button primary" type="submit">일정 추가</button>
                     </div>
@@ -154,7 +154,7 @@
                         <p class="form-help">하루 전체 상담이 어려운 날에 사용합니다.<br>특정 차시만 막고 싶다면 “가능 시간” 탭에서 해당 차시를 비활성화합니다.</p>
                     </div>
                 </div>
-                <form id="blocked-form" class="editor-form blocked-editor" novalidate>
+                <form id="blocked-form" class="editor-form blocked-editor admin-inline-form" novalidate>
                     <input id="blocked-row" type="hidden">
                     <div>
                         <label class="form-label" for="blocked-start">시작일</label>
@@ -164,7 +164,7 @@
                         <label class="form-label" for="blocked-end">종료일</label>
                         <input id="blocked-end" class="form-input" type="date" required>
                     </div>
-                    <div class="editor-actions">
+                    <div class="editor-actions admin-form-actions">
                         <button id="blocked-cancel-edit" class="admin-button secondary hidden" type="button">수정 취소</button>
                         <button id="blocked-submit" class="admin-button primary" type="submit">기간 추가</button>
                     </div>
@@ -181,7 +181,7 @@
                         <p class="form-help">하루 전체가 불가능한 경우에는 “상담 불가일”을 사용할 수 있고, 특정 차시만 불가능한 경우에는 이 화면에서 해당 차시만 해제하세요.</p>
                     </div>
                 </div>
-                <form id="availability-form" class="editor-form availability-editor" novalidate>
+                <form id="availability-form" class="editor-form availability-editor admin-stacked-form" novalidate>
                     <input id="availability-row" type="hidden">
                     <div>
                         <label class="form-label" for="availability-date">날짜</label>
@@ -195,7 +195,7 @@
                         <legend class="form-label">가능 시간</legend>
                     </fieldset>
                     <div><label class="form-label" for="availability-note">비고</label><input id="availability-note" class="form-input" type="text" maxlength="200" placeholder="예: 1차시 특강, 미출근"></div>
-                    <div class="editor-actions">
+                    <div class="editor-actions admin-form-actions">
                         <button id="availability-cancel-edit" class="admin-button secondary hidden" type="button">수정 취소</button>
                         <button id="availability-submit" class="admin-button primary" type="submit">설정 추가</button>
                     </div>
@@ -204,7 +204,7 @@
                 <div id="availability-list" class="admin-list"></div>
                 <div class="settings-section bulk-section">
                     <div class="panel-heading"><div><h3>기간 일괄 적용</h3><p class="admin-muted">기존 설정 보호를 위해 기본값은 건너뛰기입니다. 적용 전에 선택 내용을 다시 확인합니다.</p></div></div>
-                    <form id="bulk-availability-form" class="bulk-availability-form" novalidate>
+                    <form id="bulk-availability-form" class="bulk-availability-form admin-stacked-form" novalidate>
                         <div><label class="form-label" for="bulk-start-date">시작일</label><input id="bulk-start-date" class="form-input" type="date" required></div>
                         <div><label class="form-label" for="bulk-end-date">종료일</label><input id="bulk-end-date" class="form-input" type="date" required></div>
                         <div><label class="form-label" for="bulk-operation">운영 유형</label><select id="bulk-operation" class="form-input"><option value="semester">학기 중</option><option value="vacation">방학</option><option value="closed">상담 불가</option></select></div>
@@ -212,7 +212,7 @@
                         <fieldset id="bulk-weekdays" class="compact-checks"><legend class="form-label">적용 요일</legend></fieldset>
                         <fieldset id="bulk-slot-checks" class="slot-checks"><legend class="form-label">가능 시간</legend></fieldset>
                         <div class="wide-field"><label class="form-label" for="bulk-note">비고</label><input id="bulk-note" class="form-input" type="text" maxlength="200" placeholder="예: 1차시 특강"></div>
-                        <div class="editor-actions"><button id="bulk-availability-submit" class="admin-button primary" type="submit">일괄 적용</button></div>
+                        <div class="editor-actions admin-form-actions"><button id="bulk-availability-submit" class="admin-button primary" type="submit">일괄 적용</button></div>
                     </form>
                     <p id="bulk-availability-message" class="admin-message hidden" role="alert"></p>
                 </div>
@@ -221,7 +221,7 @@
             <section id="settings-panel" class="admin-panel hidden" data-admin-panel="settings">
                 <div class="settings-section">
                     <div class="panel-heading"><div><h3>학급 및 운영 설정</h3><p class="admin-muted">학생·관리자 화면의 제목과 안내문, 운영 기간, 차시 시간을 코드 수정 없이 관리합니다.</p></div></div>
-                    <form id="operation-settings-form" class="operation-settings-form" novalidate>
+                    <form id="operation-settings-form" class="operation-settings-form admin-stacked-form" novalidate>
                         <div><label class="form-label" for="setting-school-year">학년도</label><input id="setting-school-year" class="form-input" type="number" min="2000" max="2200" required></div>
                         <div><label class="form-label" for="setting-class-name">학년/반</label><input id="setting-class-name" class="form-input" type="text" maxlength="100" required></div>
                         <div><label class="form-label" for="setting-student-title">학생 화면 제목</label><input id="setting-student-title" class="form-input" type="text" maxlength="100" required></div>
@@ -239,7 +239,7 @@
                             <div class="subsection-heading"><h4>차시 시간표</h4><span class="form-help">관리자 저장값이 기존 Script Properties보다 우선합니다.</span></div>
                             <div id="slot-time-settings" class="slot-time-settings"></div>
                         </section>
-                        <div class="editor-actions admin-actions"><button id="operation-settings-submit" class="admin-button primary" type="submit">운영 설정 저장</button></div>
+                        <div class="editor-actions admin-form-actions"><button id="operation-settings-submit" class="admin-button primary" type="submit">운영 설정 저장</button></div>
                     </form>
                     <p id="operation-settings-message" class="admin-message hidden" role="alert"></p>
                 </div>
@@ -252,7 +252,7 @@
                             <li>상담 가능 시간 초기화가 필요하면 백업 후 필요한 항목만 직접 정리하세요.</li>
                             <li>이 화면에서는 위험한 일괄 삭제 기능을 제공하지 않습니다.</li>
                         </ul>
-                        <div class="admin-actions backup-actions">
+                        <div class="admin-action-row backup-actions">
                             <button id="backup-current-data" class="admin-button primary" type="button">현재 데이터 백업하기</button>
                         </div>
                         <p id="backup-message" class="admin-message hidden" role="status" aria-live="polite"></p>
@@ -261,7 +261,7 @@
                 <div class="settings-section">
                     <div class="panel-heading"><div><h3>알림 및 연동 설정 안내</h3><p class="admin-muted">실제 URL·Calendar ID·비밀값은 화면과 API 응답에 표시하지 않습니다.</p></div></div>
                     <div id="integration-status" class="integration-status" aria-live="polite"></div>
-                    <div class="integration-actions admin-actions">
+                    <div class="integration-actions admin-action-row">
                         <button id="integration-refresh" class="admin-button secondary" type="button">설정 상태 새로고침</button>
                         <button class="admin-button secondary integration-test" data-test-action="adminTestDiscord" type="button">Discord 테스트</button>
                         <button class="admin-button secondary integration-test" data-test-action="adminTestTodaySummary" type="button">오늘 일정 테스트</button>
@@ -285,7 +285,7 @@
                         <input id="confirm-admin-password" class="form-input" type="password" minlength="4" maxlength="64" autocomplete="new-password" required>
                     </div>
                     <p id="password-message" class="admin-message hidden" role="alert"></p>
-                    <button id="password-submit" class="admin-button primary" type="submit">비밀번호 변경</button>
+                    <div class="admin-form-actions"><button id="password-submit" class="admin-button primary" type="submit">비밀번호 변경</button></div>
                 </form>
             </section>
         </section>
@@ -302,6 +302,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260728-backup-actions"></script>
+    <script src="admin.js?v=20260729-admin-form-actions"></script>
 </body>
 </html>
