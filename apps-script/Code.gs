@@ -175,14 +175,14 @@ function normalizeHolidayTitle(title) {
 // 학교 운영 정책상 기념일은 법정공휴일 자동 표시·예약 차단 대상이 아니다.
 function isSchoolPolicyMemorialTitle(title) {
   const normalized = normalizeHolidayTitle(title);
-  return /^(?:국군의날|식목일|노동절|근로자의날|스승의날|제헌절)$/.test(normalized);
+  return /^(?:국군의날|식목일|노동절|근로자의날|스승의날)$/.test(normalized);
 }
 
 // Google 한국 공휴일 캘린더에는 기념일도 포함될 수 있으므로 법정·대체공휴일만 사용한다.
 function isSchoolPolicyPublicHolidayTitle(title) {
   const normalized = normalizeHolidayTitle(title);
   if (!normalized || isSchoolPolicyMemorialTitle(normalized)) return false;
-  return /(?:새해첫날|신정|설날|설연휴|삼일절|31절|어린이날|부처님오신날|석가탄신일|현충일|광복절|추석|추석연휴|개천절|한글날|크리스마스|성탄절|기독탄신일|대체공휴일|대체휴일|임시공휴일|대통령선거|국회의원선거|지방선거|선거일)/.test(normalized);
+  return /(?:새해첫날|신정|설날|설연휴|삼일절|31절|제헌절|어린이날|부처님오신날|석가탄신일|현충일|광복절|추석|추석연휴|개천절|한글날|크리스마스|성탄절|기독탄신일|대체공휴일|대체휴일|임시공휴일|대통령선거|국회의원선거|지방선거|선거일)/.test(normalized);
 }
 
 function filterSchoolPolicyHolidays(holidays) {
