@@ -183,9 +183,12 @@ label { -webkit-tap-highlight-color: transparent; }
 
 /* FullCalendar */
 .fc { --fc-border-color: var(--color-border); --fc-page-bg-color: transparent; --fc-neutral-bg-color: var(--color-muted-soft); --fc-today-bg-color: transparent; color: var(--color-text); }
-.fc .fc-header-toolbar { margin-bottom: 24px !important; }
+.fc .fc-header-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; margin-bottom: 24px !important; }
+.fc .fc-header-toolbar .fc-toolbar-chunk:first-child { grid-column: 1; justify-self: start; }
+.fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(2) { grid-column: 2; justify-self: center; gap: 16px; }
+.fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(3) { grid-column: 3; justify-self: end; }
 .fc .fc-toolbar-chunk { display: flex; align-items: center; gap: 7px; }
-.fc .fc-toolbar-title { margin: 0 4px !important; color: var(--color-text); font-size: clamp(1.15rem, 2.4vw, 1.48rem) !important; font-weight: 780 !important; letter-spacing: -0.035em; white-space: nowrap; }
+.fc .fc-toolbar-title { margin: 0 8px !important; color: var(--color-text); font-size: clamp(1.15rem, 2.4vw, 1.48rem) !important; font-weight: 780 !important; letter-spacing: -0.035em; white-space: nowrap; }
 .fc .fc-button-primary {
     min-width: 44px;
     min-height: 44px;
@@ -349,10 +352,12 @@ textarea:focus-visible,
     .calendar-card::before,
     .calendar-card::after { display: none; }
     .fc .fc-toolbar { align-items: center; }
+    .fc .fc-header-toolbar { grid-template-columns: minmax(52px, 1fr) auto minmax(52px, 1fr); }
     .fc .fc-toolbar-title { font-size: 1.04rem !important; }
     .fc .fc-button-primary { min-width: 44px; min-height: 44px; padding: 6px 10px !important; }
     .fc .fc-today-button { min-width: 52px; }
     .fc .fc-toolbar-chunk { gap: 3px; }
+    .fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(2) { gap: 8px; }
     .fc .fc-col-header-cell-cushion { padding: 9px 2px; font-size: 0.72rem; }
     .fc .fc-daygrid-day-frame { min-height: 76px; padding: 1px; }
     .fc .fc-daygrid-day-number { min-width: 27px; min-height: 27px; margin: 2px; font-size: 0.72rem; }
