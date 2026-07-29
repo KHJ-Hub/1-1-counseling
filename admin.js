@@ -258,13 +258,25 @@ function renderHistory(history, name) {
         
         const summary = document.createElement('div');
         summary.className = 'history-summary';
-        summary.appendChild(createTextElement('div', 'item-title', item.date));
-        summary.appendChild(createTextElement('div', 'item-meta', item.slot));
-        summary.appendChild(createTextElement('div', item.completed ? 'status-complete' : 'status-pending', item.completed ? '완료' : '미완료'));
-        summary.appendChild(createTextElement('div', 'item-meta memo-display', item.memo || '메모 없음'));
-        
+        const content = document.createElement('div');
+        content.className = 'history-content';
+        content.appendChild(createTextElement('div', 'history-date', item.date));
+
+        const details = document.createElement('div');
+        details.className = 'history-details';
+        details.appendChild(createTextElement('span', 'history-slot-badge', item.slot));
+        content.appendChild(details);
+
+        const memo = document.createElement('div');
+        memo.className = 'history-memo';
+        memo.appendChild(createTextElement('span', 'history-memo-label', '상담 메모'));
+        memo.appendChild(createTextElement('p', `history-memo-text memo-display${item.memo ? '' : ' is-empty'}`, item.memo || '메모 없음'));
+        content.appendChild(memo);
+        summary.appendChild(content);
+
         const actions = document.createElement('div');
-        actions.className = 'item-actions';
+        actions.className = 'history-actions';
+        actions.appendChild(createTextElement('span', `history-status-badge ${item.completed ? 'is-complete' : 'is-pending'}`, item.completed ? '완료' : '미완료'));
         actions.appendChild(createActionButton('메모 수정', 'secondary', 'edit-history-memo', item.row));
         summary.appendChild(actions);
         article.appendChild(summary);
@@ -272,7 +284,8 @@ function renderHistory(history, name) {
         const editor = document.createElement('div');
         editor.className = 'history-editor hidden';
         const memoField = document.createElement('div');
-        memoField.className = 'memo-field';
+        memoField.className = 'memo-field history-memo-field';
+        memoField.appendChild(createTextElement('span', 'history-memo-label', '상담 메모 수정'));
         const memoInput = document.createElement('textarea');
         memoInput.className = 'form-input memo-input history-memo-input';
         memoInput.maxLength = 2000;
@@ -281,7 +294,7 @@ function renderHistory(history, name) {
         editor.appendChild(memoField);
         
         const editorActions = document.createElement('div');
-        editorActions.className = 'item-actions';
+        editorActions.className = 'history-editor-actions';
         editorActions.appendChild(createActionButton('저장', 'primary', 'save-history-memo', item.row));
         editorActions.appendChild(createActionButton('취소', 'secondary', 'cancel-history-memo', item.row));
         editor.appendChild(editorActions);
