@@ -164,13 +164,45 @@ function validateOperationSettings(data) {
   };
 }
 
+function normalizeHolidayTitle(title) {
+  return (title || "").toString()
+    .replace(/🚫/g, "")
+    .replace(/\s+/g, "")
+    .replace(/[·.ㆍ]/g, "")
+    .trim();
+}
+
+// 학교 운영 정책상 기념일은 법정공휴일 자동 표시·예약 차단 대상이 아니다.
+function isSchoolPolicyMemorialTitle(title) {
+  const normalized = normalizeHolidayTitle(title);
+  return /^(?:국군의날|식목일|노동절|근로자의날|스승의날|제헌절)$/.test(normalized);
+}
+
+// Google 한국 공휴일 캘린더에는 기념일도 포함될 수 있으므로 법정·대체공휴일만 사용한다.
+function isSchoolPolicyPublicHolidayTitle(title) {
+  const normalized = normalizeHolidayTitle(title);
+  if (!normalized || isSchoolPolicyMemorialTitle(normalized)) return false;
+  return /(?:새해첫날|신정|설날|설연휴|삼일절|31절|어린이날|부처님오신날|석가탄신일|현충일|광복절|추석|추석연휴|개천절|한글날|크리스마스|성탄절|기독탄신일|대체공휴일|대체휴일|임시공휴일|대통령선거|국회의원선거|지방선거|선거일)/.test(normalized);
+}
+
+function filterSchoolPolicyHolidays(holidays) {
+  const filtered = {};
+  Object.keys(holidays || {}).forEach(date => {
+    if (isSchoolPolicyPublicHolidayTitle(holidays[date])) filtered[date] = holidays[date];
+  });
+  return filtered;
+}
+
 function getKoreanHolidays(year) {
   const cache = CacheService.getScriptCache();
   const cacheKey = "HOLIDAYS_" + year;
   const cachedData = cache.get(cacheKey);
   if (cachedData) {
     try {
-      return JSON.parse(cachedData);
+      const cachedHolidays = filterSchoolPolicyHolidays(JSON.parse(cachedData));
+      // 이전 버전이 저장한 기념일 캐시도 즉시 학교 운영 정책에 맞춰 정리한다.
+      cache.put(cacheKey, JSON.stringify(cachedHolidays), 21600);
+      return cachedHolidays;
     } catch(e) {}
   }
   
@@ -186,7 +218,9 @@ function getKoreanHolidays(year) {
       const events = calendar.getEvents(startDate, endDate);
       events.forEach(event => {
         const dateStr = Utilities.formatDate(event.getStartTime(), TIME_ZONE, "yyyy-MM-dd");
-        holidays[dateStr] = event.getTitle();
+        if (isSchoolPolicyPublicHolidayTitle(event.getTitle())) {
+          holidays[dateStr] = event.getTitle();
+        }
       });
       cache.put(cacheKey, JSON.stringify(holidays), 21600);
     }
@@ -207,7 +241,8 @@ function getKoreanHolidays(year) {
           if (!dateMatch || dateMatch[1].substring(0, 4) !== String(year)) return;
           const rawDate = dateMatch[1];
           const dateStr = rawDate.substring(0, 4) + "-" + rawDate.substring(4, 6) + "-" + rawDate.substring(6, 8);
-          holidays[dateStr] = titleMatch ? titleMatch[1].replace(/\\([,;\\])/g, "$1").trim() : "공휴일";
+          const title = titleMatch ? titleMatch[1].replace(/\\([,;\\])/g, "$1").trim() : "공휴일";
+          if (isSchoolPolicyPublicHolidayTitle(title)) holidays[dateStr] = title;
         });
         if (Object.keys(holidays).length > 0) cache.put(cacheKey, JSON.stringify(holidays), 21600);
       } else {
@@ -447,6 +482,9 @@ function validateCalendarInput(data) {
   if (kind === "academic" && isAutoPublicHolidayTitle(title)) {
     return { ok: false, error: "PUBLIC_HOLIDAY_MANAGED_AUTOMATICALLY" };
   }
+  if (kind === "academic" && isSchoolPolicyMemorialTitle(title)) {
+    return { ok: false, error: "MEMORIAL_NOT_MANAGED_AS_HOLIDAY" };
+  }
   if (title.length > 100) return { ok: false, error: "TITLE_TOO_LONG" };
 
   return {
@@ -541,8 +579,7 @@ function isVacationTitle(title) {
 }
 
 function isAutoPublicHolidayTitle(title) {
-  const normalized = (title || "").toString().replace(/🚫/g, "").replace(/\s+/g, "").trim();
-  return /(?:새해첫날|신정|설날|설연휴|삼일절|3[·.]?1절|식목일|노동절|근로자의날|어린이날|부처님오신날|석가탄신일|현충일|광복절|추석|추석연휴|개천절|한글날|크리스마스|성탄절|기독탄신일|대체공휴일|대체휴일)/.test(normalized);
+  return isSchoolPolicyPublicHolidayTitle(title);
 }
 
 function getAcademicDateState(ss, date) {
@@ -554,7 +591,7 @@ function getAcademicDateState(ss, date) {
     const startDate = parseKoreanDate(rows[i][0]);
     const endDate = rows[i][1] ? parseKoreanDate(rows[i][1]) : startDate;
     if (!startDate || !endDate || date < startDate || date > endDate) continue;
-    if (isAutoPublicHolidayTitle(rows[i][2])) continue;
+    if (isAutoPublicHolidayTitle(rows[i][2]) || isSchoolPolicyMemorialTitle(rows[i][2])) continue;
     if (isVacationTitle(rows[i][2])) state.vacation = true;
     else state.blocked = true;
   }
@@ -647,7 +684,7 @@ function doGet() {
       const startFmt = parseKoreanDate(startDateVal);
       const endFmt   = endDateVal ? parseKoreanDate(endDateVal) : startFmt;
       if (!startFmt || !endFmt) continue;
-      if (isAutoPublicHolidayTitle(hTitle)) continue;
+      if (isAutoPublicHolidayTitle(hTitle) || isSchoolPolicyMemorialTitle(hTitle)) continue;
 
       // 기간 내 날짜를 holidays 배열(클릭 차단용)에 등록
       getDatesStartToIn(startFmt, endFmt).forEach(d => {
@@ -1194,6 +1231,7 @@ function adminGetOperationSettings() {
       const start = parseKoreanDate(row[0]);
       const end = row[1] ? parseKoreanDate(row[1]) : start;
       if (!start || !end || date < start || date > end) return;
+      if (isAutoPublicHolidayTitle(row[2]) || isSchoolPolicyMemorialTitle(row[2])) return;
       if (isVacationTitle(row[2])) state.vacation = true;
       else state.blocked = true;
     });
@@ -1326,7 +1364,7 @@ function adminListCalendarItems() {
     const endDate = rows[i][1] ? parseKoreanDate(rows[i][1]) : startDate;
     if (!startDate || !endDate) continue;
     const rawTitle = rows[i][2] ? rows[i][2].toString().trim() : "";
-    if (rawTitle && isAutoPublicHolidayTitle(rawTitle)) continue;
+    if (rawTitle && (isAutoPublicHolidayTitle(rawTitle) || isSchoolPolicyMemorialTitle(rawTitle))) continue;
     items.push({
       row: i + 1,
       startDate: startDate,

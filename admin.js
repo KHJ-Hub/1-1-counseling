@@ -99,6 +99,7 @@ function errorMessage(code) {
         ADMIN_PASSWORD_POLICY: '관리자 비밀번호는 4자 이상 64자 이하로 입력해 주세요.',
         INVALID_ACTION: '지원하지 않는 관리자 작업입니다.',
         INTEGRATION_TEST_FAILED: '연동 테스트를 실행하지 못했습니다. Apps Script 실행 로그를 확인해 주세요.',
+        MEMORIAL_NOT_MANAGED_AS_HOLIDAY: '국군의 날 등 기념일은 자동 공휴일이나 상담 차단 일정으로 등록하지 않습니다. 학교 자체 행사는 구체적인 일정명으로 등록해 주세요.',
         SERVER_ERROR: '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
         INVALID_RESPONSE: '서버 응답을 확인할 수 없습니다. Apps Script 배포 버전을 확인해 주세요.',
         NETWORK_ERROR: '서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.'
