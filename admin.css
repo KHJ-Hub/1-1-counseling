@@ -132,8 +132,10 @@
 .operation-status-card { min-width: 0; padding: 15px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
 .operation-status-card span { display: block; margin-bottom: 5px; color: var(--color-muted); font-size: 0.8rem; }
 .operation-status-card strong { display: block; overflow-wrap: anywhere; color: var(--color-primary-strong); line-height: 1.42; }
-.vacation-period-list { display: grid !important; gap: 4px; }
-.vacation-period-line { display: block; margin: 0 !important; color: inherit !important; font: inherit !important; line-height: 1.45; white-space: nowrap; }
+.vacation-period-list { display: grid !important; gap: 10px; }
+.vacation-period-item { display: grid; gap: 2px; }
+.vacation-period-name { margin: 0 !important; color: var(--color-primary-strong) !important; font: inherit !important; font-weight: 780; line-height: 1.25; }
+.vacation-period-date { margin: 0 !important; color: var(--color-muted) !important; font-size: 0.82rem !important; font-weight: 650; line-height: 1.35; white-space: nowrap; }
 .operation-settings-form,
 .bulk-availability-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 13px; }
 .settings-accordion { grid-column: 1 / -1; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
@@ -332,7 +334,7 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .stats-filter-grid { grid-template-columns: 1fr; }
     .slot-checks { grid-template-columns: 1fr; }
     .operation-status-grid { grid-template-columns: 1fr; }
-    .vacation-period-line { white-space: normal; overflow-wrap: anywhere; }
+    .vacation-period-date { white-space: normal; overflow-wrap: anywhere; }
     .nested-settings { padding: 14px; }
     .settings-accordion-summary { min-height: 70px; padding: 14px; }
     .settings-accordion-summary h3 { font-size: 1rem; }

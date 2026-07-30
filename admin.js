@@ -521,10 +521,16 @@ function renderOperationStatus(dashboard = {}) {
         if (type === 'vacation-periods') {
             valueElement.classList.add('vacation-period-list');
             if (value.length === 0) {
-                valueElement.textContent = '없음';
+                valueElement.textContent = '등록된 방학 기간 없음';
             } else {
                 value.forEach(period => {
-                    valueElement.appendChild(createTextElement('span', 'vacation-period-line', `${period.name} ${period.startDate} ~ ${period.endDate}`));
+                    const periodItem = document.createElement('span');
+                    periodItem.className = 'vacation-period-item';
+                    periodItem.append(
+                        createTextElement('span', 'vacation-period-name', period.name),
+                        createTextElement('span', 'vacation-period-date', `${period.startDate} ~ ${period.endDate}`)
+                    );
+                    valueElement.appendChild(periodItem);
                 });
             }
         } else {
