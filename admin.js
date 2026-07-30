@@ -15,6 +15,7 @@ let availabilityItems = [];
 let operationSettings = null;
 let pendingDelete = null;
 let confirmTrigger = null;
+let academicListMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let adminSlotTimes = {
     '자습 1차시': '08:20~10:10', '자습 2차시': '10:20~12:10',
     '자습 3차시': '13:00~14:50', '자습 4차시': '15:10~17:00'
@@ -387,11 +388,22 @@ function renderHistory(history, name) {
 function renderCalendarList(kind) {
     const listId = kind === 'academic' ? 'academic-list' : 'blocked-list';
     const list = document.getElementById(listId);
-    const filtered = calendarItems.filter(item => item.kind === kind);
+    let filtered = calendarItems.filter(item => item.kind === kind);
+    if (kind === 'academic') {
+        const monthStart = `${academicListMonth.getFullYear()}-${String(academicListMonth.getMonth() + 1).padStart(2, '0')}-01`;
+        const monthEnd = new Date(academicListMonth.getFullYear(), academicListMonth.getMonth() + 1, 0);
+        const monthEndText = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth() + 1).padStart(2, '0')}-${String(monthEnd.getDate()).padStart(2, '0')}`;
+        const today = new Date();
+        const todayText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const includePast = document.getElementById('academic-include-past').checked;
+        document.getElementById('academic-month-label').textContent = `${academicListMonth.getFullYear()}년 ${academicListMonth.getMonth() + 1}월`;
+        filtered = filtered.filter(item => item.startDate <= monthEndText && item.endDate >= monthStart && (includePast || item.endDate >= todayText));
+    }
+    filtered.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.row - b.row);
     list.replaceChildren();
 
     if (filtered.length === 0) {
-        list.appendChild(createTextElement('p', 'empty-state', kind === 'academic' ? '등록된 학사일정이 없습니다.' : '등록된 상담 불가 기간이 없습니다.'));
+        list.appendChild(createTextElement('p', 'empty-state', kind === 'academic' ? '이 달에 표시할 학교 일정이 없습니다.' : '등록된 상담 불가 기간이 없습니다.'));
         return;
     }
 
@@ -1182,6 +1194,16 @@ document.getElementById('backup-current-data').addEventListener('click', async e
 
 document.getElementById('academic-schedule-type').addEventListener('change', syncAcademicScheduleFields);
 syncAcademicScheduleFields();
+
+document.getElementById('academic-month-prev').addEventListener('click', () => {
+    academicListMonth = new Date(academicListMonth.getFullYear(), academicListMonth.getMonth() - 1, 1);
+    renderCalendarList('academic');
+});
+document.getElementById('academic-month-next').addEventListener('click', () => {
+    academicListMonth = new Date(academicListMonth.getFullYear(), academicListMonth.getMonth() + 1, 1);
+    renderCalendarList('academic');
+});
+document.getElementById('academic-include-past').addEventListener('change', () => renderCalendarList('academic'));
 
 initializeAdminDateInputs();
 document.addEventListener('submit', event => {

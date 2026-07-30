@@ -208,6 +208,10 @@
 .admin-message.success { border-color: #c9ddce; background: var(--color-primary-soft); color: var(--color-primary-strong); }
 .list-count { margin: 18px 0 9px; color: var(--color-muted); font-size: 0.86rem; }
 .admin-list { display: grid; gap: 11px; }
+.calendar-list-toolbar { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 16px; gap: 12px; }
+.month-navigator { display: inline-flex; min-height: 44px; align-items: center; padding: 3px; border: 1px solid var(--color-border); border-radius: 999px; background: #fff; gap: 12px; }
+.month-navigator strong { min-width: 108px; color: var(--color-primary-strong); text-align: center; }
+.month-nav-button { display: grid; width: 38px; min-height: 38px; place-items: center; padding: 0; font-size: 1.5rem; line-height: 1; }
 
 .list-item { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) auto; align-items: center; padding: 16px 17px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; gap: 12px; transition: border-color 150ms ease, box-shadow 150ms ease; }
 .list-item:hover { border-color: #ced8d1; box-shadow: 0 8px 20px rgba(56, 66, 60, 0.05); }
@@ -308,6 +312,8 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .reservation-summary,
     .reservation-editor { grid-template-columns: 1fr; gap: 7px; }
     .item-actions { justify-content: stretch; margin-top: 7px; }
+    .calendar-list-toolbar { align-items: flex-start; flex-direction: column; }
+    .calendar-list-toolbar .completed-filter { width: 100%; }
     .item-actions .admin-button { flex: 1; }
     .editor-actions { flex-direction: row; }
     .editor-actions .admin-button { width: auto; }

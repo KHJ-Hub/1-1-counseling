@@ -154,6 +154,14 @@
                     </div>
                 </form>
                 <p id="academic-message" class="admin-message hidden" role="alert"></p>
+                <div class="calendar-list-toolbar" aria-label="학교 일정 목록 필터">
+                    <div class="month-navigator">
+                        <button id="academic-month-prev" class="admin-button secondary month-nav-button" type="button" aria-label="이전 달">‹</button>
+                        <strong id="academic-month-label" aria-live="polite"></strong>
+                        <button id="academic-month-next" class="admin-button secondary month-nav-button" type="button" aria-label="다음 달">›</button>
+                    </div>
+                    <label class="completed-filter"><input id="academic-include-past" type="checkbox"> 지난 일정도 보기</label>
+                </div>
                 <div id="academic-list" class="admin-list"></div>
             </section>
 
@@ -335,6 +343,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260730-vacation-card"></script>
+    <script src="admin.js?v=20260730-academic-month-filter"></script>
 </body>
 </html>
