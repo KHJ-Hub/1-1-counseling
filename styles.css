@@ -98,6 +98,40 @@ label { -webkit-tap-highlight-color: transparent; }
     font-size: 0.98rem;
 }
 
+.nearest-available-card {
+    display: flex;
+    width: min(100%, 760px);
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 auto 18px;
+    padding: 17px 18px 17px 20px;
+    border: 1px solid #d6e3d9;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(228, 238, 231, 0.9), rgba(255, 253, 248, 0.96));
+    box-shadow: 0 10px 24px rgba(75, 96, 82, 0.07);
+    gap: 16px;
+}
+
+.nearest-available-copy { min-width: 0; }
+.nearest-available-eyebrow { margin: 0 0 4px; color: var(--color-primary-strong); font-size: 0.78rem; font-weight: 780; }
+.nearest-available-time { margin: 0; color: var(--color-text); font-size: clamp(1rem, 2.4vw, 1.18rem); font-weight: 780; letter-spacing: -0.025em; }
+.nearest-available-description { margin: 5px 0 0; color: var(--color-muted); font-size: 0.84rem; line-height: 1.45; }
+.nearest-available-action {
+    min-width: 116px;
+    min-height: 44px;
+    flex: 0 0 auto;
+    padding: 9px 15px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 760;
+    cursor: pointer;
+    transition: filter 150ms ease, transform 150ms ease;
+}
+.nearest-available-action:hover { filter: brightness(0.97); transform: translateY(-1px); }
+.nearest-available-action:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
 .admin-leaf-link {
     display: inline-block;
     margin: 0;
@@ -353,6 +387,8 @@ textarea:focus-visible,
     .student-page { padding: 22px 8px 32px; }
     .service-eyebrow { margin-bottom: 8px; }
     .service-header p { padding: 0 16px; font-size: 0.9rem; }
+    .nearest-available-card { align-items: stretch; flex-direction: column; margin-bottom: 14px; padding: 16px; gap: 13px; }
+    .nearest-available-action { width: 100%; min-height: 48px; }
     .calendar-card { padding: 10px 7px 14px; border-radius: var(--radius-md); }
     .calendar-card::before,
     .calendar-card::after { display: none; }

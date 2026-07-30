@@ -6,7 +6,7 @@
     <title>학생 상담 신청 | 2026학년도 · 1학년 1반</title>
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
-    <link rel="stylesheet" href="styles.css?v=20260731-booking-confirm-back">
+    <link rel="stylesheet" href="styles.css?v=20260731-nearest-slot">
 
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 </head>
@@ -23,6 +23,14 @@
             <h1><span aria-hidden="true">🌿</span> <span id="student-service-title">학생 상담 신청</span> <a class="admin-leaf-link" href="./admin.html?reauth=1" aria-label="관리자 페이지">🌿</a></h1>
             <p id="student-service-notice">편한 날짜와 시간을 골라 상담을 신청해 주세요.</p>
         </header>
+        <section id="nearest-available-card" class="nearest-available-card" aria-labelledby="nearest-available-title">
+            <div class="nearest-available-copy">
+                <p class="nearest-available-eyebrow">가장 가까운 상담 가능 시간</p>
+                <h2 id="nearest-available-title" class="nearest-available-time" aria-live="polite">상담 가능 시간을 확인하고 있어요.</h2>
+                <p id="nearest-available-description" class="nearest-available-description">가장 빠르게 신청할 수 있는 상담 시간이에요.</p>
+            </div>
+            <button id="nearest-available-action" type="button" class="nearest-available-action">바로 확인하기</button>
+        </section>
         <section class="calendar-card" aria-label="상담 예약 달력">
             <div id="calendar"></div>
             <div class="calendar-legend" aria-label="달력 상태 안내">
@@ -112,6 +120,6 @@
 
     </div>
 
-    <script src="script.js?v=20260731-booking-confirm-back"></script>
+    <script src="script.js?v=20260731-nearest-slot"></script>
 </body>
 </html>

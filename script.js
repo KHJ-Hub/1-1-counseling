@@ -15,6 +15,7 @@ let reloadAfterNotice = false;
 let previouslyFocusedElement = null;
 let pendingModalTrigger = null;
 let pendingBookingRequest = null;
+let nearestAvailableSlot = null;
 
 const modalBackdrop = document.getElementById('modal-backdrop');
 const modalPanels = document.querySelectorAll('.modal-panel');
@@ -155,6 +156,120 @@ function getAvailableSlots(dateStr) {
     if (operationType === 'closed') return [];
     if (!configured) return operationType === 'vacation' ? [] : ['야자 1차시', '야자 2차시', '야자 3차시'];
     return Object.keys(configured).filter(slot => configured[slot] === true);
+}
+
+function getSlotsForDate(dateStr) {
+    const operationType = dateOperationTypes[dateStr] || (vacationDates.includes(dateStr) ? 'vacation' : 'semester');
+    return operationType === 'vacation'
+        ? ['자습 1차시', '자습 2차시', '자습 3차시', '자습 4차시']
+        : ['야자 1차시', '야자 2차시', '야자 3차시'];
+}
+
+function getSeoulTimeString() {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Seoul',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+    }).formatToParts(new Date());
+    const values = {};
+    parts.forEach(part => {
+        if (part.type !== 'literal') values[part.type] = part.value;
+    });
+    return `${values.hour}:${values.minute}`;
+}
+
+function isBookableDate(dateStr) {
+    const today = getSeoulDateString();
+    if (!serviceOperating || dateStr < today) return false;
+
+    const date = new Date(`${dateStr}T00:00:00+09:00`);
+    const day = date.getDay();
+    return day !== 0 && day !== 6 &&
+        !sheetHolidays.includes(dateStr) &&
+        !publicHolidays.includes(dateStr) &&
+        getAvailableSlots(dateStr).length > 0;
+}
+
+function isUpcomingSlot(dateStr, slot) {
+    if (dateStr !== getSeoulDateString()) return true;
+    const time = slotTimes[slot];
+    if (!time || !/^\d{2}:\d{2}$/.test(time.start)) return true;
+    return time.start > getSeoulTimeString();
+}
+
+function getOccupiedSlots(dateStr, events) {
+    return events
+        .filter(event => event.start === dateStr && event.extendedProps && event.extendedProps.type === 'consult')
+        .map(event => event.extendedProps.slot);
+}
+
+function findNearestAvailableSlot(events) {
+    const today = getSeoulDateString();
+    const cursor = new Date(`${today}T00:00:00+09:00`);
+
+    for (let offset = 0; offset < 180; offset += 1) {
+        const dateStr = getSeoulDateString(cursor);
+        if (isBookableDate(dateStr)) {
+            const occupiedSlots = getOccupiedSlots(dateStr, events);
+            const availableSlots = getAvailableSlots(dateStr);
+            const slot = getSlotsForDate(dateStr).find(candidate =>
+                availableSlots.includes(candidate) &&
+                !occupiedSlots.includes(candidate) &&
+                isUpcomingSlot(dateStr, candidate)
+            );
+            if (slot) return { date: dateStr, slot };
+        }
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    return null;
+}
+
+function formatKoreanDate(dateStr) {
+    return `${dateStr.replaceAll('-', '.')}.`;
+}
+
+function updateNearestAvailableCard(events) {
+    nearestAvailableSlot = findNearestAvailableSlot(events);
+    const title = document.getElementById('nearest-available-title');
+    const description = document.getElementById('nearest-available-description');
+    const action = document.getElementById('nearest-available-action');
+
+    if (!nearestAvailableSlot) {
+        title.textContent = '현재 신청 가능한 상담 시간이 없습니다.';
+        description.textContent = serviceOperating
+            ? '가능 시간이 열리면 이곳에서 바로 확인할 수 있어요.'
+            : '현재 상담 신청이 일시 중지되어 있습니다.';
+        action.hidden = true;
+        return;
+    }
+
+    title.textContent = `${formatKoreanDate(nearestAvailableSlot.date)} · ${nearestAvailableSlot.slot}`;
+    description.textContent = '가장 빠르게 신청할 수 있는 상담 시간이에요.';
+    action.hidden = false;
+}
+
+function openNearestAvailableSlot() {
+    if (!nearestAvailableSlot || !calendar) return;
+
+    const { date, slot } = nearestAvailableSlot;
+    const events = calendar.getEvents().map(event => ({
+        start: event.startStr,
+        extendedProps: event.extendedProps
+    }));
+    const availableSlots = getAvailableSlots(date);
+    const occupiedSlots = getOccupiedSlots(date, events);
+    if (!isBookableDate(date) || !availableSlots.includes(slot) || occupiedSlots.includes(slot)) {
+        updateNearestAvailableCard(events);
+        return;
+    }
+
+    calendar.gotoDate(date);
+    const dayElement = document.querySelector(`.fc-daygrid-day[data-date="${date}"]`);
+    markSelectedCalendarDate(dayElement);
+    setModalTrigger(document.getElementById('nearest-available-action'));
+    openBookingModal(date, occupiedSlots, availableSlots);
 }
 
 function openBookingModal(dateStr, occupiedSlots, availableSlots) {
@@ -364,6 +479,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
 
+        updateNearestAvailableCard(data.events);
+
         for (let dStr in dateCounts) {
             const availableCount = getAvailableSlots(dStr).length;
             if (availableCount > 0 && dateCounts[dStr] >= availableCount) {
@@ -490,6 +607,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
         calendar.render();
+        document.getElementById('nearest-available-action').addEventListener('click', openNearestAvailableSlot);
         document.getElementById('loading').style.display = 'none';
     } catch (error) {
         console.error("데이터 로드 중 에러:", error);
