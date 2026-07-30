@@ -61,6 +61,57 @@ function showMessage(elementId, message, success = false) {
     element.classList.toggle('success', Boolean(message) && success);
 }
 
+function parseAdminDate(value) {
+    const text = (value || '').trim();
+    if (!text) return '';
+    let match = text.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})\.?$/);
+    if (!match && /^\d{8}$/.test(text)) match = [text, text.slice(0, 4), text.slice(4, 6), text.slice(6, 8)];
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (year < 1000 || year > 9999 || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function formatAdminDate(value) {
+    const isoDate = parseAdminDate(value);
+    return isoDate ? isoDate.replace(/-/g, '.').concat('.') : value || '';
+}
+
+function configureAdminDateInput(input) {
+    if (!input || input.dataset.adminDateConfigured) return;
+    input.dataset.adminDateConfigured = 'true';
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.autocomplete = 'off';
+    input.placeholder = 'YYYY.MM.DD.';
+    input.classList.add('admin-date-input');
+    input.addEventListener('input', () => {
+        const digits = input.value.replace(/\D/g, '').slice(0, 8);
+        if (digits.length === 8) input.value = `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}.`;
+        input.setCustomValidity('');
+    });
+    input.addEventListener('blur', () => {
+        if (!input.value.trim()) return;
+        const isoDate = parseAdminDate(input.value);
+        input.setCustomValidity(isoDate ? '' : 'YYYY.MM.DD. 형식의 실제 날짜를 입력해 주세요.');
+        if (isoDate) input.value = formatAdminDate(isoDate);
+    });
+}
+
+function initializeAdminDateInputs() {
+    document.querySelectorAll('input[type="date"]').forEach(configureAdminDateInput);
+}
+
+function formatAdminDateInputValues() {
+    document.querySelectorAll('.admin-date-input').forEach(input => {
+        const formatted = formatAdminDate(input.value);
+        if (formatted) input.value = formatted;
+    });
+}
+
 function setButtonBusy(button, busy, busyText) {
     if (!button.dataset.originalText) button.dataset.originalText = button.textContent;
     button.disabled = busy;
@@ -497,6 +548,10 @@ function createPeriodRow(period = {}) {
         const label = createTextElement('label', 'form-label', labelText);
         const input = document.createElement('input');
         input.type = type; input.className = `form-input ${className}`; input.value = value; input.required = true;
+        if (type === 'date') {
+            configureAdminDateInput(input);
+            input.value = formatAdminDate(value);
+        }
         label.appendChild(input); row.appendChild(label);
     });
     const typeLabel = createTextElement('label', 'form-label', '운영 유형');
@@ -574,6 +629,7 @@ async function loadAdminData(showSuccess = false) {
         renderStats(statsResult.stats || {});
         renderIntegrationStatus(integrationResult.status || {});
         renderOperationSettings(operationResult.settings || {}, operationResult.dashboard || {});
+        formatAdminDateInputValues();
         if (showSuccess) showMessage('global-message', 'Google Sheets의 최신 데이터를 불러왔습니다.', true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('global-message', errorMessage(error.code));
@@ -640,6 +696,7 @@ function startCalendarEdit(item) {
     document.getElementById(kind + '-submit').textContent = kind === 'academic' ? '일정 수정' : '기간 수정';
     document.getElementById(kind + '-cancel-edit').classList.remove('hidden');
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    formatAdminDateInputValues();
 }
 
 function openConfirm(message, deleteInfo, trigger) {
@@ -890,6 +947,7 @@ function startAvailabilityEdit(item) {
     document.getElementById('availability-submit').textContent = '설정 수정';
     document.getElementById('availability-cancel-edit').classList.remove('hidden');
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    formatAdminDateInputValues();
 }
 
 document.getElementById('availability-cancel-edit').addEventListener('click', resetAvailabilityForm);
@@ -1118,6 +1176,24 @@ document.getElementById('backup-current-data').addEventListener('click', async e
 
 document.getElementById('academic-schedule-type').addEventListener('change', syncAcademicScheduleFields);
 syncAcademicScheduleFields();
+
+initializeAdminDateInputs();
+document.addEventListener('submit', event => {
+    const dateInputs = Array.from(event.target.querySelectorAll('.admin-date-input'));
+    for (const input of dateInputs) {
+        if (!input.value.trim()) continue;
+        const isoDate = parseAdminDate(input.value);
+        input.setCustomValidity(isoDate ? '' : 'YYYY.MM.DD. 형식의 실제 날짜를 입력해 주세요.');
+        if (!isoDate) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            input.reportValidity();
+            return;
+        }
+        input.value = isoDate;
+        setTimeout(() => { input.value = formatAdminDate(isoDate); }, 0);
+    }
+}, true);
 
 document.getElementById('confirm-cancel').addEventListener('click', closeConfirm);
 document.getElementById('confirm-backdrop').addEventListener('click', event => {
