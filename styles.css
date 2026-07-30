@@ -301,6 +301,11 @@ label { -webkit-tap-highlight-color: transparent; }
 .form-input:hover { border-color: #bdc8c1; }
 .form-input:focus { border-color: var(--color-primary); box-shadow: var(--focus-ring); }
 .form-help { margin: 7px 0 0; color: var(--color-muted); font-size: 0.81rem; line-height: 1.5; }
+.booking-confirm-summary { display: grid; margin: 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #faf9f4; overflow: hidden; }
+.booking-confirm-summary > div { display: grid; grid-template-columns: 84px 1fr; padding: 13px 15px; gap: 12px; }
+.booking-confirm-summary > div + div { border-top: 1px solid var(--color-border); }
+.booking-confirm-summary dt { color: var(--color-muted); font-size: 0.86rem; font-weight: 700; }
+.booking-confirm-summary dd { margin: 0; color: var(--color-text); font-weight: 760; overflow-wrap: anywhere; }
 .form-message { margin: 0 0 16px; padding: 11px 13px; border: 1px solid #eccdca; border-radius: var(--radius-sm); background: var(--color-danger-soft); color: #8f4643; line-height: 1.45; }
 .modal-actions { display: flex; justify-content: flex-end; margin-top: 24px; gap: 10px; }
 .modal-button { min-width: 112px; min-height: 46px; padding: 10px 18px; border: 0; border-radius: 999px; font-weight: 760; cursor: pointer; transition: transform 150ms ease, filter 150ms ease; }

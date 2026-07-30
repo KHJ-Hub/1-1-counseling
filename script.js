@@ -14,6 +14,7 @@ let isSubmitting = false;
 let reloadAfterNotice = false;
 let previouslyFocusedElement = null;
 let pendingModalTrigger = null;
+let pendingBookingRequest = null;
 
 const modalBackdrop = document.getElementById('modal-backdrop');
 const modalPanels = document.querySelectorAll('.modal-panel');
@@ -199,6 +200,20 @@ function openCancelModal(eventDate, eventSlot, eventName) {
     openModal('cancel-modal', document.getElementById('cancel-password'));
 }
 
+function openBookingConfirmation(request) {
+    pendingBookingRequest = request;
+    document.getElementById('booking-confirm-date').textContent = request.date;
+    document.getElementById('booking-confirm-slot').textContent = request.slot;
+    document.getElementById('booking-confirm-name').textContent = request.name;
+    openModal('booking-confirm-modal', document.getElementById('booking-confirm-submit'));
+}
+
+function returnToBookingForm() {
+    if (!pendingBookingRequest) return;
+    document.getElementById('booking-confirm-submit').disabled = false;
+    openModal('booking-modal', document.getElementById('booking-submit'));
+}
+
 function trapModalFocus(event) {
     if (event.key !== 'Tab' || modalBackdrop.classList.contains('hidden')) return;
 
@@ -258,6 +273,11 @@ bookingForm.addEventListener('submit', event => {
         document.getElementById('booking-name').focus();
         return;
     }
+    if (!pwdTrimmed) {
+        showFormMessage('booking-message', '예약 취소 시 필요하므로 비밀번호를 입력해 주세요.');
+        document.getElementById('booking-password').focus();
+        return;
+    }
     if (!/^\d{4}$/.test(pwdTrimmed)) {
         showFormMessage('booking-message', '비밀번호는 숫자 4자리로 입력해 주세요.');
         document.getElementById('booking-password').focus();
@@ -265,8 +285,18 @@ bookingForm.addEventListener('submit', event => {
     }
 
     showFormMessage('booking-message', '');
+    openBookingConfirmation({ date: selectedBookingDate, slot: selectedSlot.value, name: name.trim(), password: pwdTrimmed });
+});
+
+document.querySelectorAll('[data-booking-confirm-back]').forEach(button => {
+    button.addEventListener('click', returnToBookingForm);
+});
+
+document.getElementById('booking-confirm-submit').addEventListener('click', () => {
+    if (!pendingBookingRequest || isSubmitting) return;
     setSubmitting(bookingForm, true, '신청 처리 중…');
-    sendData({ action: "save", date: selectedBookingDate, slot: selectedSlot.value, name: name, password: pwdTrimmed }, 'booking');
+    document.getElementById('booking-confirm-submit').disabled = true;
+    sendData({ action: "save", ...pendingBookingRequest }, 'booking');
 });
 
 cancelForm.addEventListener('submit', event => {
@@ -482,6 +512,7 @@ function sendData(payload, requestType) {
         const activeForm = requestType === 'cancel' ? cancelForm : bookingForm;
         const messageId = requestType === 'cancel' ? 'cancel-message' : 'booking-message';
         setSubmitting(activeForm, false, '');
+        if (requestType === 'booking' && result !== 'Success') returnToBookingForm();
 
         if (result === "DUPLICATE_WEEKLY") {
             showFormMessage(messageId, "이미 이번 주에 상담 신청 내역이 있습니다. 상담은 일주일에 한 번만 신청할 수 있습니다.");
@@ -514,6 +545,7 @@ function sendData(payload, requestType) {
         const activeForm = requestType === 'cancel' ? cancelForm : bookingForm;
         const messageId = requestType === 'cancel' ? 'cancel-message' : 'booking-message';
         setSubmitting(activeForm, false, '');
+        if (requestType === 'booking') returnToBookingForm();
         console.error("요청 처리 중 에러:", err);
 
         if (err instanceof HttpError) {
