@@ -182,6 +182,16 @@
 .integration-status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 15px; gap: 9px; }
 .integration-status-item { display: flex; min-height: 48px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fff; gap: 10px; }
 .integration-actions { align-items: stretch; }
+.reservation-actions { margin-top: 14px; }
+.operation-check-actions { margin: 2px 0 14px; }
+.operation-check-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.operation-check-item { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: start; padding: 13px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fff; gap: 10px; }
+.operation-check-item strong { display: block; color: var(--color-text); font-size: 0.9rem; }
+.operation-check-item p { margin: 4px 0 0; color: var(--color-muted); font-size: 0.82rem; line-height: 1.45; overflow-wrap: anywhere; }
+.operation-check-badge { display: inline-flex; min-height: 25px; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 999px; background: var(--color-muted-soft); color: #5f6561; font-size: 0.72rem; font-weight: 760; white-space: nowrap; }
+.operation-check-item.is-success .operation-check-badge { background: var(--color-primary-soft); color: var(--color-primary-strong); }
+.operation-check-item.is-warning .operation-check-badge { background: #f5efdf; color: #806432; }
+.operation-check-item.is-error .operation-check-badge { background: var(--color-danger-soft); color: #934845; }
 .history-form { grid-template-columns: minmax(220px, 1fr) auto; max-width: 640px; margin-bottom: 17px; }
 .password-form .admin-form-actions { margin-top: 2px; }
 .password-form .admin-message { margin: 0; }
@@ -303,7 +313,8 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .admin-stacked-form .admin-form-actions { grid-column: auto; }
     .stats-summary-grid,
     .stats-chart-grid,
-    .integration-status { grid-template-columns: 1fr; }
+    .integration-status,
+    .operation-check-results { grid-template-columns: 1fr; }
     .admin-panel { padding: 20px 15px; }
     .list-item,
     .list-item.calendar-item,

@@ -548,6 +548,12 @@ function normalizeOperationType(value) {
   return "semester";
 }
 
+function getOperationTypeLabel(value) {
+  if (value === "vacation") return "방학";
+  if (value === "closed") return "상담 불가";
+  return "학기 중";
+}
+
 function hasExtendedAvailabilityHeaders(sheet) {
   if (!sheet) return false;
   const headers = sheet.getRange(1, 5, 1, 3).getValues()[0].map(value => (value || "").toString().trim());
@@ -936,6 +942,7 @@ function handleAdminAction(data) {
   if (data.action === "adminChangePassword") return adminChangePassword(data);
   if (data.action === "adminGetCounselingStats") return adminGetCounselingStats(data);
   if (data.action === "adminGetIntegrationStatus") return adminGetIntegrationStatus();
+  if (data.action === "adminCheckOperationStatus") return adminCheckOperationStatus();
   if (data.action === "adminGetOperationSettings") return adminGetOperationSettings();
   if (data.action === "adminSaveOperationSettings") return adminSaveOperationSettings(data);
   if (data.action === "adminBulkSetAvailability") return adminBulkSetAvailability(data);
@@ -1907,9 +1914,122 @@ function adminGetIntegrationStatus() {
       dailySummaryEnabled: isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED"),
       calendarEnabled: isPropertyEnabled("GOOGLE_CALENDAR_ENABLED"),
       slotTimesValid: Object.keys(slotConfigs).length === CONSULT_SLOTS.length,
-      triggersInstalled: triggerStatusAvailable && COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true)
+      triggersInstalled: triggerStatusAvailable && COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true),
+      triggerStatusAvailable: triggerStatusAvailable
     }
   });
+}
+
+function getOperationCheckHeaderIssues(sheet, expectedHeaders) {
+  if (!sheet) return expectedHeaders.map(item => item.label);
+  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), expectedHeaders.length)).getValues()[0]
+    .map(value => (value || "").toString().trim());
+  return expectedHeaders.filter((item, index) => {
+    const allowed = Array.isArray(item.names) ? item.names : [item.names];
+    return allowed.indexOf(headers[index]) === -1;
+  }).map(item => item.label);
+}
+
+function addOperationCheckItem(items, level, label, detail) {
+  items.push({ level: level, label: label, detail: detail });
+}
+
+function adminCheckOperationStatus() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const items = [];
+  const consultSheet = ss.getSheetByName(CONSULT_SHEET_NAME);
+  const calendarSheet = ss.getSheetByName(CALENDAR_SHEET_NAME);
+  const availabilitySheet = ss.getSheetByName(AVAILABILITY_SHEET_NAME);
+  const sheetChecks = [
+    {
+      sheet: consultSheet,
+      label: "예약 시트",
+      headers: [
+        { label: "날짜", names: "날짜" }, { label: "시간", names: ["시간", "차시"] },
+        { label: "이름", names: "이름" }, { label: "비밀번호", names: "비밀번호" },
+        { label: "상담완료", names: "상담완료" }, { label: "상담메모", names: ["상담메모", "상담 메모"] }
+      ]
+    },
+    {
+      sheet: calendarSheet,
+      label: "학교 일정 시트",
+      headers: [
+        { label: "시작일", names: "시작일" }, { label: "종료일", names: "종료일" }, { label: "일정명", names: "일정명" }
+      ]
+    },
+    {
+      sheet: availabilitySheet,
+      label: "상담 가능 시간 시트",
+      headers: [
+        { label: "날짜", names: "날짜" }, { label: "야자 1차시", names: "야자 1차시" },
+        { label: "야자 2차시", names: "야자 2차시" }, { label: "야자 3차시", names: "야자 3차시" },
+        { label: "운영유형", names: "운영유형" }, { label: "4차시", names: "4차시" }, { label: "비고", names: "비고" }
+      ]
+    }
+  ];
+
+  sheetChecks.forEach(check => {
+    if (!check.sheet) {
+      addOperationCheckItem(items, "error", check.label, "시트를 찾을 수 없습니다.");
+      return;
+    }
+    const missingHeaders = getOperationCheckHeaderIssues(check.sheet, check.headers);
+    if (missingHeaders.length) addOperationCheckItem(items, "error", check.label, "헤더 누락: " + missingHeaders.join(", "));
+    else addOperationCheckItem(items, "success", check.label, "필수 헤더를 확인했습니다.");
+  });
+
+  const settings = getOperationSettings();
+  const today = localIsoDate(new Date());
+  if (settings.operating === false) addOperationCheckItem(items, "warning", "상담 운영 상태", "현재 일시 중지 상태입니다.");
+  else addOperationCheckItem(items, "success", "상담 운영 상태", "운영 중입니다.");
+
+  const invalidPeriods = (settings.periods || []).filter(period => !period || !period.name || !isIsoDate(period.startDate) || !isIsoDate(period.endDate) || period.startDate > period.endDate || OPERATION_TYPES.indexOf(period.operationType) === -1);
+  if (invalidPeriods.length) addOperationCheckItem(items, "error", "운영 기간", "형식이 올바르지 않은 기간이 " + invalidPeriods.length + "개 있습니다.");
+  else addOperationCheckItem(items, "success", "운영 기간", "등록된 기간을 기준으로 자동 판단할 수 있습니다.");
+
+  if (settings.schoolStartDate && isIsoDate(settings.schoolStartDate)) addOperationCheckItem(items, "success", "개학일", settings.schoolStartDate + "로 설정되어 있습니다.");
+  else addOperationCheckItem(items, "warning", "개학일", "값이 비어 있거나 날짜 형식을 확인해야 합니다.");
+
+  try {
+    const currentOperation = getDateOperation(ss, today);
+    addOperationCheckItem(items, "success", "현재 운영모드", getOperationTypeLabel(currentOperation.operationType) + " 모드로 계산되었습니다.");
+  } catch (error) {
+    logServerError("Operation mode check failed", error);
+    addOperationCheckItem(items, "warning", "현재 운영모드", "확인 필요: 설정 또는 시트 상태를 점검하세요.");
+  }
+
+  const requiredSlots = getDateOperation(ss, today).operationType === "vacation" ? VACATION_SLOTS : SEMESTER_SLOTS;
+  const invalidSlots = requiredSlots.filter(slot => !getSlotTimeConfig(slot));
+  if (invalidSlots.length) addOperationCheckItem(items, "warning", "차시 시간표", "시간 확인 필요: " + invalidSlots.join(", "));
+  else addOperationCheckItem(items, "success", "차시 시간표", requiredSlots.length + "개 차시 시간을 확인했습니다.");
+
+  try {
+    const operationStatus = JSON.parse(adminGetOperationSettings().getContent()).dashboard || {};
+    if (operationStatus.nextAvailableDate) addOperationCheckItem(items, "success", "다음 상담 가능일", operationStatus.nextAvailableDate + "로 계산되었습니다.");
+    else addOperationCheckItem(items, "warning", "다음 상담 가능일", "현재 신청 가능한 상담 시간이 없습니다.");
+  } catch (error) {
+    logServerError("Next available date check failed", error);
+    addOperationCheckItem(items, "warning", "다음 상담 가능일", "확인 필요: 가능 시간 설정을 점검하세요.");
+  }
+
+  try {
+    const integration = JSON.parse(adminGetIntegrationStatus().getContent()).status || {};
+    addOperationCheckItem(items, integration.discordConfigured ? "success" : "warning", "Discord", integration.discordConfigured ? "Webhook이 설정되어 있습니다." : "Webhook이 설정되지 않았습니다.");
+    const triggerLevel = integration.triggerStatusAvailable === false ? "warning" : integration.triggersInstalled ? "success" : "warning";
+    const triggerDetail = integration.triggerStatusAvailable === false ? "확인 필요: 트리거 권한 또는 상태를 확인하세요." : integration.triggersInstalled ? "필요한 트리거가 설치되어 있습니다." : "필요한 트리거가 설치되어 있지 않습니다.";
+    addOperationCheckItem(items, triggerLevel, "자동 알림 트리거", triggerDetail);
+    addOperationCheckItem(items, integration.calendarEnabled ? "success" : "warning", "Google Calendar", integration.calendarEnabled ? "연동이 활성화되어 있습니다." : "연동을 사용하지 않도록 설정되어 있습니다.");
+  } catch (error) {
+    logServerError("Integration operation check failed", error);
+    addOperationCheckItem(items, "warning", "외부 연동", "확인 필요: 권한 또는 연동 설정을 확인하세요.");
+  }
+
+  const backupCount = ss.getSheets().filter(sheet => sheet.getName().indexOf("_백업") !== -1).length;
+  addOperationCheckItem(items, "info", "백업 시트", backupCount ? backupCount + "개를 참고용으로 확인했습니다." : "등록된 백업 시트가 없습니다.");
+
+  const summary = { success: 0, warning: 0, error: 0, info: 0 };
+  items.forEach(item => { summary[item.level] = (summary[item.level] || 0) + 1; });
+  return jsonOutput({ ok: true, items: items, summary: summary, checkedAt: Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM-dd HH:mm") });
 }
 
 function incrementCount(target, key) {

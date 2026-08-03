@@ -84,6 +84,10 @@
                         완료된 상담 포함
                     </label>
                 </div>
+                <div class="admin-action-row reservation-actions">
+                    <button id="reservation-export-csv" class="admin-button secondary" type="button">CSV 내보내기</button>
+                </div>
+                <p id="reservation-export-message" class="admin-message hidden" role="status"></p>
                 <p id="reservation-count" class="list-count"></p>
                 <div id="reservation-list" class="admin-list"></div>
             </section>
@@ -298,6 +302,14 @@
                         <p id="backup-message" class="admin-message hidden" role="status" aria-live="polite"></p>
                         </div>
                     </details>
+                </div>
+                <div class="settings-section">
+                    <div class="panel-heading"><div><h3>운영 상태 점검</h3><p class="admin-muted">시트·헤더·운영 설정·가능 시간·외부 연동 상태를 읽기 전용으로 확인합니다. 이 점검은 데이터를 수정하지 않습니다.</p></div></div>
+                    <div class="admin-action-row operation-check-actions">
+                        <button id="operation-check-button" class="admin-button primary" type="button">운영 상태 점검하기</button>
+                    </div>
+                    <p id="operation-check-message" class="admin-message hidden" role="status"></p>
+                    <div id="operation-check-results" class="operation-check-results" aria-live="polite"></div>
                 </div>
                 <div class="settings-section">
                     <div class="panel-heading"><div><h3>알림 및 연동 설정 안내</h3><p class="admin-muted">실제 URL·Calendar ID·비밀값은 화면과 API 응답에 표시하지 않습니다.</p></div></div>

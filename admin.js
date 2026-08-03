@@ -226,15 +226,20 @@ function createActionButton(label, styleClass, action, row) {
     return button;
 }
 
-function renderReservations() {
+function getFilteredReservations() {
     const nameFilter = document.getElementById('reservation-name-filter').value.trim().toLowerCase();
-    const dateFilter = document.getElementById('reservation-date-filter').value;
+    const rawDateFilter = document.getElementById('reservation-date-filter').value;
+    const dateFilter = parseAdminDate(rawDateFilter) || rawDateFilter;
     const slotFilter = document.getElementById('reservation-slot-filter').value;
-    const filtered = reservations.filter(item => {
+    return reservations.filter(item => {
         return (!nameFilter || item.name.toLowerCase().includes(nameFilter)) &&
             (!dateFilter || item.date === dateFilter) &&
             (!slotFilter || item.slot === slotFilter);
     });
+}
+
+function renderReservations() {
+    const filtered = getFilteredReservations();
 
     document.getElementById('reservation-count').textContent = `전체 ${reservations.length}건 · 표시 ${filtered.length}건`;
     const list = document.getElementById('reservation-list');
@@ -287,6 +292,55 @@ function renderReservations() {
         editor.appendChild(createActionButton('상태·메모 저장', 'primary', 'save-consultation', item.row));
         article.appendChild(editor);
         list.appendChild(article);
+    });
+}
+
+function escapeCsvValue(value) {
+    const text = String(value ?? '');
+    return `"${text.replace(/"/g, '""')}"`;
+}
+
+function exportReservationsCsv() {
+    const filtered = getFilteredReservations();
+    const rows = [
+        ['날짜', '차시', '이름', '상태', '상담완료 여부', '메모 여부'],
+        ...filtered.map(item => [
+            item.date,
+            item.slot,
+            item.name,
+            item.completed ? '완료' : '예약',
+            item.completed ? '완료' : '미완료',
+            item.memo ? '메모 있음' : '메모 없음'
+        ])
+    ];
+    const csv = '\uFEFF' + rows.map(row => row.map(escapeCsvValue).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const schoolYear = (operationSettings?.schoolYear || new Date().getFullYear()) + '학년도';
+    const className = (operationSettings?.className || '상담').replace(/[^0-9A-Za-z가-힣_-]/g, '');
+    anchor.href = url;
+    anchor.download = `상담예약_${schoolYear}_${className}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    showMessage('reservation-export-message', `${filtered.length}건을 CSV로 내보냈습니다. 비밀번호와 상담 메모 본문은 포함하지 않았습니다.`, true);
+}
+
+function renderOperationCheck(result) {
+    const container = document.getElementById('operation-check-results');
+    const items = result.items || [];
+    container.replaceChildren();
+    items.forEach(item => {
+        const article = document.createElement('article');
+        article.className = `operation-check-item is-${item.level || 'info'}`;
+        const badge = createTextElement('span', 'operation-check-badge', item.level === 'success' ? '정상' : item.level === 'error' ? '오류' : item.level === 'warning' ? '주의' : '참고');
+        const content = document.createElement('div');
+        content.appendChild(createTextElement('strong', '', item.label || '점검 항목'));
+        content.appendChild(createTextElement('p', '', item.detail || '확인 결과가 없습니다.'));
+        article.append(badge, content);
+        container.appendChild(article);
     });
 }
 
@@ -776,6 +830,20 @@ document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventL
 document.getElementById('reservation-name-filter').addEventListener('input', renderReservations);
 document.getElementById('reservation-date-filter').addEventListener('change', renderReservations);
 document.getElementById('reservation-slot-filter').addEventListener('change', renderReservations);
+document.getElementById('reservation-export-csv').addEventListener('click', exportReservationsCsv);
+document.getElementById('reservation-include-completed').addEventListener('change', async event => {
+    const checkbox = event.currentTarget;
+    checkbox.disabled = true;
+    try {
+        const result = await adminRequest('adminListReservations', { includeCompleted: checkbox.checked });
+        reservations = result.reservations || [];
+        renderReservations();
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('global-message', errorMessage(error.code));
+    } finally {
+        checkbox.disabled = false;
+    }
+});
 
 document.getElementById('stats-filter-form').addEventListener('submit', async event => {
     event.preventDefault();
@@ -809,6 +877,22 @@ document.getElementById('integration-refresh').addEventListener('click', async e
         showMessage('integration-message', '설정 상태를 새로 확인했습니다.', true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('integration-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
+});
+
+document.getElementById('operation-check-button').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    setButtonBusy(button, true, '점검 중…');
+    showMessage('operation-check-message', '');
+    try {
+        const result = await adminRequest('adminCheckOperationStatus');
+        renderOperationCheck(result);
+        const summary = result.summary || {};
+        showMessage('operation-check-message', `점검 완료: 정상 ${summary.success || 0}건 · 주의 ${summary.warning || 0}건 · 오류 ${summary.error || 0}건`, !(summary.error > 0));
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('operation-check-message', errorMessage(error.code));
     } finally {
         setButtonBusy(button, false, '');
     }
