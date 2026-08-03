@@ -300,6 +300,7 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .bulk-availability-form,
     .operation-period-row,
     .slot-time-row { grid-template-columns: 1fr; }
+    .blocked-editor.admin-inline-form { grid-template-columns: 1fr; }
     .operation-settings-form .wide-field,
     .operation-settings-form .nested-settings,
     .operation-settings-form .editor-actions,
