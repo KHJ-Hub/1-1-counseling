@@ -1954,7 +1954,8 @@ function adminCheckOperationStatus() {
       sheet: calendarSheet,
       label: "학교 일정 시트",
       headers: [
-        { label: "시작일", names: "시작일" }, { label: "종료일", names: "종료일" }, { label: "일정명", names: "일정명" }
+        { label: "날짜 또는 시작일", names: ["날짜", "시작일"] },
+        { label: "종료일", names: "종료일" }, { label: "일정명", names: "일정명" }
       ]
     },
     {
