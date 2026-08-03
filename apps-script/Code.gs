@@ -1990,15 +1990,17 @@ function adminCheckOperationStatus() {
   if (settings.schoolStartDate && isIsoDate(settings.schoolStartDate)) addOperationCheckItem(items, "success", "개학일", settings.schoolStartDate + "로 설정되어 있습니다.");
   else addOperationCheckItem(items, "warning", "개학일", "값이 비어 있거나 날짜 형식을 확인해야 합니다.");
 
+  let currentOperationType = "semester";
   try {
     const currentOperation = getDateOperation(ss, today);
+    currentOperationType = currentOperation.operationType;
     addOperationCheckItem(items, "success", "현재 운영모드", getOperationTypeLabel(currentOperation.operationType) + " 모드로 계산되었습니다.");
   } catch (error) {
     logServerError("Operation mode check failed", error);
     addOperationCheckItem(items, "warning", "현재 운영모드", "확인 필요: 설정 또는 시트 상태를 점검하세요.");
   }
 
-  const requiredSlots = getDateOperation(ss, today).operationType === "vacation" ? VACATION_SLOTS : SEMESTER_SLOTS;
+  const requiredSlots = currentOperationType === "vacation" ? VACATION_SLOTS : SEMESTER_SLOTS;
   const invalidSlots = requiredSlots.filter(slot => !getSlotTimeConfig(slot));
   if (invalidSlots.length) addOperationCheckItem(items, "warning", "차시 시간표", "시간 확인 필요: " + invalidSlots.join(", "));
   else addOperationCheckItem(items, "success", "차시 시간표", requiredSlots.length + "개 차시 시간을 확인했습니다.");
