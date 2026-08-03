@@ -465,7 +465,10 @@ function renderCalendarList(kind) {
         const article = document.createElement('article');
         article.className = 'list-item calendar-item';
         article.appendChild(createTextElement('div', 'item-title', item.title));
-        article.appendChild(createTextElement('div', 'item-meta', item.startDate === item.endDate ? item.startDate : `${item.startDate} ~ ${item.endDate}`));
+        const itemDate = kind === 'blocked'
+            ? (item.startDate === item.endDate ? formatAdminDate(item.startDate) : `${formatAdminDate(item.startDate)} ~ ${formatAdminDate(item.endDate)}`)
+            : (item.startDate === item.endDate ? item.startDate : `${item.startDate} ~ ${item.endDate}`);
+        article.appendChild(createTextElement('div', 'item-meta', itemDate));
         const actions = document.createElement('div');
         actions.className = 'item-actions';
         actions.appendChild(createActionButton('수정', 'secondary', 'edit-calendar', item.row));
@@ -744,7 +747,7 @@ function resetCalendarForm(kind) {
         document.getElementById('academic-schedule-type').value = 'single';
         syncAcademicScheduleFields();
     }
-    document.getElementById(kind + '-submit').textContent = kind === 'academic' ? '일정 추가' : '기간 추가';
+    document.getElementById(kind + '-submit').textContent = kind === 'academic' ? '일정 추가' : '상담 불가일 추가';
     document.getElementById(kind + '-cancel-edit').classList.add('hidden');
     showMessage(kind + '-message', '');
 }
@@ -752,20 +755,26 @@ function resetCalendarForm(kind) {
 function startCalendarEdit(item) {
     const kind = item.kind;
     showTab(kind);
+    if (kind === 'blocked' && item.startDate !== item.endDate) {
+        showMessage('blocked-message', '기존 기간형 상담 불가일은 범위 보존을 위해 수정할 수 없습니다. 필요하면 삭제 후 하루 단위로 다시 등록해 주세요.');
+        return;
+    }
     const form = document.getElementById(kind + '-form');
     document.getElementById(kind + '-row').value = item.row;
-    document.getElementById(kind + '-start').value = item.startDate;
-    document.getElementById(kind + '-end').value = item.endDate;
     if (kind === 'academic') {
+        document.getElementById('academic-start').value = item.startDate;
+        document.getElementById('academic-end').value = item.endDate;
         document.getElementById('academic-title').value = item.title;
         document.getElementById('academic-schedule-type').value = item.startDate === item.endDate ? 'single' : 'period';
         document.getElementById('academic-date').value = item.startDate;
         syncAcademicScheduleFields();
+    } else {
+        document.getElementById('blocked-date').value = item.startDate;
     }
     form.dataset.expectedStartDate = item.startDate;
     form.dataset.expectedEndDate = item.endDate;
     form.dataset.expectedTitle = item.title;
-    document.getElementById(kind + '-submit').textContent = kind === 'academic' ? '일정 수정' : '기간 수정';
+    document.getElementById(kind + '-submit').textContent = kind === 'academic' ? '일정 수정' : '상담 불가일 수정';
     document.getElementById(kind + '-cancel-edit').classList.remove('hidden');
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     formatAdminDateInputValues();
@@ -1241,9 +1250,11 @@ document.getElementById('backup-current-data').addEventListener('click', async e
         const form = event.currentTarget;
         const row = document.getElementById(kind + '-row').value;
         const isSingleAcademicSchedule = kind === 'academic' && document.getElementById('academic-schedule-type').value === 'single';
+        const isBlockedDate = kind === 'blocked';
         const singleDate = isSingleAcademicSchedule ? document.getElementById('academic-date').value : '';
-        const startDate = isSingleAcademicSchedule ? singleDate : document.getElementById(kind + '-start').value;
-        const endDate = isSingleAcademicSchedule ? singleDate : document.getElementById(kind + '-end').value;
+        const blockedDate = isBlockedDate ? document.getElementById('blocked-date').value : '';
+        const startDate = isSingleAcademicSchedule ? singleDate : (isBlockedDate ? blockedDate : document.getElementById(kind + '-start').value);
+        const endDate = isSingleAcademicSchedule ? singleDate : (isBlockedDate ? blockedDate : document.getElementById(kind + '-end').value);
         const title = kind === 'academic' ? document.getElementById('academic-title').value.trim() : '상담불가';
         const button = document.getElementById(kind + '-submit');
 

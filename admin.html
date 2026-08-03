@@ -6,7 +6,7 @@
     <title>교사용 학생 상담 관리 | 2026학년도 · 1학년 1반</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
     <link rel="stylesheet" href="styles.css?v=20260720-unified-design">
-    <link rel="stylesheet" href="admin.css?v=20260803-operation-check">
+    <link rel="stylesheet" href="admin.css?v=20260803-blocked-single-date">
 </head>
 <body class="admin-body">
     <header class="admin-header">
@@ -180,16 +180,12 @@
                 <form id="blocked-form" class="editor-form blocked-editor admin-inline-form" novalidate>
                     <input id="blocked-row" type="hidden">
                     <div>
-                        <label class="form-label" for="blocked-start">시작일</label>
-                        <input id="blocked-start" class="form-input" type="date" required>
-                    </div>
-                    <div>
-                        <label class="form-label" for="blocked-end">종료일</label>
-                        <input id="blocked-end" class="form-input" type="date" required>
+                        <label class="form-label" for="blocked-date">날짜</label>
+                        <input id="blocked-date" class="form-input" type="date" required>
                     </div>
                     <div class="editor-actions admin-form-actions">
                         <button id="blocked-cancel-edit" class="admin-button secondary hidden" type="button">수정 취소</button>
-                        <button id="blocked-submit" class="admin-button primary" type="submit">기간 추가</button>
+                        <button id="blocked-submit" class="admin-button primary" type="submit">상담 불가일 추가</button>
                     </div>
                 </form>
                 <p id="blocked-message" class="admin-message hidden" role="alert"></p>
@@ -355,6 +351,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260803-operation-check"></script>
+    <script src="admin.js?v=20260803-blocked-single-date"></script>
 </body>
 </html>

@@ -108,7 +108,7 @@
 .editor-form.admin-inline-form { grid-template-columns: minmax(180px, 1.4fr) repeat(2, minmax(140px, 1fr)) auto; }
 .editor-form.academic-editor { grid-template-columns: minmax(180px, 1.4fr) minmax(130px, 0.9fr) minmax(140px, 1fr) auto; }
 .editor-form.academic-editor.is-period-schedule { grid-template-columns: minmax(180px, 1.4fr) minmax(130px, 0.9fr) repeat(2, minmax(140px, 1fr)) auto; }
-.blocked-editor.admin-inline-form { grid-template-columns: repeat(2, minmax(150px, 1fr)) auto; }
+.blocked-editor.admin-inline-form { grid-template-columns: minmax(180px, 1fr) auto; }
 .admin-inline-form .admin-form-actions,
 .history-form .admin-form-actions { align-self: end; }
 
