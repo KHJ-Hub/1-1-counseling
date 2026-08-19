@@ -219,6 +219,7 @@
 .list-count { margin: 18px 0 9px; color: var(--color-muted); font-size: 0.86rem; }
 .admin-list { display: grid; gap: 11px; }
 .calendar-list-toolbar { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 20px; padding: 12px 0 16px; border-bottom: 1px solid var(--color-border); gap: 16px; }
+.availability-list-toolbar { display: flex; justify-content: flex-end; margin: 14px 0 16px; }
 .month-navigator { display: inline-flex; min-height: 44px; align-items: center; padding: 3px; border: 1px solid var(--color-border); border-radius: 999px; background: #fff; gap: 12px; }
 .month-navigator strong { min-width: 108px; color: var(--color-primary-strong); text-align: center; }
 .month-nav-button { display: grid; width: 38px; min-height: 38px; place-items: center; padding: 0; font-size: 1.5rem; line-height: 1; }
@@ -326,6 +327,7 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .item-actions { justify-content: stretch; margin-top: 7px; }
     .calendar-list-toolbar { align-items: flex-start; flex-direction: column; margin-top: 14px; gap: 12px; }
     .calendar-list-toolbar .completed-filter { width: 100%; }
+    .availability-list-toolbar .completed-filter { width: 100%; }
     .item-actions .admin-button { flex: 1; }
     .editor-actions { flex-direction: row; }
     .editor-actions .admin-button { width: auto; }

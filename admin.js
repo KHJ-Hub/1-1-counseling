@@ -347,12 +347,22 @@ function renderOperationCheck(result) {
 function renderAvailability() {
     const list = document.getElementById('availability-list');
     list.replaceChildren();
-    if (availabilityItems.length === 0) {
-        list.appendChild(createTextElement('p', 'empty-state', '별도로 설정된 날짜가 없습니다. 방학 기간은 기본 상담 불가입니다.'));
+    const today = new Date();
+    const todayText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const includePast = document.getElementById('availability-include-past').checked;
+    const visibleItems = availabilityItems
+        .filter(item => includePast || item.date >= todayText)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.row - b.row);
+
+    if (visibleItems.length === 0) {
+        const message = availabilityItems.length === 0
+            ? '별도로 설정된 날짜가 없습니다. 방학 기간은 기본 상담 불가입니다.'
+            : '표시할 오늘 이후의 가능 시간 설정이 없습니다. 필요하면 “지난 설정도 보기”를 선택하세요.';
+        list.appendChild(createTextElement('p', 'empty-state', message));
         return;
     }
 
-    availabilityItems.forEach(item => {
+    visibleItems.forEach(item => {
         const article = document.createElement('article');
         article.className = 'list-item availability-item';
         article.appendChild(createTextElement('div', 'item-title', item.date));
@@ -1299,6 +1309,7 @@ document.getElementById('academic-month-next').addEventListener('click', () => {
     renderCalendarList('academic');
 });
 document.getElementById('academic-include-past').addEventListener('change', () => renderCalendarList('academic'));
+document.getElementById('availability-include-past').addEventListener('change', renderAvailability);
 
 initializeAdminDateInputs();
 document.addEventListener('submit', event => {
