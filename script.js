@@ -60,6 +60,7 @@ function getMobileEventLabel(title) {
         "상담완료": "완료",
         "상담 가능": "가능",
         "상담 불가": "불가",
+        "선생님 상담 불가": "선생님 일정",
         "🚨예약 마감🚨": "마감"
     };
     return labels[title] || title;
@@ -467,10 +468,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (ev.extendedProps && ev.extendedProps.type === "holiday") {
                 const isPublicHoliday = ev.extendedProps.isPublicHoliday === true ||
                     (!Object.prototype.hasOwnProperty.call(ev.extendedProps, 'isPublicHoliday') && publicHolidays.includes(ev.start));
-                ev.classNames = [isPublicHoliday ? 'public-holiday-event' : 'holiday-event'];
+                const isTeacherBlocked = !isPublicHoliday && String(ev.extendedProps.reason || '').trim() === '상담불가';
+                ev.classNames = [isPublicHoliday ? 'public-holiday-event' : (isTeacherBlocked ? 'teacher-blocked-event' : 'school-event')];
                 ev.title = isPublicHoliday
                     ? normalizePublicHolidayTitle(ev.title)
-                    : (ev.title || "").replace(/🚫/g, "").trim();
+                    : (isTeacherBlocked ? '선생님 상담 불가' : (ev.title || "").replace(/🚫/g, "").trim());
             } else if (ev.extendedProps && ev.extendedProps.type === "consult") {
                 ev.classNames = ev.extendedProps.completed ? ['consult-event', 'completed-consult-event'] : ['consult-event'];
                 dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;
