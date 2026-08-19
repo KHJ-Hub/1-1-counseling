@@ -468,3 +468,59 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .admin-panel { box-shadow: 4px 4px 0 rgba(159, 215, 250, 0.48), 0 12px 24px rgba(47, 61, 91, 0.08); }
     .admin-tabs { box-shadow: 3px 3px 0 rgba(255, 174, 201, 0.34); }
 }
+
+/* 관리자도 같은 라벤더 젤리 글로우로 연결합니다. */
+.admin-body {
+    background:
+        radial-gradient(circle at 12% 10%, rgba(255, 255, 255, 0.5), transparent 22rem),
+        radial-gradient(circle at 88% 88%, rgba(126, 230, 245, 0.28), transparent 28rem),
+        linear-gradient(135deg, #cbbcf6 0%, #d8cafa 48%, #bdecfa 100%);
+    background-attachment: fixed;
+}
+.admin-header h1 { color: #403873; text-shadow: 0 2px 0 rgba(255, 255, 255, 0.84), 0 5px 14px rgba(84, 65, 151, 0.2); }
+.back-link,
+.admin-card,
+.admin-panel {
+    border-color: rgba(75, 66, 136, 0.76);
+    background: rgba(255, 252, 255, 0.88);
+    box-shadow: 0 16px 34px rgba(55, 44, 122, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.94);
+}
+.back-link { color: #574a89; }
+.admin-tabs {
+    border-color: rgba(75, 66, 136, 0.72);
+    background: rgba(250, 245, 255, 0.78);
+    box-shadow: 0 10px 22px rgba(58, 48, 125, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.86);
+}
+.admin-tab { color: #675f8f; }
+.admin-tab:hover { border-color: #b39ae8; background: rgba(237, 225, 255, 0.72); color: #554681; }
+.admin-tab.active {
+    border-color: #7961b6;
+    background: linear-gradient(135deg, #eedaff, #d9f3ff);
+    box-shadow: 0 4px 9px rgba(96, 74, 168, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.92);
+    color: #51437f;
+}
+.editor-form,
+.password-form,
+.stats-filter-grid,
+.nested-settings,
+.settings-accordion[open] .settings-accordion-summary,
+.empty-state { background: rgba(250, 246, 255, 0.72); }
+.form-input,
+.completed-filter,
+.slot-checks label,
+.compact-checks label,
+.integration-status-item,
+.operation-status-card,
+.stat-card,
+.stat-chart,
+.list-item,
+.settings-accordion-summary { background: rgba(255, 255, 255, 0.74); }
+.form-input:focus { border-color: #9476d1; box-shadow: 0 0 0 3px rgba(175, 148, 237, 0.24); }
+.admin-button { border-color: rgba(75, 66, 136, 0.76); box-shadow: 0 3px 8px rgba(77, 61, 145, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.35); }
+.admin-button.primary { background: linear-gradient(135deg, #8064c5, #5597bd); }
+.admin-button.secondary { background: linear-gradient(135deg, #f5eaff, #e4f6ff); color: #564981; }
+.stat-card::after { background: linear-gradient(135deg, #f1d8ff, #c7f2ff); box-shadow: none; }
+.settings-mode-guide { border-color: rgba(126, 103, 193, 0.34); background: rgba(235, 220, 255, 0.68); color: #5a4e86; }
+.setup-guide { border-color: rgba(230, 147, 196, 0.5); background: rgba(255, 232, 246, 0.72); }
+.month-navigator { background: rgba(255, 255, 255, 0.72); }
+.month-nav-button { border-color: #a38bdd; background: #f3e7ff; color: #5c4b8f; }
