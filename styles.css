@@ -247,7 +247,6 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .fc-daygrid-day-top { position: relative; z-index: 2; }
 .fc .fc-daygrid-day-number { display: grid; min-width: 30px; min-height: 30px; margin: 3px; padding: 0; border-radius: 50%; color: var(--color-text); font-size: 0.8rem; font-variant-numeric: tabular-nums; text-decoration: none; place-items: center; }
 .fc .fc-day-today .fc-daygrid-day-number { border: 2px solid var(--color-primary); background: transparent; font-weight: 400; }
-.fc .is-weekend-day:not(.fc-day-other) { background: rgba(239, 238, 233, 0.48); }
 .fc .is-blocked-day { background: rgba(232, 228, 236, 0.38); }
 .fc .is-vacation-day:not(.is-blocked-day) { background: rgba(220, 236, 243, 0.2); }
 .fc .is-past-day .fc-daygrid-day-number { color: #707774; }
@@ -258,6 +257,7 @@ label { -webkit-tap-highlight-color: transparent; }
 .fc .is-past-day.is-holiday-date:not(.fc-day-other) .fc-daygrid-day-number { color: #c24141; }
 .fc .is-past-day.fc-day-sat:not(.fc-day-other) .fc-daygrid-day-number { color: #3f6fc7; }
 .fc .is-past-day .fc-daygrid-day-frame { cursor: default; }
+.fc .is-weekend-day .fc-daygrid-day-frame { cursor: default; }
 .fc .is-bookable-day:not(.fc-day-other) .fc-daygrid-day-frame { cursor: pointer; }
 .fc .is-bookable-day:not(.fc-day-other):hover { z-index: 1; background: rgba(228, 238, 231, 0.65); box-shadow: inset 0 0 0 2px rgba(100, 132, 116, 0.26); }
 .fc .is-selected-day:not(.is-past-day) { background: rgba(228, 238, 231, 0.44); box-shadow: inset 0 0 0 2px rgba(100, 132, 116, 0.34); }

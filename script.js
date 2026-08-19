@@ -566,7 +566,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 var dateObj = new Date(info.dateStr + "T00:00:00+09:00");
                 var dayOfWeek = dateObj.getDay();
                 if (dayOfWeek === 0 || dayOfWeek === 6) {
-                    showNotice("주말 예약 불가", "주말에는 상담을 예약할 수 없습니다.");
                     return;
                 }
 
