@@ -363,3 +363,106 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     #confirm-backdrop { align-items: flex-end; padding: 0; }
     .confirm-dialog { width: 100%; height: auto; max-height: min(82dvh, 560px); padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 }
+
+/* 학생 화면과 맞춘 키치한 문구점 스티커 톤: 관리자 기능과 구조는 유지합니다. */
+.admin-body {
+    background:
+        radial-gradient(circle at 7% 7%, rgba(159, 215, 250, 0.48) 0 9px, transparent 10px),
+        radial-gradient(circle at 10% 12%, rgba(159, 215, 250, 0.22) 0 40px, transparent 41px),
+        radial-gradient(circle at 92% 11%, rgba(255, 190, 104, 0.38) 0 13px, transparent 14px),
+        radial-gradient(circle at 87% 18%, rgba(255, 159, 195, 0.2) 0 52px, transparent 53px),
+        linear-gradient(135deg, #fff9ed 0%, #f2fbff 54%, #fff1df 100%);
+}
+.admin-header h1 { text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.88); }
+.back-link,
+.admin-card,
+.admin-panel {
+    border: 2px solid var(--color-primary-strong);
+}
+.back-link { background: #fffdf8; box-shadow: 3px 3px 0 #a9d9f5; }
+.back-link:hover { border-color: var(--color-primary-strong); background: #dff5bd; }
+.admin-card,
+.admin-panel {
+    background: rgba(255, 253, 248, 0.96);
+    box-shadow: 8px 8px 0 rgba(159, 215, 250, 0.54), 0 16px 32px rgba(47, 61, 91, 0.08);
+}
+.login-card::before { width: 52px; height: 7px; background: #ff9fc3; box-shadow: 3px 3px 0 #fff19a; }
+.admin-tabs {
+    border: 2px solid var(--color-primary-strong);
+    background: #fffdf8;
+    box-shadow: 5px 5px 0 rgba(255, 174, 201, 0.38);
+}
+.admin-tab { border: 1px solid transparent; color: #536179; }
+.admin-tab:hover { border-color: #9dcbed; background: #e9f7ff; color: var(--color-primary-strong); }
+.admin-tab.active {
+    border: 2px solid var(--color-primary-strong);
+    background: #dff5bd;
+    box-shadow: 2px 2px 0 #f3a1bf;
+    color: var(--color-primary-strong);
+}
+.editor-form,
+.password-form,
+.stats-filter-grid,
+.nested-settings,
+.settings-accordion[open] .settings-accordion-summary,
+.empty-state { background: #fffaf1; }
+.editor-form,
+.password-form,
+.stats-filter-grid,
+.settings-accordion,
+.nested-settings,
+.operation-status-card,
+.stat-card,
+.stat-chart,
+.list-item,
+.completed-filter,
+.integration-status-item,
+.operation-check-item,
+.slot-checks label,
+.compact-checks label,
+.month-navigator {
+    border-color: #c7d6e8;
+}
+.form-input,
+.completed-filter,
+.slot-checks label,
+.compact-checks label,
+.integration-status-item,
+.operation-status-card,
+.stat-card,
+.stat-chart,
+.list-item { background: #fffefa; }
+.form-input:focus {
+    border-color: #5d9bd5;
+    box-shadow: 0 0 0 3px rgba(159, 215, 250, 0.48);
+}
+.stat-card::after { background: #dff5bd; box-shadow: -3px 3px 0 #a9d9f5; }
+.settings-accordion-summary { background: #fffefa; }
+.settings-accordion[open] .settings-accordion-summary { background: #eaf7ff; }
+.settings-mode-guide { border-color: #8bb7e2; background: #e7f5ff; color: #335783; }
+.setup-guide { border-color: #e9b9cc; background: #fff0f5; }
+.admin-button {
+    border: 2px solid var(--color-primary-strong);
+    box-shadow: 3px 3px 0 rgba(66, 91, 138, 0.2);
+    transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+.admin-button:hover:not(:disabled) { box-shadow: 1px 1px 0 rgba(66, 91, 138, 0.2); transform: translate(2px, 2px); }
+.admin-button.primary { background: #356d78; }
+.admin-button.secondary { background: #e9f7ff; color: #2d5278; }
+.admin-button.danger { border-color: #b75762; background: #ffe1df; color: #963d4b; }
+.item-badge.type-semester,
+.history-slot-badge,
+.history-status-badge.is-complete,
+.operation-check-item.is-success .operation-check-badge { background: #dff5bd; color: #285f49; }
+.item-badge.type-vacation { background: #dff5ff; color: #39718c; }
+.item-badge.type-closed,
+.completed-badge { background: #eadfff; color: #60487f; }
+.list-item:hover { border-color: #759fd5; box-shadow: 4px 4px 0 rgba(169, 217, 245, 0.5); }
+.month-navigator { background: #fffefa; }
+.month-nav-button { border-color: #5d9bd5; background: #e9f7ff; color: #2d5278; }
+
+@media (max-width: 520px) {
+    .admin-card,
+    .admin-panel { box-shadow: 4px 4px 0 rgba(159, 215, 250, 0.48), 0 12px 24px rgba(47, 61, 91, 0.08); }
+    .admin-tabs { box-shadow: 3px 3px 0 rgba(255, 174, 201, 0.34); }
+}

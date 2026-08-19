@@ -1,29 +1,29 @@
 :root {
-    --color-bg: #f5f4ee;
+    --color-bg: #fff5e8;
     --color-surface: #fffdf8;
-    --color-primary: #648474;
-    --color-primary-strong: #456657;
-    --color-primary-soft: #e4eee7;
-    --color-accent: #dcecf3;
-    --color-muted: #73777a;
-    --color-muted-soft: #efeee9;
-    --color-blocked: #e8e4ec;
-    --color-danger: #b96562;
-    --color-danger-soft: #f7e8e6;
-    --color-text: #2f3733;
-    --color-border: #e3e2dc;
-    --radius-sm: 10px;
-    --radius-md: 16px;
-    --radius-lg: 20px;
-    --shadow-soft: 0 12px 34px rgba(56, 66, 60, 0.08);
-    --shadow-float: 0 18px 50px rgba(47, 55, 51, 0.14);
+    --color-primary: #356d78;
+    --color-primary-strong: #263d61;
+    --color-primary-soft: #ddf5bc;
+    --color-accent: #cfeaff;
+    --color-muted: #687083;
+    --color-muted-soft: #eee9f4;
+    --color-blocked: #e8ddf2;
+    --color-danger: #cc5c68;
+    --color-danger-soft: #ffe1df;
+    --color-text: #26344e;
+    --color-border: #cbd6e5;
+    --radius-sm: 12px;
+    --radius-md: 18px;
+    --radius-lg: 22px;
+    --shadow-soft: 0 10px 0 rgba(74, 104, 149, 0.1), 0 16px 32px rgba(47, 61, 91, 0.08);
+    --shadow-float: 0 12px 0 rgba(255, 169, 196, 0.36), 0 22px 42px rgba(47, 61, 91, 0.14);
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
     --space-4: 16px;
     --space-5: 24px;
     --space-6: 32px;
-    --focus-ring: 0 0 0 3px rgba(100, 132, 116, 0.28);
+    --focus-ring: 0 0 0 3px rgba(61, 114, 174, 0.35);
 }
 
 * { box-sizing: border-box; }
@@ -34,9 +34,11 @@ body {
     min-width: 0;
     margin: 0;
     background:
-        radial-gradient(circle at 8% 8%, rgba(220, 236, 243, 0.7), transparent 24rem),
-        radial-gradient(circle at 92% 20%, rgba(228, 238, 231, 0.8), transparent 26rem),
-        var(--color-bg);
+        radial-gradient(circle at 8% 9%, rgba(143, 212, 241, 0.45) 0 7px, transparent 8px),
+        radial-gradient(circle at 12% 13%, rgba(143, 212, 241, 0.24) 0 30px, transparent 31px),
+        radial-gradient(circle at 90% 10%, rgba(255, 194, 85, 0.4) 0 10px, transparent 11px),
+        radial-gradient(circle at 86% 15%, rgba(255, 170, 201, 0.26) 0 46px, transparent 47px),
+        linear-gradient(135deg, #fff9ed 0%, #f2fbff 54%, #fff1df 100%);
     color: var(--color-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
     font-size: 16px;
@@ -75,9 +77,11 @@ label { -webkit-tap-highlight-color: transparent; }
     min-height: 30px;
     margin-bottom: 10px;
     padding: 4px 12px;
-    border-radius: 999px;
+    border: 2px solid var(--color-primary-strong);
+    border-radius: 10px;
     background: var(--color-primary-soft);
     color: var(--color-primary-strong);
+    box-shadow: 3px 3px 0 #ff9fc3;
     font-size: 0.82rem;
     font-weight: 750;
     letter-spacing: 0.02em;
@@ -90,6 +94,7 @@ label { -webkit-tap-highlight-color: transparent; }
     font-weight: 780;
     letter-spacing: -0.045em;
     line-height: 1.25;
+    text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.9);
 }
 
 .service-header p {
@@ -105,10 +110,10 @@ label { -webkit-tap-highlight-color: transparent; }
     justify-content: space-between;
     margin: 0 auto 18px;
     padding: 17px 18px 17px 20px;
-    border: 1px solid #d6e3d9;
+    border: 2px solid var(--color-primary-strong);
     border-radius: var(--radius-md);
-    background: linear-gradient(135deg, rgba(228, 238, 231, 0.9), rgba(255, 253, 248, 0.96));
-    box-shadow: 0 10px 24px rgba(75, 96, 82, 0.07);
+    background: linear-gradient(135deg, #f2fff0, #fff9d7 88%);
+    box-shadow: 5px 5px 0 #9fd7fa;
     gap: 16px;
 }
 
@@ -121,9 +126,9 @@ label { -webkit-tap-highlight-color: transparent; }
     min-height: 44px;
     flex: 0 0 auto;
     padding: 9px 15px;
-    border: 0;
+    border: 2px solid var(--color-primary-strong);
     border-radius: 999px;
-    background: var(--color-primary);
+    background: #356d78;
     color: #fff;
     font-weight: 760;
     cursor: pointer;
@@ -153,10 +158,10 @@ label { -webkit-tap-highlight-color: transparent; }
     width: min(100%, 1120px);
     margin-inline: auto;
     padding: clamp(16px, 3vw, 30px);
-    border: 1px solid rgba(227, 226, 220, 0.9);
+    border: 2px solid var(--color-primary-strong);
     border-radius: var(--radius-lg);
     background: rgba(255, 253, 248, 0.96);
-    box-shadow: var(--shadow-soft);
+    box-shadow: 9px 9px 0 rgba(159, 215, 250, 0.65), 0 18px 35px rgba(47, 61, 91, 0.1);
 }
 
 .calendar-card::before,
@@ -170,8 +175,8 @@ label { -webkit-tap-highlight-color: transparent; }
     opacity: 0.7;
 }
 
-.calendar-card::before { top: -18px; right: 7%; background: var(--color-accent); }
-.calendar-card::after { bottom: -20px; left: 5%; background: var(--color-primary-soft); }
+.calendar-card::before { top: -18px; right: 7%; background: #ffc55d; box-shadow: 4px 4px 0 #f59fbe; }
+.calendar-card::after { bottom: -20px; left: 5%; background: #d9f6ca; box-shadow: 4px 4px 0 #9fd7fa; }
 
 #calendar { width: 100%; min-width: 0; }
 
@@ -197,6 +202,79 @@ label { -webkit-tap-highlight-color: transparent; }
 .legend-dot.blocked { border: 1px dashed #d09a45; background: #fff0cf; }
 .calendar-guide { margin: 11px 0 0; color: var(--color-muted); font-size: 0.78rem; line-height: 1.5; text-align: center; }
 .calendar-restriction-guide { margin-top: 4px; }
+
+/* Y2K 문구점 스티커 톤: 기능 클래스는 그대로 두고 표현만 강화합니다. */
+.calendar-legend {
+    border-top: 2px dashed #cbd6e5;
+    color: #536179;
+}
+.legend-dot.academic { border: 2px solid #6f99df; background: #d9e9ff; }
+.legend-dot.completed { border: 2px solid #9a80bf; background: #eadfff; color: #5e477e; }
+.legend-dot.blocked { border: 2px dashed #d88d20; background: #fff0bd; }
+
+.fc { --fc-border-color: #d2dce8; }
+.fc .fc-header-toolbar { margin-bottom: 27px !important; }
+.fc .fc-toolbar-title {
+    margin-inline: 14px !important;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: #fff19a;
+    box-shadow: 3px 3px 0 #f3a1bf;
+}
+.fc .fc-button-primary {
+    border: 2px solid var(--color-primary-strong) !important;
+    background: #f8feff !important;
+    box-shadow: 2px 2px 0 #a9d9f5 !important;
+    color: var(--color-primary-strong) !important;
+}
+.fc .fc-button-primary:hover {
+    border-color: var(--color-primary-strong) !important;
+    background: #dff5bd !important;
+}
+.fc .fc-today-button { background: #dff5bd !important; }
+.fc-theme-standard .fc-scrollgrid { border: 2px solid #c2d0e0; }
+.fc-theme-standard th { background: #e8f5ff; }
+.fc .fc-col-header-cell-cushion { color: #40526c; }
+.fc .fc-daygrid-day-frame { background: rgba(255, 255, 255, 0.42); }
+.fc .fc-daygrid-day:not(.is-past-day):not(.is-blocked-day):not(.is-weekend-day):hover { background: #f6fff0; }
+.fc .fc-day-today .fc-daygrid-day-number { border-color: #4c9b75; }
+.fc .fc-daygrid-event {
+    min-height: 22px;
+    border-radius: 7px;
+    box-shadow: 2px 2px 0 rgba(55, 69, 103, 0.1);
+    font-weight: 720;
+}
+.fc .school-event {
+    border: 2px solid #739ee6 !important;
+    background: #d9e9ff !important;
+    color: #2c568f !important;
+}
+.fc .teacher-blocked-event {
+    border: 2px dashed #d88d20 !important;
+    background: #fff0bd !important;
+    color: #764309 !important;
+    box-shadow: 2px 2px 0 rgba(244, 181, 67, 0.24) !important;
+}
+.fc .public-holiday-event {
+    border: 2px solid #f08f96 !important;
+    background: #ffe0df !important;
+    color: #a8414a !important;
+}
+.fc .vacation-event {
+    border: 2px solid #84c9e3 !important;
+    background: #dff5ff !important;
+    color: #39718c !important;
+}
+.fc .completed-consult-event {
+    border: 2px solid #9a80bf !important;
+    background: #eadfff !important;
+    color: #60487f !important;
+}
+.fc .consult-event {
+    border: 2px solid #55a27c !important;
+    background: #dff5bd !important;
+    color: #285f49 !important;
+}
 
 .loading-overlay {
     position: fixed;
@@ -431,4 +509,61 @@ textarea:focus-visible,
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* 기존 FullCalendar·모달 규칙보다 뒤에 두어 스티커 색상이 일관되게 적용됩니다. */
+.fc .fc-toolbar-title {
+    margin-inline: 14px !important;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: #fff19a;
+    box-shadow: 3px 3px 0 #f3a1bf;
+}
+.fc .fc-button-primary {
+    border: 2px solid var(--color-primary-strong) !important;
+    background: #f8feff !important;
+    box-shadow: 2px 2px 0 #a9d9f5 !important;
+    color: var(--color-primary-strong) !important;
+}
+.fc .fc-button-primary:hover { background: #dff5bd !important; }
+.fc .fc-today-button { background: #dff5bd !important; }
+.fc-theme-standard .fc-scrollgrid { border: 2px solid #c2d0e0; }
+.fc-theme-standard th { background: #e8f5ff; }
+.fc .fc-daygrid-event {
+    min-height: 22px;
+    border-radius: 7px !important;
+    box-shadow: 2px 2px 0 rgba(55, 69, 103, 0.1);
+    font-weight: 720;
+}
+.fc .consult-event { border: 2px solid #55a27c !important; background: #dff5bd !important; color: #285f49 !important; }
+.fc .consult-event:hover { background: #c9efad !important; }
+.fc .completed-consult-event { border: 2px solid #9a80bf !important; background: #eadfff !important; color: #60487f !important; }
+.fc .school-event { border: 2px solid #739ee6 !important; background: #d9e9ff !important; color: #2c568f !important; }
+.fc .teacher-blocked-event { border: 2px dashed #d88d20 !important; background: #fff0bd !important; color: #764309 !important; }
+.fc .public-holiday-event { border: 2px solid #f08f96 !important; background: #ffe0df !important; color: #a8414a !important; }
+.fc .vacation-event { border: 2px solid #84c9e3 !important; background: #dff5ff !important; color: #39718c !important; opacity: 1; }
+.modal-panel {
+    border: 2px solid var(--color-primary-strong);
+    box-shadow: 9px 9px 0 rgba(255, 169, 196, 0.62), 0 20px 44px rgba(47, 61, 91, 0.18);
+}
+.modal-panel::before { width: 50px; height: 7px; background: #ff9fc3; box-shadow: 3px 3px 0 #fff19a; }
+.modal-close { border: 2px solid var(--color-primary-strong); background: #e9f7ff; box-shadow: 2px 2px 0 #a9d9f5; }
+.selected-date { border: 2px solid #75a0df; background: #e8f5ff; color: #2d5278; }
+.slot-option { border: 2px solid #c7d6e8; background: #fffefa; }
+.slot-option:hover:not(.disabled) { border-color: #5d9bd5; background: #e9f7ff; }
+.slot-option:has(input:checked) { border-color: #55a27c; background: #dff5bd; box-shadow: 3px 3px 0 rgba(121, 185, 131, 0.3); }
+.slot-option.disabled { border-color: #d5c7e1; background: #f1ebf7; color: #6e6579; }
+.form-input { border: 2px solid #c7d6e8; background: #fffefa; }
+.form-input:hover { border-color: #8bb7e2; }
+.form-input:focus { border-color: #5d9bd5; box-shadow: 0 0 0 3px rgba(159, 215, 250, 0.48); }
+.booking-confirm-summary { border: 2px solid #c7d6e8; background: #fffaf1; }
+.modal-button { border: 2px solid var(--color-primary-strong); box-shadow: 3px 3px 0 rgba(66, 91, 138, 0.2); }
+.button-primary { background: #356d78; }
+.button-secondary { background: #e9f7ff; color: #2d5278; }
+.button-danger { background: #cc5c68; }
+
+@media (max-width: 520px) {
+    .fc .fc-toolbar-title { margin-inline: 8px !important; padding-inline: 7px; }
+    .fc .fc-daygrid-event { min-height: 17px; }
+    .modal-panel { border: 0; box-shadow: none; }
 }
