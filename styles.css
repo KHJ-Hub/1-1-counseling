@@ -751,3 +751,105 @@ body {
     .calendar-card { box-shadow: 4px 4px 0 rgba(91, 201, 235, 0.48), 6px 6px 0 rgba(255, 139, 181, 0.2); }
     .loading-card { box-shadow: 5px 5px 0 rgba(95, 207, 239, 0.6), 7px 7px 0 rgba(255, 121, 171, 0.25); }
 }
+
+/* 투명 젤리·라벤더 글로우를 중심으로 한 부드러운 Y2K 톤 */
+body:not(.admin-body) {
+    position: relative;
+    isolation: isolate;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.55), transparent 23rem),
+        radial-gradient(circle at 85% 87%, rgba(127, 230, 245, 0.42), transparent 28rem),
+        linear-gradient(135deg, #c9b9f6 0%, #d7c7fa 42%, #bceeff 100%);
+    background-attachment: fixed;
+}
+body:not(.admin-body)::before,
+body:not(.admin-body)::after {
+    position: fixed;
+    z-index: 0;
+    color: rgba(255, 235, 249, 0.6);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(8rem, 19vw, 17rem);
+    line-height: 0.8;
+    pointer-events: none;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.82), 10px 10px 26px rgba(91, 90, 191, 0.23);
+}
+body:not(.admin-body)::before { top: 5vh; left: 3vw; content: "♥"; transform: rotate(-15deg); }
+body:not(.admin-body)::after { right: 4vw; bottom: 4vh; content: "♥"; color: rgba(191, 246, 255, 0.64); transform: rotate(16deg); }
+.student-page { z-index: 1; }
+.service-eyebrow {
+    border-color: rgba(82, 70, 147, 0.75);
+    background: rgba(247, 238, 255, 0.84);
+    box-shadow: 0 3px 8px rgba(105, 75, 170, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+    color: #554582;
+}
+.service-header h1 { color: #3e3973; text-shadow: 0 2px 0 rgba(255, 255, 255, 0.82), 0 5px 15px rgba(89, 60, 155, 0.22); }
+.service-header p { color: #5e5b81; }
+.nearest-available-card {
+    border-color: rgba(74, 68, 139, 0.72);
+    background:
+        radial-gradient(circle at 10% 12%, rgba(255, 255, 255, 0.8), transparent 8rem),
+        linear-gradient(120deg, rgba(246, 235, 255, 0.92), rgba(225, 244, 255, 0.9));
+    box-shadow: 0 14px 30px rgba(74, 64, 145, 0.14), inset 0 1px 1px rgba(255, 255, 255, 0.88);
+}
+.nearest-available-eyebrow { color: #9d4f88; }
+.nearest-available-action,
+.button-primary {
+    border-color: #514784;
+    background: linear-gradient(135deg, #8064c5, #5597bd);
+    box-shadow: 0 4px 10px rgba(96, 75, 158, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+.calendar-card {
+    overflow: visible;
+    border-color: rgba(76, 67, 135, 0.75);
+    background: rgba(255, 253, 255, 0.94);
+    box-shadow: 0 20px 44px rgba(66, 52, 133, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.96);
+}
+.calendar-card::before,
+.calendar-card::after {
+    z-index: -1;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    background:
+        radial-gradient(circle at 31% 26%, rgba(255, 255, 255, 0.95) 0 7%, rgba(255, 255, 255, 0.28) 19%, transparent 42%),
+        radial-gradient(circle at 68% 72%, rgba(255, 151, 206, 0.55), rgba(166, 233, 255, 0.42) 54%, rgba(255, 255, 255, 0.18));
+    box-shadow: 0 10px 22px rgba(69, 65, 148, 0.18), inset 0 1px 8px rgba(255, 255, 255, 0.8);
+    opacity: 0.92;
+}
+.calendar-card::before { top: -28px; right: 5%; width: 64px; height: 64px; }
+.calendar-card::after { bottom: -26px; left: 5%; width: 58px; height: 58px; }
+.fc .fc-toolbar-title {
+    border-color: rgba(76, 67, 135, 0.76);
+    background: linear-gradient(135deg, #f3dcff, #f0edff 52%, #d8f5ff);
+    box-shadow: 0 4px 10px rgba(90, 70, 161, 0.19), inset 0 1px 1px rgba(255, 255, 255, 0.92);
+}
+.fc .fc-button-primary {
+    border-color: rgba(76, 67, 135, 0.65) !important;
+    background: rgba(251, 250, 255, 0.88) !important;
+    box-shadow: 0 3px 7px rgba(90, 70, 161, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.92) !important;
+}
+.fc .fc-today-button { background: linear-gradient(135deg, #f3dcff, #d7f5ff) !important; }
+.fc-theme-standard th { background: linear-gradient(180deg, #f1e7ff, #e3f6ff); }
+.calendar-legend { border-top-color: rgba(139, 120, 194, 0.28); }
+
+.loading-overlay {
+    background:
+        radial-gradient(circle at 16% 17%, rgba(255, 255, 255, 0.48), transparent 22rem),
+        radial-gradient(circle at 82% 82%, rgba(119, 232, 249, 0.34), transparent 25rem),
+        linear-gradient(135deg, #cbbcf7, #d8c9fa 47%, #bdecfa);
+}
+.loading-card {
+    border-color: rgba(75, 66, 136, 0.78);
+    background:
+        radial-gradient(circle at 24% 17%, rgba(255, 255, 255, 0.86), transparent 7rem),
+        linear-gradient(135deg, rgba(251, 243, 255, 0.8), rgba(226, 247, 255, 0.74));
+    box-shadow: 0 18px 42px rgba(64, 52, 132, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+}
+.loading-icon { filter: drop-shadow(0 4px 8px rgba(178, 71, 142, 0.26)); }
+.loading-title { color: #4e467f; }
+.loading-description { color: #786d9c; }
+
+@media (max-width: 520px) {
+    body:not(.admin-body)::before { top: 7vh; left: -9vw; }
+    body:not(.admin-body)::after { right: -10vw; bottom: 5vh; }
+    .calendar-card { box-shadow: 0 14px 30px rgba(66, 52, 133, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.96); }
+}
