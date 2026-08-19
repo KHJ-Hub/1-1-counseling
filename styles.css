@@ -692,3 +692,62 @@ body {
     .loading-stickers span:nth-child(3) { bottom: 10%; left: 8%; }
     .loading-stickers span:nth-child(4) { right: 7%; bottom: 10%; }
 }
+
+/* 과한 장식은 덜어내고, 핑크·시안 포인트만 남긴 글로시 Y2K 마감 */
+body {
+    background-color: #f8fbff;
+    background-image:
+        radial-gradient(circle at 10% 13%, rgba(123, 216, 243, 0.32), transparent 26rem),
+        radial-gradient(circle at 90% 82%, rgba(255, 165, 198, 0.26), transparent 30rem),
+        linear-gradient(135deg, #fffdf8 0%, #f4fbff 51%, #fff8fb 100%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+.student-page::before,
+.student-page::after { content: none; }
+.service-header h1 { text-shadow: 1px 2px 0 rgba(255, 255, 255, 0.9), 3px 3px 0 rgba(255, 139, 181, 0.26); }
+.service-eyebrow { border-radius: 999px; box-shadow: 2px 3px 0 rgba(255, 121, 171, 0.72); }
+.nearest-available-card {
+    background: linear-gradient(120deg, #f1fcff, #fffcef 58%, #fff3f8);
+    box-shadow: 5px 5px 0 rgba(91, 201, 235, 0.46), 0 16px 30px rgba(49, 77, 108, 0.08);
+}
+.nearest-available-action,
+.button-primary {
+    background: linear-gradient(135deg, #287898, #397e91);
+    box-shadow: 2px 3px 0 rgba(255, 121, 171, 0.68);
+}
+.calendar-card {
+    background: #fffdf9;
+    border-color: #263d61;
+    box-shadow: 6px 6px 0 rgba(91, 201, 235, 0.52), 9px 9px 0 rgba(255, 139, 181, 0.25), 0 18px 35px rgba(47, 61, 91, 0.08);
+}
+.calendar-card::before { background: #bcecff; box-shadow: none; opacity: 0.8; }
+.calendar-card::after { background: #ffd2e2; box-shadow: none; opacity: 0.62; }
+.fc .fc-toolbar-title { border-color: #263d61; box-shadow: 2px 3px 0 rgba(255, 111, 169, 0.58); }
+.fc .fc-button-primary { box-shadow: 2px 2px 0 rgba(95, 207, 239, 0.48) !important; }
+.calendar-legend { border-top-color: #d7e5f1; }
+
+.loading-overlay {
+    background:
+        radial-gradient(circle at 18% 22%, rgba(121, 215, 244, 0.32), transparent 20rem),
+        radial-gradient(circle at 86% 78%, rgba(255, 151, 190, 0.25), transparent 22rem),
+        linear-gradient(135deg, #fffdf9, #f2fbff 58%, #fff5fa);
+}
+.loading-stickers span { display: none; }
+.loading-card {
+    width: min(100%, 350px);
+    padding: 30px 26px;
+    border: 2px solid #263d61;
+    border-radius: 22px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(239, 251, 255, 0.9) 56%, rgba(255, 243, 248, 0.92));
+    box-shadow: 6px 6px 0 rgba(95, 207, 239, 0.65), 9px 9px 0 rgba(255, 121, 171, 0.3), 0 20px 40px rgba(47, 61, 91, 0.12);
+}
+.loading-icon { filter: drop-shadow(2px 3px 0 rgba(255, 122, 172, 0.48)); animation: y2k-pop 1.25s ease-in-out infinite alternate; }
+.loading-title { color: #263d61; }
+.loading-description { color: #757f94; font-weight: 650; }
+
+@media (max-width: 520px) {
+    .calendar-card { box-shadow: 4px 4px 0 rgba(91, 201, 235, 0.48), 6px 6px 0 rgba(255, 139, 181, 0.2); }
+    .loading-card { box-shadow: 5px 5px 0 rgba(95, 207, 239, 0.6), 7px 7px 0 rgba(255, 121, 171, 0.25); }
+}
