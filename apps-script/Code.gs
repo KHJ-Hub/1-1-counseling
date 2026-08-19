@@ -182,6 +182,8 @@ function isSchoolPolicyMemorialTitle(title) {
 function isSchoolPolicyPublicHolidayTitle(title) {
   const normalized = normalizeHolidayTitle(title);
   if (!normalized || isSchoolPolicyMemorialTitle(normalized)) return false;
+  // '크리스마스' 부분 문자열만으로 판별하면 크리스마스 이브/전야도 법정공휴일로 오인된다.
+  if (/크리스마스(?:이브|전야)/.test(normalized)) return false;
   return /(?:새해첫날|신정|설날|설연휴|삼일절|31절|제헌절|어린이날|부처님오신날|석가탄신일|현충일|광복절|추석|추석연휴|개천절|한글날|크리스마스|성탄절|기독탄신일|대체공휴일|대체휴일|임시공휴일|대통령선거|국회의원선거|지방선거|선거일)/.test(normalized);
 }
 
