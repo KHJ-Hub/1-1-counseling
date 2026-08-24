@@ -894,6 +894,28 @@ body:not(.admin-body)::after { right: 4vw; bottom: 4vh; content: "♥"; color: r
 .modal-button { border-color: rgba(75, 66, 136, 0.78); }
 .button-secondary { background: rgba(255, 255, 255, 0.7); color: #5b5286; }
 
+/* 예약 변경은 기존 예약·취소 흐름과 같은 모달 안에서 단계별로 진행한다. */
+.reservation-change-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 17px 0 0;
+    padding: 15px 16px;
+    gap: 16px;
+    border: 1px dashed rgba(117, 96, 178, 0.46);
+    border-radius: 16px;
+    background: linear-gradient(120deg, rgba(247, 235, 255, 0.74), rgba(228, 247, 255, 0.72));
+}
+.reservation-change-entry h2 { margin: 0 0 4px; color: #51477f; font-size: 0.96rem; }
+.reservation-change-entry p { margin: 0; color: #716b94; font-size: 0.82rem; line-height: 1.45; }
+.reservation-change-entry .modal-button { flex: 0 0 auto; min-width: 104px; }
+#change-current-reservation { appearance: auto; }
+
+@media (max-width: 520px) {
+    .reservation-change-entry { align-items: stretch; flex-direction: column; gap: 11px; }
+    .reservation-change-entry .modal-button { width: 100%; }
+}
+
 @media (max-width: 520px) {
     .modal-panel { background: linear-gradient(150deg, #fbf3ff, #e5f7ff); }
 }

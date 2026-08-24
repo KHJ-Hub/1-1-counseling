@@ -6,7 +6,7 @@
     <title>학생 상담 신청 | 2026학년도 · 1학년 1반</title>
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
-    <link rel="stylesheet" href="styles.css?v=20260819-jelly-y2k-unified">
+    <link rel="stylesheet" href="styles.css?v=20260824-reservation-change">
 
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 </head>
@@ -43,6 +43,13 @@
             </div>
             <p id="vacation-guide" class="calendar-guide">방학 중에는 선생님이 열어둔 날짜와 시간만 신청할 수 있어요.</p>
             <p class="calendar-guide calendar-restriction-guide">학교 일정, 공휴일, 선생님 일정이 있는 날에는 상담 신청이 제한될 수 있어요.</p>
+            <section class="reservation-change-entry" aria-labelledby="reservation-change-entry-title">
+                <div>
+                    <h2 id="reservation-change-entry-title">예약 시간을 바꾸고 싶나요?</h2>
+                    <p>이름과 비밀번호로 기존 예약을 확인한 뒤 변경할 수 있어요.</p>
+                </div>
+                <button id="reservation-change-open" type="button" class="modal-button button-secondary">예약 변경</button>
+            </section>
         </section>
     </main>
 
@@ -110,6 +117,69 @@
             </form>
         </section>
 
+        <section id="change-find-modal" class="modal-panel hidden" role="dialog" aria-modal="true" aria-labelledby="change-find-title" aria-describedby="change-find-description">
+            <button type="button" class="modal-close" data-close-modal aria-label="예약 변경 창 닫기">×</button>
+            <h3 id="change-find-title" class="modal-title">예약 변경</h3>
+            <p id="change-find-description" class="modal-description">이름과 예약 비밀번호를 입력해 현재 예약을 확인해 주세요.</p>
+            <form id="change-find-form" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="change-find-name">이름</label>
+                    <input id="change-find-name" class="form-input" type="text" autocomplete="name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="change-find-password">비밀번호</label>
+                    <input id="change-find-password" class="form-input" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="current-password" required>
+                </div>
+                <p id="change-find-message" class="form-message hidden" role="alert"></p>
+                <div class="modal-actions">
+                    <button type="button" class="modal-button button-secondary" data-close-modal>닫기</button>
+                    <button type="submit" class="modal-button button-primary">예약 찾기</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="change-select-modal" class="modal-panel hidden" role="dialog" aria-modal="true" aria-labelledby="change-select-title" aria-describedby="change-select-description">
+            <button type="button" class="modal-close" data-close-modal aria-label="예약 변경 창 닫기">×</button>
+            <h3 id="change-select-title" class="modal-title">새 예약 시간 선택</h3>
+            <p id="change-select-description" class="modal-description">현재 예약과 새 날짜·시간을 확인해 주세요.</p>
+            <form id="change-select-form" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="change-current-reservation">현재 예약</label>
+                    <select id="change-current-reservation" class="form-input" aria-describedby="change-current-help"></select>
+                    <p id="change-current-help" class="form-help">완료된 상담은 변경할 수 없습니다.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="change-new-date">변경 날짜</label>
+                    <input id="change-new-date" class="form-input" type="date" required>
+                </div>
+                <fieldset class="form-group form-fieldset">
+                    <legend class="form-label">변경 시간</legend>
+                    <div id="change-slot-list" class="slot-list"></div>
+                </fieldset>
+                <p id="change-select-message" class="form-message hidden" role="alert"></p>
+                <div class="modal-actions">
+                    <button id="change-select-back" type="button" class="modal-button button-secondary">돌아가기</button>
+                    <button type="submit" class="modal-button button-primary">변경 내용 확인</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="change-confirm-modal" class="modal-panel hidden" role="dialog" aria-modal="true" aria-labelledby="change-confirm-title" aria-describedby="change-confirm-description">
+            <button type="button" class="modal-close" data-change-confirm-back aria-label="예약 변경 입력으로 돌아가기">×</button>
+            <h3 id="change-confirm-title" class="modal-title">예약 변경 내용을 확인해 주세요</h3>
+            <p id="change-confirm-description" class="modal-description">변경 후 기존 예약 시간은 자동으로 비워집니다.</p>
+            <dl class="booking-confirm-summary">
+                <div><dt>기존 예약</dt><dd id="change-confirm-old"></dd></div>
+                <div><dt>변경 예약</dt><dd id="change-confirm-new"></dd></div>
+                <div><dt>이름</dt><dd id="change-confirm-name"></dd></div>
+            </dl>
+            <p id="change-confirm-message" class="form-message hidden" role="alert"></p>
+            <div class="modal-actions">
+                <button id="change-confirm-back" type="button" class="modal-button button-secondary" data-change-confirm-back>돌아가기</button>
+                <button id="change-confirm-submit" type="button" class="modal-button button-primary">변경 확정</button>
+            </div>
+        </section>
+
         <section id="notice-modal" class="modal-panel hidden" role="alertdialog" aria-modal="true" aria-labelledby="notice-title" aria-describedby="notice-message">
             <button type="button" class="modal-close" data-close-modal aria-label="안내 창 닫기">×</button>
             <h3 id="notice-title" class="modal-title">안내</h3>
@@ -121,6 +191,6 @@
 
     </div>
 
-    <script src="script.js?v=20260819-weekend-neutral"></script>
+    <script src="script.js?v=20260824-reservation-change"></script>
 </body>
 </html>

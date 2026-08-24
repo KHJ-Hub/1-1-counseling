@@ -16,11 +16,16 @@ let previouslyFocusedElement = null;
 let pendingModalTrigger = null;
 let pendingBookingRequest = null;
 let nearestAvailableSlot = null;
+let changeReservations = [];
+let selectedChangeReservation = null;
+let pendingChangeRequest = null;
 
 const modalBackdrop = document.getElementById('modal-backdrop');
 const modalPanels = document.querySelectorAll('.modal-panel');
 const bookingForm = document.getElementById('booking-form');
 const cancelForm = document.getElementById('cancel-form');
+const changeFindForm = document.getElementById('change-find-form');
+const changeSelectForm = document.getElementById('change-select-form');
 
 class HttpError extends Error {
     constructor(status) {
@@ -316,6 +321,115 @@ function openCancelModal(eventDate, eventSlot, eventName) {
     openModal('cancel-modal', document.getElementById('cancel-password'));
 }
 
+function getChangeOccupiedSlots(dateStr) {
+    if (!calendar) return [];
+    return calendar.getEvents()
+        .filter(event => event.startStr === dateStr && event.extendedProps && event.extendedProps.type === 'consult')
+        .filter(event => !selectedChangeReservation || event.startStr !== selectedChangeReservation.date ||
+            event.extendedProps.slot !== selectedChangeReservation.slot)
+        .map(event => event.extendedProps.slot);
+}
+
+function updateSelectedChangeReservation() {
+    const select = document.getElementById('change-current-reservation');
+    selectedChangeReservation = changeReservations.find(item => String(item.row) === select.value) || null;
+}
+
+function renderChangeSlotOptions() {
+    const date = document.getElementById('change-new-date').value;
+    const slotList = document.getElementById('change-slot-list');
+    slotList.replaceChildren();
+    showFormMessage('change-select-message', '');
+    if (!date || !selectedChangeReservation) return;
+
+    const operationType = dateOperationTypes[date] || (vacationDates.includes(date) ? 'vacation' : 'semester');
+    const slots = getSlotsForDate(date);
+    const allowedSlots = getAvailableSlots(date);
+    const occupiedSlots = getChangeOccupiedSlots(date);
+    slotList.className = `slot-list slot-count-${slots.length} ${operationType}-slots`;
+
+    slots.forEach(slot => {
+        const option = document.createElement('label');
+        option.className = 'slot-option';
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'change-slot';
+        input.value = slot;
+        const label = document.createElement('span');
+        label.className = 'slot-name';
+        label.textContent = slot;
+        const time = document.createElement('span');
+        time.className = 'slot-time';
+        time.textContent = slotTimes[slot] ? `${slotTimes[slot].start}~${slotTimes[slot].end}` : '';
+        const status = document.createElement('span');
+        status.className = 'slot-status';
+        const sameReservation = date === selectedChangeReservation.date && slot === selectedChangeReservation.slot;
+        const unavailable = !isBookableDate(date) || !allowedSlots.includes(slot) || !isUpcomingSlot(date, slot);
+        const occupied = !sameReservation && occupiedSlots.includes(slot);
+        input.disabled = unavailable || occupied || sameReservation;
+        option.classList.toggle('disabled', input.disabled);
+        status.textContent = sameReservation ? '현재 예약' : (unavailable ? '잠김' : (occupied ? '마감' : ''));
+        option.append(input, label, time, status);
+        slotList.appendChild(option);
+    });
+}
+
+function openChangeFindModal() {
+    changeFindForm.reset();
+    changeReservations = [];
+    selectedChangeReservation = null;
+    pendingChangeRequest = null;
+    showFormMessage('change-find-message', '');
+    setModalTrigger(document.getElementById('reservation-change-open'));
+    openModal('change-find-modal', document.getElementById('change-find-name'));
+}
+
+function openChangeSelectModal() {
+    const select = document.getElementById('change-current-reservation');
+    select.replaceChildren(...changeReservations.map(item => {
+        const option = document.createElement('option');
+        option.value = String(item.row);
+        option.textContent = `${formatKoreanDate(item.date)} · ${item.slot}`;
+        return option;
+    }));
+    updateSelectedChangeReservation();
+    const dateInput = document.getElementById('change-new-date');
+    dateInput.min = getSeoulDateString();
+    dateInput.value = '';
+    renderChangeSlotOptions();
+    openModal('change-select-modal', dateInput);
+}
+
+function openChangeConfirmation(request) {
+    pendingChangeRequest = request;
+    document.getElementById('change-confirm-old').textContent = `${formatKoreanDate(request.oldDate)} · ${request.oldSlot}`;
+    document.getElementById('change-confirm-new').textContent = `${formatKoreanDate(request.newDate)} · ${request.newSlot}`;
+    document.getElementById('change-confirm-name').textContent = request.name;
+    showFormMessage('change-confirm-message', '');
+    openModal('change-confirm-modal', document.getElementById('change-confirm-submit'));
+}
+
+function returnToChangeSelection(message = '') {
+    if (!selectedChangeReservation) return;
+    document.getElementById('change-confirm-submit').disabled = false;
+    openModal('change-select-modal', document.getElementById('change-new-date'));
+    showFormMessage('change-select-message', message);
+}
+
+function getChangeErrorMessage(result) {
+    if (result === 'NOT_FOUND' || result === 'WRONG_PASSWORD') return '예약을 찾을 수 없습니다. 이름과 비밀번호를 확인해 주세요.';
+    if (result === 'COMPLETED_RESERVATION') return '이미 완료된 상담은 변경할 수 없습니다.';
+    if (result === 'CHANGE_RESERVATION_DISABLED') return '현재 예약 변경 기능을 잠시 사용할 수 없습니다.';
+    if (result === 'SAME_RESERVATION') return '기존 예약과 다른 날짜 또는 시간을 선택해 주세요.';
+    if (result === 'SLOT_TAKEN') return '선택한 시간은 이미 예약되었습니다. 다른 시간을 선택해 주세요.';
+    if (result === 'PAST_DATE_NOT_ALLOWED') return '지난 날짜에는 상담 예약을 변경할 수 없습니다.';
+    if (result === 'WEEKEND_NOT_ALLOWED') return '주말에는 상담을 예약할 수 없습니다.';
+    if (result === 'SERVICE_PAUSED') return '현재 상담 신청이 일시 중지되어 있습니다.';
+    if (result === 'SLOT_UNAVAILABLE' || result === 'DATE_BLOCKED') return '선택한 날짜 또는 시간에는 상담을 신청할 수 없습니다.';
+    if (result && result.indexOf('HOLIDAY_NOT_ALLOWED:') === 0) return `${result.split(':')[1] || '공휴일'}에는 상담을 예약할 수 없습니다.`;
+    return '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+}
+
 function openBookingConfirmation(request) {
     pendingBookingRequest = request;
     document.getElementById('booking-confirm-date').textContent = request.date;
@@ -435,6 +549,108 @@ cancelForm.addEventListener('submit', event => {
         name: selectedCancelEvent.name,
         password: pwdCheck
     }, 'cancel');
+});
+
+document.getElementById('reservation-change-open').addEventListener('click', openChangeFindModal);
+
+changeFindForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (isSubmitting) return;
+    const name = document.getElementById('change-find-name').value.trim();
+    const password = document.getElementById('change-find-password').value.trim();
+    if (!name || !/^\d{4}$/.test(password)) {
+        showFormMessage('change-find-message', '예약을 찾을 수 없습니다. 이름과 비밀번호를 확인해 주세요.');
+        return;
+    }
+
+    showFormMessage('change-find-message', '');
+    setSubmitting(changeFindForm, true, '확인 중…');
+    try {
+        const response = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'findReservationForChange', name, password }) });
+        if (!response.ok) throw new HttpError(response.status);
+        const result = await response.json();
+        if (!result.ok) {
+            showFormMessage('change-find-message', getChangeErrorMessage(result.error));
+            return;
+        }
+        changeReservations = Array.isArray(result.reservations) ? result.reservations : [];
+        if (!changeReservations.length) {
+            showFormMessage('change-find-message', '예약을 찾을 수 없습니다. 이름과 비밀번호를 확인해 주세요.');
+            return;
+        }
+        openChangeSelectModal();
+    } catch (error) {
+        console.error('예약 변경 조회 중 오류:', error);
+        showFormMessage('change-find-message', '서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.');
+    } finally {
+        setSubmitting(changeFindForm, false, '');
+    }
+});
+
+document.getElementById('change-current-reservation').addEventListener('change', () => {
+    updateSelectedChangeReservation();
+    renderChangeSlotOptions();
+});
+
+document.getElementById('change-new-date').addEventListener('change', renderChangeSlotOptions);
+
+document.getElementById('change-select-back').addEventListener('click', () => {
+    openModal('change-find-modal', document.getElementById('change-find-name'));
+});
+
+changeSelectForm.addEventListener('submit', event => {
+    event.preventDefault();
+    if (isSubmitting || !selectedChangeReservation) return;
+    const newDate = document.getElementById('change-new-date').value;
+    const selectedSlot = changeSelectForm.querySelector('input[name="change-slot"]:checked');
+    if (!newDate || !selectedSlot || selectedSlot.disabled) {
+        showFormMessage('change-select-message', '예약 가능한 새 날짜와 시간을 선택해 주세요.');
+        return;
+    }
+    if (newDate === selectedChangeReservation.date && selectedSlot.value === selectedChangeReservation.slot) {
+        showFormMessage('change-select-message', '기존 예약과 다른 날짜 또는 시간을 선택해 주세요.');
+        return;
+    }
+    openChangeConfirmation({
+        row: selectedChangeReservation.row,
+        oldDate: selectedChangeReservation.date,
+        oldSlot: selectedChangeReservation.slot,
+        newDate,
+        newSlot: selectedSlot.value,
+        name: document.getElementById('change-find-name').value.trim(),
+        password: document.getElementById('change-find-password').value.trim()
+    });
+});
+
+document.querySelectorAll('[data-change-confirm-back]').forEach(button => {
+    button.addEventListener('click', () => returnToChangeSelection());
+});
+
+document.getElementById('change-confirm-submit').addEventListener('click', async () => {
+    if (!pendingChangeRequest || isSubmitting) return;
+    isSubmitting = true;
+    const submit = document.getElementById('change-confirm-submit');
+    submit.disabled = true;
+    submit.dataset.originalText = submit.dataset.originalText || submit.textContent;
+    submit.textContent = '변경 처리 중…';
+    showFormMessage('change-confirm-message', '');
+    try {
+        const response = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'changeReservation', ...pendingChangeRequest }) });
+        if (!response.ok) throw new HttpError(response.status);
+        const result = await response.text();
+        if (result === 'Success') {
+            showNotice('변경 완료', '상담 예약 시간이 변경되었습니다.', true);
+            return;
+        }
+        returnToChangeSelection(getChangeErrorMessage(result));
+    } catch (error) {
+        console.error('예약 변경 처리 중 오류:', error);
+        returnToChangeSelection('서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.');
+    } finally {
+        isSubmitting = false;
+        submit.disabled = false;
+        submit.textContent = submit.dataset.originalText || '변경 확정';
+    }
 });
 
 document.addEventListener('DOMContentLoaded', async function() {

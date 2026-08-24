@@ -10,7 +10,7 @@ Google Apps Script와 Google Sheets를 사용하는 상담 예약 사이트입�
 - `.clasp.json`, `apps-script/appsscript.json`: 기존 Apps Script 프로젝트 연결과 로컬 배포 설정
 - `AGENTS.md`: 프로젝트 작업 규칙
 
-학생 화면과 관리자 화면은 같은 기존 Google Apps Script 웹 앱 URL을 사용합니다. 학생용 `save`·`delete` 요청 필드와 응답 문자열은 유지합니다.
+학생 화면과 관리자 화면은 같은 기존 Google Apps Script 웹 앱 URL을 사용합니다. 학생용 `save`·`delete` 요청 필드와 응답 문자열은 유지합니다. 예약 변경은 별도 `findReservationForChange`·`changeReservation` action으로 처리하며 기존 예약을 취소한 뒤 새 예약을 만드는 방식은 사용하지 않습니다.
 
 ## Google Sheets 구조
 
@@ -63,6 +63,7 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 | `ADMIN_PASSWORD_SETUP` | 임시 평문 | 최초 관리자 비밀번호 설정 때만 사용 후 자동 삭제 |
 | `DISCORD_WEBHOOK_URL` | Discord Webhook URL | Discord 알림 대상, 미설정 시 알림만 생략 |
 | `ADMIN_PAGE_URL` | HTTPS URL | 관리자 링크, 미설정 시 `https://khj-hub.github.io/1-1-counseling/admin.html` |
+| `CHANGE_RESERVATION_ENABLED` | `true/false` | 예약 변경 기능. 미설정 또는 `true`면 사용, `false`면 즉시 비활성화 |
 | `DISCORD_DAILY_SUMMARY_ENABLED` | `true/false` | 당일 상담 아침 요약 활성화 |
 | `GOOGLE_CALENDAR_ENABLED` | `true/false` | Google Calendar 연동 활성화 |
 | `GOOGLE_CALENDAR_ID` | Calendar ID | 연동할 캘린더 ID, 브라우저에 노출하지 않음 |
@@ -86,7 +87,7 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 
 ## Discord 알림
 
-Discord는 새 예약·예약 취소 알림을 즉시 전송하며 관리자 페이지 링크를 포함합니다. 당일 상담 아침 요약은 오전 8시 전후에만 전송하고, **미완료 예약이 1건 이상 있는 날에만** 발송합니다. 예약이 없는 날, 내일 상담 안내, 차시 시작 전 알림은 발송하지 않습니다. 당일 요약은 Script Properties에 전송 상태를 저장해 같은 날짜에 중복 발송하지 않습니다.
+Discord는 새 예약·예약 취소·예약 변경 알림을 즉시 전송하며 관리자 페이지 링크를 포함합니다. 예약 변경에 성공하면 신청·취소 알림 대신 변경 알림 1건만 전송합니다. 당일 상담 아침 요약은 오전 8시 전후에만 전송하고, **미완료 예약이 1건 이상 있는 날에만** 발송합니다. 예약이 없는 날, 내일 상담 안내, 차시 시작 전 알림은 발송하지 않습니다. 당일 요약은 Script Properties에 전송 상태를 저장해 같은 날짜에 중복 발송하지 않습니다.
 
 Discord 장애나 Webhook 미설정은 예약·취소 결과를 바꾸지 않습니다. 학생 비밀번호와 상담 메모는 전송하지 않습니다.
 
@@ -103,7 +104,7 @@ Google Calendar 설정에서 대상 캘린더의 **캘린더 통합 → 캘린�
 
 Calendar 연동 코드를 처음 실행하면 Apps Script가 Calendar 읽기·수정 권한 승인을 요청합니다. 설치형 트리거는 트리거를 만든 계정의 권한으로 실행됩니다. 프로젝트가 명시적 `appsscript.json` 범위를 사용한다면 Calendar 범위 `https://www.googleapis.com/auth/calendar`도 포함해야 합니다.
 
-예약 성공 시 `[학생 상담] 학생 이름` 이벤트를 만들고 G열에 이벤트 ID를 저장합니다. 취소 시 연결 이벤트를 삭제하며, 상담 완료 상태가 바뀌면 제목의 `[완료]` 접두사를 갱신합니다. Calendar 장애는 Sheets 예약·취소·완료 저장을 롤백하지 않습니다.
+예약 성공 시 `[학생 상담] 학생 이름` 이벤트를 만들고 G열에 이벤트 ID를 저장합니다. 취소 시 연결 이벤트를 삭제하며, 예약 변경 시 기존 연결 이벤트를 삭제한 뒤 새 날짜·차시로 다시 만듭니다. 상담 완료 상태가 바뀌면 제목의 `[완료]` 접두사를 갱신합니다. Calendar 장애는 Sheets 예약·취소·변경·완료 저장을 롤백하지 않습니다.
 
 기존 예약 동기화:
 

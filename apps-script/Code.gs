@@ -16,6 +16,7 @@ const ADMIN_PASSWORD_SETUP_KEY = "ADMIN_PASSWORD_SETUP";
 const ADMIN_SESSION_PREFIX = "ADMIN_SESSION_";
 const ADMIN_SESSION_TTL_SECONDS = 30 * 60;
 const DISCORD_WEBHOOK_URL_KEY = "DISCORD_WEBHOOK_URL";
+const CHANGE_RESERVATION_ENABLED_KEY = "CHANGE_RESERVATION_ENABLED";
 const DEFAULT_ADMIN_PAGE_URL = "https://khj-hub.github.io/1-1-counseling/admin.html";
 const TIME_ZONE = "Asia/Seoul";
 const CALENDAR_EVENT_ID_COLUMN = 7;
@@ -293,6 +294,10 @@ function isPropertyEnabled(key) {
   return (getScriptProperties().getProperty(key) || "").toLowerCase() === "true";
 }
 
+function isChangeReservationEnabled() {
+  return (getScriptProperties().getProperty(CHANGE_RESERVATION_ENABLED_KEY) || "true").toLowerCase() !== "false";
+}
+
 function sendDiscordPayload(payload) {
   const webhookUrl = getScriptProperties().getProperty(DISCORD_WEBHOOK_URL_KEY);
   if (!webhookUrl) {
@@ -361,6 +366,21 @@ function notifyDiscordCancellation(name, date, slot) {
   });
 }
 
+function notifyDiscordReservationChange(name, oldDate, oldSlot, newDate, newSlot) {
+  return sendDiscordEmbed({
+    title: "🔄 상담 예약 변경",
+    url: getAdminPageUrl(),
+    color: 10181046,
+    fields: [
+      { name: "학생 이름", value: name, inline: true },
+      { name: "기존 예약", value: oldDate + " · " + formatSlotWithTime(oldSlot), inline: false },
+      { name: "변경 예약", value: newDate + " · " + formatSlotWithTime(newSlot), inline: false },
+      { name: "변경 시각", value: discordTimestampLabel(), inline: false },
+      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
+    ]
+  });
+}
+
 function testDiscordNotification() {
   return sendDiscordMessage("🔔 상담 예약 시스템 Discord Webhook 테스트 알림입니다.");
 }
@@ -378,6 +398,14 @@ function notifyDiscordCancellationSafely(name, date, slot) {
     notifyDiscordCancellation(name, date, slot);
   } catch (error) {
     console.error("Discord cancellation notification failed.");
+  }
+}
+
+function notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot) {
+  try {
+    notifyDiscordReservationChange(name, oldDate, oldSlot, newDate, newSlot);
+  } catch (error) {
+    console.error("Discord reservation change notification failed.");
   }
 }
 
@@ -780,6 +808,133 @@ function doGet() {
   });
 }
 
+function isPastOrStartedCounselingSlot(date, slot) {
+  const today = localIsoDate(new Date());
+  if (date < today) return true;
+  if (date !== today) return false;
+  const slotTime = getSlotTimeConfig(slot);
+  if (!slotTime) return false;
+  const now = Utilities.formatDate(new Date(), TIME_ZONE, "HH:mm");
+  return slotTime.start <= now;
+}
+
+function getReservationChangeValidationError(ss, date, slot) {
+  if (!isIsoDate(date)) return "INVALID_DATE";
+  if (CONSULT_SLOTS.indexOf(slot) === -1) return "INVALID_SLOT";
+  const requestDate = new Date(date + "T00:00:00+09:00");
+  const day = requestDate.getDay();
+  if (date < localIsoDate(new Date())) return "PAST_DATE_NOT_ALLOWED";
+  if (day === 0 || day === 6) return "WEEKEND_NOT_ALLOWED";
+  const holidays = getKoreanHolidays(requestDate.getFullYear());
+  if (holidays[date]) return "HOLIDAY_NOT_ALLOWED:" + holidays[date];
+  if (isDateBlocked(ss, date)) return "DATE_BLOCKED";
+  if (getAllowedSlotsForDate(ss, date).indexOf(slot) === -1) return "SLOT_UNAVAILABLE";
+  if (isPastOrStartedCounselingSlot(date, slot)) return "SLOT_UNAVAILABLE";
+  return "";
+}
+
+function findReservationsForChange(sheet, name, password) {
+  const rows = sheet.getDataRange().getValues();
+  const matches = [];
+  let completedMatch = false;
+  for (let i = 1; i < rows.length; i++) {
+    const rowName = rows[i][2] ? rows[i][2].toString().trim() : "";
+    const savedPassword = rows[i][3] ? rows[i][3].toString().trim() : "";
+    if (rowName !== name || savedPassword !== password) continue;
+    if (sheetBoolean(rows[i][4])) {
+      completedMatch = true;
+      continue;
+    }
+    const date = parseKoreanDate(rows[i][0]);
+    const slot = rows[i][1] ? rows[i][1].toString().trim() : "";
+    if (!date || CONSULT_SLOTS.indexOf(slot) === -1) continue;
+    matches.push({ row: i + 1, date: date, slot: slot });
+  }
+  return { reservations: matches, completedMatch: completedMatch };
+}
+
+function findReservationForChange(data, sheet) {
+  if (!isChangeReservationEnabled()) return jsonOutput({ ok: false, error: "CHANGE_RESERVATION_DISABLED" });
+  const name = data.name ? data.name.toString().trim() : "";
+  const password = data.password ? data.password.toString().trim() : "";
+  if (!name || !/^\d{4}$/.test(password)) return jsonOutput({ ok: false, error: "NOT_FOUND" });
+  const result = findReservationsForChange(sheet, name, password);
+  if (!result.reservations.length) {
+    return jsonOutput({ ok: false, error: result.completedMatch ? "COMPLETED_RESERVATION" : "NOT_FOUND" });
+  }
+  return jsonOutput({ ok: true, reservations: result.reservations });
+}
+
+function changeReservation(data, ss, sheet) {
+  if (!isChangeReservationEnabled()) return "CHANGE_RESERVATION_DISABLED";
+  if (getOperationSettings().operating === false) return "SERVICE_PAUSED";
+
+  const name = data.name ? data.name.toString().trim() : "";
+  const password = data.password ? data.password.toString().trim() : "";
+  const oldDate = data.oldDate ? data.oldDate.toString().trim() : "";
+  const oldSlot = data.oldSlot ? data.oldSlot.toString().trim() : "";
+  const newDate = data.newDate ? data.newDate.toString().trim() : "";
+  const newSlot = data.newSlot ? data.newSlot.toString().trim() : "";
+  const rowNumber = Number(data.row);
+
+  if (!name || name.length > 100 || !/^\d{4}$/.test(password)) return "NOT_FOUND";
+  if (!Number.isInteger(rowNumber) || rowNumber < 2 || !isIsoDate(oldDate) || CONSULT_SLOTS.indexOf(oldSlot) === -1) return "NOT_FOUND";
+  if (oldDate === newDate && oldSlot === newSlot) return "SAME_RESERVATION";
+  if (!isIsoDate(newDate) || CONSULT_SLOTS.indexOf(newSlot) === -1) return "INVALID_DATE";
+
+  const lock = LockService.getScriptLock();
+  let result = "NOT_FOUND";
+  let calendarEventId = "";
+  lock.waitLock(10000);
+  try {
+    if (rowNumber > sheet.getLastRow()) return "NOT_FOUND";
+    const row = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
+    const currentDate = parseKoreanDate(row[0]);
+    const currentSlot = row[1] ? row[1].toString().trim() : "";
+    const currentName = row[2] ? row[2].toString().trim() : "";
+    const currentPassword = row[3] ? row[3].toString().trim() : "";
+    if (currentDate !== oldDate || currentSlot !== oldSlot || currentName !== name || currentPassword !== password) return "NOT_FOUND";
+    if (sheetBoolean(row[4])) return "COMPLETED_RESERVATION";
+
+    result = getReservationChangeValidationError(ss, newDate, newSlot);
+    if (result) return result;
+
+    const rows = sheet.getDataRange().getValues();
+    const slotTaken = rows.slice(1).some((candidate, index) => {
+      return index + 2 !== rowNumber && parseKoreanDate(candidate[0]) === newDate &&
+        (candidate[1] ? candidate[1].toString().trim() : "") === newSlot;
+    });
+    if (slotTaken) return "SLOT_TAKEN";
+
+    const requestDate = new Date(newDate + "T00:00:00+09:00");
+    const day = requestDate.getDay();
+    const mondayDiff = day === 0 ? -6 : 1 - day;
+    const monday = new Date(requestDate); monday.setDate(requestDate.getDate() + mondayDiff); monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
+    const weeklyDuplicate = rows.slice(1).some((candidate, index) => {
+      if (index + 2 === rowNumber) return false;
+      const candidateDate = parseKoreanDate(candidate[0]);
+      const candidateTime = candidateDate ? new Date(candidateDate + "T00:00:00+09:00").getTime() : NaN;
+      const candidateName = candidate[2] ? candidate[2].toString().trim() : "";
+      return candidateName === name && candidateTime >= monday.getTime() && candidateTime <= sunday.getTime();
+    });
+    if (weeklyDuplicate) return "DUPLICATE_WEEKLY";
+
+    calendarEventId = row[CALENDAR_EVENT_ID_COLUMN - 1] ? row[CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
+    sheet.getRange(rowNumber, 1, 1, 2).setValues([[newDate, newSlot]]);
+    result = "Success";
+  } finally {
+    lock.releaseLock();
+  }
+
+  if (result === "Success") {
+    deleteCalendarEventSafely(calendarEventId);
+    createCalendarEventForReservationSafely(rowNumber, newDate, newSlot, name);
+    notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot);
+  }
+  return result;
+}
+
 function doPost(e) {
   let data;
   try {
@@ -803,6 +958,23 @@ function doPost(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONSULT_SHEET_NAME);
   if (!sheet) return textOutput("Sheet Not Found");
+
+  if (data.action === "findReservationForChange") {
+    try {
+      return findReservationForChange(data, sheet);
+    } catch (error) {
+      logServerError("Reservation change lookup failed", error);
+      return jsonOutput({ ok: false, error: "SERVER_ERROR" });
+    }
+  }
+  if (data.action === "changeReservation") {
+    try {
+      return textOutput(changeReservation(data, ss, sheet));
+    } catch (error) {
+      logServerError("Reservation change failed", error);
+      return textOutput("SERVER_ERROR");
+    }
+  }
 
   const { action, date, slot, name, password } = data;
   const trimmedName = name ? name.trim() : "";
