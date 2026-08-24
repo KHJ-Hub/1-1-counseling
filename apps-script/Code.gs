@@ -29,6 +29,9 @@ const COUNSELING_TRIGGER_HANDLERS = [
   "runTodayCounselingSummary",
   "runTomorrowCounselingSummary"
 ];
+// 이전 정책에서 만들어졌을 수 있는 트리거까지 안전하게 정리한다.
+// 현재 자동 발송 정책은 당일 아침 요약만 사용한다.
+const REQUIRED_COUNSELING_TRIGGER_HANDLERS = ["runTodayCounselingSummary"];
 const SLOT_PROPERTY_MAP = {
   "야자 1차시": { start: "SLOT_1_START", end: "SLOT_1_END" },
   "야자 2차시": { start: "SLOT_2_START", end: "SLOT_2_END" },
@@ -951,8 +954,9 @@ function handleAdminAction(data) {
   if (data.action === "adminBackupCurrentData") return adminBackupCurrentData();
   if (data.action === "adminTestDiscord") return adminRunIntegrationTest(testDiscordNotification);
   if (data.action === "adminTestTodaySummary") return adminRunIntegrationTest(testTodayCounselingSummary);
-  if (data.action === "adminTestTomorrowSummary") return adminRunIntegrationTest(testTomorrowCounselingSummary);
-  if (data.action === "adminTestSlotStart") return adminRunIntegrationTest(testSlotStartNotification);
+  if (data.action === "adminTestTomorrowSummary" || data.action === "adminTestSlotStart") {
+    return jsonOutput({ ok: true, sent: false, skipped: true, message: "현재 알림 정책에서는 지원하지 않는 알림입니다." });
+  }
 
   return jsonOutput({ ok: false, error: "INVALID_ACTION" });
 }
@@ -1731,89 +1735,43 @@ function getReservationsForDate(date) {
 }
 
 function sendSlotStartNotification(date, slot, names, testMode) {
-  const slotTime = getSlotTimeConfig(slot);
-  if (!slotTime || !names.length) return false;
-  const titlePrefix = testMode ? "[테스트] " : "";
-  return sendDiscordEmbed({
-    title: titlePrefix + "🔔 " + slot + " 상담 일정",
-    url: getAdminPageUrl(),
-    color: 16766720,
-    fields: [
-      { name: "날짜", value: formatKoreanDateLabel(date), inline: true },
-      { name: "시작 시각", value: slotTime.start, inline: true },
-      { name: "상담 학생", value: names.map(name => "- " + name).join("\n"), inline: false },
-      { name: "전체", value: names.length + "명", inline: true },
-      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
-    ]
-  });
+  console.log("차시 시작 알림은 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
+  return false;
 }
 
 function checkCounselingSlotStartNotifications() {
-  if (!isPropertyEnabled("DISCORD_SLOT_START_ENABLED")) return false;
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const now = new Date();
-    const date = localIsoDate(now);
-    const currentMinutes = Number(Utilities.formatDate(now, TIME_ZONE, "H")) * 60 + Number(Utilities.formatDate(now, TIME_ZONE, "m"));
-    const reservations = getReservationsForDate(date);
-    if (!reservations.length) return false;
-    const allowedSlots = getAllowedSlotsForDate(SpreadsheetApp.getActiveSpreadsheet(), date);
-
-    const state = cleanDatedState(readJsonProperty(SLOT_START_STATE_KEY), localIsoDate(addDays(now, -14)));
-    let sentAny = false;
-    CONSULT_SLOTS.forEach(slot => {
-      if (allowedSlots.indexOf(slot) === -1) return;
-      const config = getSlotTimeConfig(slot);
-      if (!config) return;
-      const difference = currentMinutes - timeToMinutes(config.start);
-      const key = date + "|" + slot;
-      if (difference < 0 || difference > 4 || state[key]) return;
-      const names = reservations.filter(item => item.slot === slot).map(item => item.name);
-      if (!names.length) return;
-      if (sendSlotStartNotification(date, slot, names, false)) {
-        state[key] = discordTimestampLabel();
-        sentAny = true;
-      }
-    });
-    writeJsonProperty(SLOT_START_STATE_KEY, state);
-    return sentAny;
-  } finally {
-    lock.releaseLock();
-  }
+  console.log("차시 시작 알림은 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
+  return false;
 }
 
 function testSlotStartNotification() {
-  const slot = CONSULT_SLOTS.find(item => getSlotTimeConfig(item));
-  if (!slot) return false;
-  const todayReservations = getReservationsForDate(localIsoDate(new Date())).filter(item => item.slot === slot);
-  const names = todayReservations.length ? todayReservations.map(item => item.name) : ["테스트 학생"];
-  return sendSlotStartNotification(localIsoDate(new Date()), slot, names, true);
+  console.log("차시 시작 테스트는 현재 Discord 알림 정책에 따라 생략합니다.");
+  return false;
 }
 
 function sendCounselingSummary(date, kind, testMode) {
-  const reservations = getReservationsForDate(date);
-  const isToday = kind === "today";
+  if (kind !== "today") {
+    console.log("내일 상담 안내는 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
+    return false;
+  }
+  const reservations = getReservationsForDate(date).filter(item => !item.completed);
   const dateLabel = formatKoreanDateLabel(date);
   const prefix = testMode ? "[테스트] " : "";
 
-  // 예약이 0건이더라도 반드시 안내 메시지 전송
+  // 상담이 없는 날에는 Webhook을 호출하지 않는다.
   if (reservations.length === 0) {
-    const noItemMsg = isToday
-      ? "[안내] 오늘(" + dateLabel + ") 예정된 상담이 없습니다."
-      : "[안내] 내일(" + dateLabel + ") 예정된 상담이 없습니다.";
-    return sendDiscordMessage(prefix + noItemMsg);
+    console.log("오늘 상담 예약 없음 - 알림 생략 (" + dateLabel + ")");
+    return false;
   }
 
   const lines = reservations.map(item => {
-    const completed = isToday ? " · " + (item.completed ? "완료" : "미완료") : "";
-    return "- " + item.slot + " · " + item.name + completed;
+    return "- " + item.slot + " · " + item.name;
   }).join("\n");
 
   return sendDiscordEmbed({
-    title: prefix + (isToday ? "📅 오늘의 상담 일정" : "📋 내일의 상담 일정"),
+    title: prefix + "📅 오늘의 상담 일정",
     url: getAdminPageUrl(),
-    color: isToday ? 3447003 : 10181046,
+    color: 3447003,
     fields: [
       { name: "날짜", value: dateLabel, inline: true },
       { name: "전체 예약", value: reservations.length + "건", inline: true },
@@ -1824,12 +1782,16 @@ function sendCounselingSummary(date, kind, testMode) {
 }
 
 function runDailySummary(kind) {
+  if (kind !== "today") {
+    console.log("내일 상담 안내는 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
+    return false;
+  }
   if (!isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED")) return false;
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     const now = new Date();
-    const date = localIsoDate(kind === "today" ? now : addDays(now, 1));
+    const date = localIsoDate(now);
     const key = kind + "|" + date;
     const state = cleanDatedState(readJsonProperty(SUMMARY_STATE_KEY), localIsoDate(addDays(now, -14)));
     if (state[key]) return false;
@@ -1847,7 +1809,8 @@ function runTodayCounselingSummary() {
 }
 
 function runTomorrowCounselingSummary() {
-  return runDailySummary("tomorrow");
+  console.log("내일 상담 안내는 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
+  return false;
 }
 
 function testTodayCounselingSummary() {
@@ -1855,7 +1818,8 @@ function testTodayCounselingSummary() {
 }
 
 function testTomorrowCounselingSummary() {
-  return sendCounselingSummary(localIsoDate(addDays(new Date(), 1)), "tomorrow", true);
+  console.log("내일 상담 안내 테스트는 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
+  return false;
 }
 
 function removeCounselingTriggers() {
@@ -1871,9 +1835,7 @@ function removeCounselingTriggers() {
 
 function installCounselingTriggers() {
   removeCounselingTriggers();
-  ScriptApp.newTrigger("checkCounselingSlotStartNotifications").timeBased().everyMinutes(5).create();
   ScriptApp.newTrigger("runTodayCounselingSummary").timeBased().atHour(8).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
-  ScriptApp.newTrigger("runTomorrowCounselingSummary").timeBased().atHour(19).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
   return getCounselingTriggerStatus();
 }
 
@@ -1912,11 +1874,10 @@ function adminGetIntegrationStatus() {
     ok: true,
     status: {
       discordConfigured: Boolean(properties.getProperty(DISCORD_WEBHOOK_URL_KEY)),
-      slotStartEnabled: isPropertyEnabled("DISCORD_SLOT_START_ENABLED"),
       dailySummaryEnabled: isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED"),
       calendarEnabled: isPropertyEnabled("GOOGLE_CALENDAR_ENABLED"),
       slotTimesValid: Object.keys(slotConfigs).length === CONSULT_SLOTS.length,
-      triggersInstalled: triggerStatusAvailable && COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true),
+      triggersInstalled: triggerStatusAvailable && REQUIRED_COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true),
       triggerStatusAvailable: triggerStatusAvailable
     }
   });

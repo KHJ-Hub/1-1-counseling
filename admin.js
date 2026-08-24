@@ -560,8 +560,7 @@ async function loadStats() {
 function renderIntegrationStatus(status) {
     const labels = [
         ['Discord Webhook', status.discordConfigured],
-        ['야자 차시 시작 알림', status.slotStartEnabled],
-        ['오늘·내일 일정 요약', status.dailySummaryEnabled],
+        ['당일 상담 아침 요약', status.dailySummaryEnabled],
         ['Google Calendar 연동', status.calendarEnabled],
         ['상담 시간대 설정', status.slotTimesValid],
         ['Apps Script 트리거', status.triggersInstalled]

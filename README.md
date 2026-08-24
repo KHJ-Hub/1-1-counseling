@@ -63,8 +63,7 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 | `ADMIN_PASSWORD_SETUP` | 임시 평문 | 최초 관리자 비밀번호 설정 때만 사용 후 자동 삭제 |
 | `DISCORD_WEBHOOK_URL` | Discord Webhook URL | Discord 알림 대상, 미설정 시 알림만 생략 |
 | `ADMIN_PAGE_URL` | HTTPS URL | 관리자 링크, 미설정 시 `https://khj-hub.github.io/1-1-counseling/admin.html` |
-| `DISCORD_SLOT_START_ENABLED` | `true/false` | 야자 차시 시작 알림 활성화 |
-| `DISCORD_DAILY_SUMMARY_ENABLED` | `true/false` | 오늘·내일 요약 활성화 |
+| `DISCORD_DAILY_SUMMARY_ENABLED` | `true/false` | 당일 상담 아침 요약 활성화 |
 | `GOOGLE_CALENDAR_ENABLED` | `true/false` | Google Calendar 연동 활성화 |
 | `GOOGLE_CALENDAR_ID` | Calendar ID | 연동할 캘린더 ID, 브라우저에 노출하지 않음 |
 | `SLOT_1_START` / `SLOT_1_END` | `HH:mm` | 야자 1차시 시작·종료 |
@@ -75,7 +74,7 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 | `VACATION_SLOT_3_START` / `VACATION_SLOT_3_END` | `HH:mm` | 기본 `13:00` / `14:50` |
 | `VACATION_SLOT_4_START` / `VACATION_SLOT_4_END` | `HH:mm` | 기본 `15:10` / `17:00` |
 
-시간 예시는 `18:40`/`19:30`, `19:40`/`20:30`, `20:40`/`21:30`입니다. 실제 학교 시간표를 입력하세요. 시간값이 없거나 잘못되면 예약은 유지되고 Calendar 등록과 차시 시작 알림만 생략됩니다.
+시간 예시는 `18:40`/`19:30`, `19:40`/`20:30`, `20:40`/`21:30`입니다. 실제 학교 시간표를 입력하세요. 시간값이 없거나 잘못되면 예약은 유지되고 Calendar 등록만 생략됩니다.
 
 방학 시간 속성이 없으면 위 기본값을 사용합니다. `initializeVacationSlotProperties()`는 없는 속성만 추가하고 기존 값은 덮어쓰지 않으며, 확정값과 다른 기존 항목은 `different`로 반환합니다.
 
@@ -87,7 +86,7 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 
 ## Discord 알림
 
-예약·취소 알림은 Embed로 전송하며 관리자 페이지 링크를 포함합니다. 차시 시작 알림은 같은 날짜·차시의 학생을 한 메시지로 묶고, 예약이 없으면 보내지 않습니다. 오늘 요약은 오전 8시 전후, 내일 요약은 오후 7시 전후에 전송됩니다. 각 자동 알림은 Script Properties에 전송 상태를 저장해 같은 날짜에 중복 발송하지 않습니다.
+Discord는 새 예약·예약 취소 알림을 즉시 전송하며 관리자 페이지 링크를 포함합니다. 당일 상담 아침 요약은 오전 8시 전후에만 전송하고, **미완료 예약이 1건 이상 있는 날에만** 발송합니다. 예약이 없는 날, 내일 상담 안내, 차시 시작 전 알림은 발송하지 않습니다. 당일 요약은 Script Properties에 전송 상태를 저장해 같은 날짜에 중복 발송하지 않습니다.
 
 Discord 장애나 Webhook 미설정은 예약·취소 결과를 바꾸지 않습니다. 학생 비밀번호와 상담 메모는 전송하지 않습니다.
 
@@ -95,8 +94,6 @@ Discord 장애나 Webhook 미설정은 예약·취소 결과를 바꾸지 않습
 
 - `testDiscordNotification()`: 기본 Webhook 테스트
 - `testTodayCounselingSummary()`: 오늘 요약 테스트
-- `testTomorrowCounselingSummary()`: 내일 요약 테스트
-- `testSlotStartNotification()`: 현재 시각과 무관한 차시 시작 테스트
 
 관리자 설정 탭의 테스트 버튼도 동일 기능을 서버 인증 후 실행합니다.
 
@@ -119,15 +116,13 @@ Calendar 연동 코드를 처음 실행하면 Apps Script가 Calendar 읽기·�
 
 1. Apps Script 편집기에서 `installCounselingTriggers()`를 선택해 한 번 실행합니다.
 2. 권한을 승인합니다.
-3. 왼쪽 **트리거**에서 다음 세 핸들러를 확인합니다.
-   - `checkCounselingSlotStartNotifications`: 5분 간격
-   - `runTodayCounselingSummary`: 매일 오전 8시 전후
-   - `runTomorrowCounselingSummary`: 매일 오후 7시 전후
+3. 왼쪽 **트리거**에서 다음 핸들러를 확인합니다.
+   - `runTodayCounselingSummary`: 매일 오전 8시 전후 (당일 미완료 예약이 1건 이상일 때만 발송)
 4. 관리자 설정 화면에서 “Apps Script 트리거: 설정됨”을 확인합니다.
 
-재실행 시 이 기능의 트리거만 제거하고 다시 만들므로 중복되지 않습니다. `removeCounselingTriggers()`는 위 세 핸들러만 삭제하며 프로젝트의 다른 트리거는 삭제하지 않습니다.
+재실행 시 이 기능의 트리거만 제거하고 다시 만들므로 중복되지 않습니다. 이전 정책의 차시 시작·내일 요약 트리거가 남아 있다면 함께 제거하며, 프로젝트의 다른 트리거는 삭제하지 않습니다.
 
-Apps Script 시간 기반 트리거는 정확한 정각 실행을 보장하지 않습니다. 일일 트리거의 `nearMinute(0)`에는 약 ±15분 오차가 있을 수 있습니다. 차시 알림은 5분 간격 점검 방식이므로 설정한 시작 시각부터 최대 약 4분 내 전송될 수 있습니다.
+Apps Script 시간 기반 트리거는 정확한 정각 실행을 보장하지 않습니다. 일일 트리거의 `nearMinute(0)`에는 약 ±15분 오차가 있을 수 있습니다.
 
 ## 관리자 화면
 
@@ -249,7 +244,7 @@ clasp 2.x를 사용하는 환경에서는 `create-version` 대신 `version`, `up
 ## 되돌리기
 
 1. `removeCounselingTriggers()`를 실행해 이번 기능의 트리거만 제거합니다.
-2. `DISCORD_SLOT_START_ENABLED`, `DISCORD_DAILY_SUMMARY_ENABLED`, `GOOGLE_CALENDAR_ENABLED`를 `false`로 바꿉니다.
+2. `DISCORD_DAILY_SUMMARY_ENABLED`, `GOOGLE_CALENDAR_ENABLED`를 `false`로 바꿉니다.
 3. 배포 관리에서 이전 정상 Apps Script 버전으로 되돌립니다.
 4. G열은 기존 A~F에 영향을 주지 않으므로 데이터 보존을 위해 그대로 두고, 삭제가 필요하면 먼저 별도 백업합니다.
 
@@ -296,8 +291,7 @@ clasp 2.x를 사용하는 환경에서는 `create-version` 대신 `version`, `up
 ### 외부 연동
 
 - 예약·취소 Embed와 관리자 링크, Webhook 미설정·장애
-- 차시 알림 1회 발송·학생 묶음·빈 차시 생략·취소 학생 제외
-- 오늘·내일 요약 중복 방지
+- 당일 미완료 예약이 1건 이상일 때만 아침 요약 1회 발송, 빈 날·내일·차시 시작 알림 생략
 - Calendar 생성·중복 방지·취소 삭제·완료 제목·기존 예약 동기화
 - Calendar 미설정·권한 오류에도 예약 정상 처리
 
