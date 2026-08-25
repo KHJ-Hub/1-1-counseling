@@ -266,6 +266,10 @@
 .item-badge.type-vacation { background: var(--color-accent); color: #426775; }
 .item-badge.type-closed { background: var(--color-blocked); color: #625b6d; }
 .item-note { margin: 8px 0 0; color: var(--color-muted); font-size: 0.86rem; }
+.availability-repeat-item { border-color: #b9d4c1; }
+.availability-repeat-meta { margin: 0 0 8px; color: var(--color-primary-strong); font-size: 0.8rem; font-weight: 760; }
+.availability-group-children { display: grid; grid-column: 1 / -1; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--color-border); }
+.availability-group-child { display: grid; grid-template-columns: minmax(110px, auto) minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px; border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.64); }
 .empty-state { margin: 0; padding: 34px 16px; border: 1px dashed #d8d8d2; border-radius: var(--radius-md); background: #faf9f4; color: var(--color-muted); text-align: center; }
 .confirm-dialog { max-width: 430px; }
 
@@ -324,6 +328,7 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .history-item,
     .reservation-summary,
     .reservation-editor { grid-template-columns: 1fr; gap: 7px; }
+    .availability-group-child { grid-template-columns: 1fr; gap: 8px; }
     .item-actions { justify-content: stretch; margin-top: 7px; }
     .calendar-list-toolbar { align-items: flex-start; flex-direction: column; margin-top: 14px; gap: 12px; }
     .calendar-list-toolbar .completed-filter { width: 100%; }

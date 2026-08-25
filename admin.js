@@ -17,6 +17,8 @@ let pendingDelete = null;
 let confirmTrigger = null;
 let pendingAdminReservationChange = null;
 let academicListMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let availabilityGroupsByKey = new Map();
+let expandedAvailabilityGroupKeys = new Set();
 let adminSlotTimes = {
     '자습 1차시': '08:20~10:10', '자습 2차시': '10:20~12:10',
     '자습 3차시': '13:00~14:50', '자습 4차시': '15:10~17:00'
@@ -485,17 +487,77 @@ function renderOperationCheck(result) {
     });
 }
 
+const WEEKDAY_LABELS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+
+function availabilitySignature(item) {
+    return `${item.operationType || 'semester'}|${(item.slots || []).map(value => value ? '1' : '0').join('')}|${item.note || ''}`;
+}
+
+function getAvailabilityGroups(items) {
+    const bySignature = new Map();
+    items.forEach(item => {
+        const signature = availabilitySignature(item);
+        if (!bySignature.has(signature)) bySignature.set(signature, []);
+        bySignature.get(signature).push(item);
+    });
+    const groups = [];
+    bySignature.forEach((sameSettings, signature) => {
+        sameSettings.sort((a, b) => a.date.localeCompare(b.date) || a.row - b.row);
+        let sequence = [];
+        sameSettings.forEach(item => {
+            const previous = sequence[sequence.length - 1];
+            const isWeeklySequence = previous && new Date(`${item.date}T00:00:00+09:00`).getTime() - new Date(`${previous.date}T00:00:00+09:00`).getTime() === 7 * 24 * 60 * 60 * 1000;
+            if (previous && !isWeeklySequence) {
+                groups.push(createAvailabilityGroup(sequence, signature));
+                sequence = [];
+            }
+            sequence.push(item);
+        });
+        if (sequence.length) groups.push(createAvailabilityGroup(sequence, signature));
+    });
+    return groups.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.items[0].row - b.items[0].row);
+}
+
+function createAvailabilityGroup(items, signature) {
+    const first = items[0];
+    const last = items[items.length - 1];
+    const isRepeat = items.length > 1;
+    return {
+        key: `${signature}|${first.date}|${last.date}`,
+        items: items,
+        startDate: first.date,
+        endDate: last.date,
+        operationType: first.operationType || 'semester',
+        slots: first.slots || [],
+        note: first.note || '',
+        isRepeat: isRepeat,
+        weekdayLabel: WEEKDAY_LABELS[new Date(`${first.date}T00:00:00+09:00`).getDay()]
+    };
+}
+
+function createAvailabilityDetails(item) {
+    const names = ADMIN_SLOT_NAMES[item.operationType] || ADMIN_SLOT_NAMES.semester;
+    const enabled = item.slots.map((value, index) => value ? names[index] : '').filter(Boolean);
+    const typeLabel = item.operationType === 'vacation' ? '방학' : item.operationType === 'closed' ? '상담 불가' : '학기 중';
+    const details = document.createElement('div');
+    const badges = document.createElement('div'); badges.className = 'item-badges';
+    badges.appendChild(createTextElement('span', `item-badge type-${item.operationType || 'semester'}`, typeLabel));
+    (enabled.length ? enabled : ['가능 시간 없음']).forEach(label => badges.appendChild(createTextElement('span', 'item-badge', label)));
+    details.appendChild(badges);
+    if (item.note) details.appendChild(createTextElement('p', 'item-note', item.note));
+    return details;
+}
+
 function renderAvailability() {
     const list = document.getElementById('availability-list');
     list.replaceChildren();
     const today = new Date();
     const todayText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const includePast = document.getElementById('availability-include-past').checked;
-    const visibleItems = availabilityItems
-        .filter(item => includePast || item.date >= todayText)
-        .sort((a, b) => a.date.localeCompare(b.date) || a.row - b.row);
+    const visibleGroups = getAvailabilityGroups(availabilityItems).filter(group => includePast || group.endDate >= todayText);
+    availabilityGroupsByKey = new Map(visibleGroups.map(group => [group.key, group]));
 
-    if (visibleItems.length === 0) {
+    if (visibleGroups.length === 0) {
         const message = availabilityItems.length === 0
             ? '별도로 설정된 날짜가 없습니다. 방학 기간은 기본 상담 불가입니다.'
             : '표시할 오늘 이후의 가능 시간 설정이 없습니다. 필요하면 “지난 설정도 보기”를 선택하세요.';
@@ -503,25 +565,44 @@ function renderAvailability() {
         return;
     }
 
-    visibleItems.forEach(item => {
+    visibleGroups.forEach(group => {
         const article = document.createElement('article');
-        article.className = 'list-item availability-item';
-        article.appendChild(createTextElement('div', 'item-title', item.date));
-        const names = ADMIN_SLOT_NAMES[item.operationType] || ADMIN_SLOT_NAMES.semester;
-        const enabled = item.slots.map((value, index) => value ? names[index] : '').filter(Boolean);
-        const typeLabel = item.operationType === 'vacation' ? '방학' : item.operationType === 'closed' ? '상담 불가' : '학기 중';
-        const details = document.createElement('div');
-        const badges = document.createElement('div'); badges.className = 'item-badges';
-        badges.appendChild(createTextElement('span', `item-badge type-${item.operationType || 'semester'}`, typeLabel));
-        (enabled.length ? enabled : ['가능 시간 없음']).forEach(label => badges.appendChild(createTextElement('span', 'item-badge', label)));
-        details.appendChild(badges);
-        if (item.note) details.appendChild(createTextElement('p', 'item-note', item.note));
+        article.className = `list-item availability-item${group.isRepeat ? ' availability-repeat-item' : ''}`;
+        article.appendChild(createTextElement('div', 'item-title', group.isRepeat ? `${group.startDate} ~ ${group.endDate}` : group.startDate));
+        const details = createAvailabilityDetails(group);
+        if (group.isRepeat) {
+            const repeatMeta = createTextElement('p', 'availability-repeat-meta', `반복 설정 · 매주 ${group.weekdayLabel} · ${group.items.length}개 날짜`);
+            details.prepend(repeatMeta);
+        }
         article.appendChild(details);
         const actions = document.createElement('div');
         actions.className = 'item-actions';
-        actions.appendChild(createActionButton('수정', 'secondary', 'edit-availability', item.row));
-        actions.appendChild(createActionButton('삭제', 'danger', 'delete-availability', item.row));
+        if (group.isRepeat) {
+            const manageButton = createActionButton(expandedAvailabilityGroupKeys.has(group.key) ? '개별 설정 닫기' : '개별 수정', 'secondary', 'toggle-availability-group', '');
+            manageButton.dataset.groupKey = group.key;
+            const deleteButton = createActionButton('반복 설정 삭제', 'danger', 'delete-availability-group', '');
+            deleteButton.dataset.groupKey = group.key;
+            actions.append(manageButton, deleteButton);
+        } else {
+            actions.appendChild(createActionButton('수정', 'secondary', 'edit-availability', group.items[0].row));
+            actions.appendChild(createActionButton('삭제', 'danger', 'delete-availability', group.items[0].row));
+        }
         article.appendChild(actions);
+        if (group.isRepeat && expandedAvailabilityGroupKeys.has(group.key)) {
+            const children = document.createElement('div');
+            children.className = 'availability-group-children';
+            group.items.forEach(item => {
+                const child = document.createElement('div');
+                child.className = 'availability-group-child';
+                child.append(createTextElement('strong', 'item-meta', item.date), createAvailabilityDetails(item));
+                const childActions = document.createElement('div');
+                childActions.className = 'item-actions';
+                childActions.append(createActionButton('수정', 'secondary', 'edit-availability', item.row), createActionButton('삭제', 'danger', 'delete-availability', item.row));
+                child.appendChild(childActions);
+                children.appendChild(child);
+            });
+            article.appendChild(children);
+        }
         list.appendChild(article);
     });
 }
@@ -1289,6 +1370,19 @@ renderAvailabilitySlotChecks('semester');
 document.getElementById('availability-list').addEventListener('click', event => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
+    if (button.dataset.action === 'toggle-availability-group') {
+        const key = button.dataset.groupKey;
+        if (expandedAvailabilityGroupKeys.has(key)) expandedAvailabilityGroupKeys.delete(key);
+        else expandedAvailabilityGroupKeys.add(key);
+        renderAvailability();
+        return;
+    }
+    if (button.dataset.action === 'delete-availability-group') {
+        const group = availabilityGroupsByKey.get(button.dataset.groupKey);
+        if (!group) return;
+        openConfirm(`이 반복 설정에 포함된 ${group.items.length}개 날짜를 모두 삭제할까요? 학생 예약은 삭제되지 않으며, 가능 시간 설정만 삭제됩니다.`, { type: 'availability-group', group }, button);
+        return;
+    }
     const item = availabilityItems.find(entry => entry.row === Number(button.dataset.row));
     if (!item) return;
     if (button.dataset.action === 'edit-availability') startAvailabilityEdit(item);
@@ -1559,13 +1653,15 @@ document.getElementById('confirm-delete').addEventListener('click', async event 
         } else if (deleteInfo.type === 'calendar') {
             const item = deleteInfo.item;
             await adminRequest('adminDeleteCalendarItem', { row: item.row, startDate: item.startDate, endDate: item.endDate, title: item.title });
+        } else if (deleteInfo.type === 'availability-group') {
+            await adminRequest('adminDeleteAvailabilityGroup', { items: deleteInfo.group.items.map(item => ({ row: item.row, date: item.date })) });
         } else {
             const item = deleteInfo.item;
             await adminRequest('adminDeleteAvailability', { row: item.row, date: item.date });
         }
         closeConfirm();
         await loadAdminData();
-        showMessage('global-message', 'Google Sheets에서 항목을 삭제했습니다.', true);
+        showMessage('global-message', deleteInfo.type === 'availability-group' ? `반복 설정 ${deleteInfo.group.items.length}개 날짜를 삭제했습니다.` : 'Google Sheets에서 항목을 삭제했습니다.', true);
     } catch (error) {
         closeConfirm();
         if (error.code !== 'AUTH_REQUIRED') showMessage('global-message', errorMessage(error.code));

@@ -1194,6 +1194,7 @@ function handleAdminAction(data) {
   if (data.action === "adminListAvailability") return adminListAvailability();
   if (data.action === "adminSetAvailability") return adminSetAvailability(data);
   if (data.action === "adminDeleteAvailability") return adminDeleteAvailability(data);
+  if (data.action === "adminDeleteAvailabilityGroup") return adminDeleteAvailabilityGroup(data);
   if (data.action === "adminChangePassword") return adminChangePassword(data);
   if (data.action === "adminGetCounselingStats") return adminGetCounselingStats(data);
   if (data.action === "adminGetIntegrationStatus") return adminGetIntegrationStatus();
@@ -1477,6 +1478,33 @@ function adminDeleteAvailability(data) {
     if (currentDate !== data.date) return jsonOutput({ ok: false, error: "STALE_DATA" });
     sheet.deleteRow(rowNumber);
     return jsonOutput({ ok: true });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function adminDeleteAvailabilityGroup(data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(AVAILABILITY_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "AVAILABILITY_SHEET_NOT_FOUND" });
+  const requested = Array.isArray(data.items) ? data.items : [];
+  const dates = requested.map(item => item && item.date ? item.date.toString().trim() : "");
+  if (dates.length < 2 || dates.length > 370 || dates.some(date => !isIsoDate(date)) || new Set(dates).size !== dates.length) {
+    return jsonOutput({ ok: false, error: "INVALID_AVAILABILITY_GROUP" });
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const rows = sheet.getDataRange().getValues();
+    const rowsByDate = {};
+    rows.slice(1).forEach((row, index) => {
+      const date = parseKoreanDate(row[0]);
+      if (date) rowsByDate[date] = index + 2;
+    });
+    const rowNumbers = dates.map(date => rowsByDate[date]);
+    if (rowNumbers.some(rowNumber => !rowNumber)) return jsonOutput({ ok: false, error: "STALE_DATA" });
+    rowNumbers.sort((a, b) => b - a).forEach(rowNumber => sheet.deleteRow(rowNumber));
+    return jsonOutput({ ok: true, deleted: rowNumbers.length });
   } finally {
     lock.releaseLock();
   }
