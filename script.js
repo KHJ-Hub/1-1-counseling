@@ -171,6 +171,11 @@ function getSlotsForDate(dateStr) {
         : ['야자 1차시', '야자 2차시', '야자 3차시'];
 }
 
+function getSlotColorClass(slot) {
+    const match = String(slot || '').match(/([1-4])차시/);
+    return match ? `slot-${match[1]}` : '';
+}
+
 function getSeoulTimeString() {
     const parts = new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Seoul',
@@ -291,7 +296,7 @@ function openBookingModal(dateStr, occupiedSlots, availableSlots) {
     const slots = operationType === 'vacation' ? ['자습 1차시', '자습 2차시', '자습 3차시', '자습 4차시'] : ['야자 1차시', '야자 2차시', '야자 3차시'];
     slotList.className = `slot-list slot-count-${slots.length} ${operationType}-slots`;
     slots.forEach(slot => {
-        const option = document.createElement('label'); option.className = 'slot-option'; option.dataset.slotOption = '';
+        const option = document.createElement('label'); option.className = `slot-option ${getSlotColorClass(slot)}`.trim(); option.dataset.slotOption = '';
         const input = document.createElement('input'); input.type = 'radio'; input.name = 'booking-slot'; input.value = slot;
         const label = document.createElement('span'); label.className = 'slot-name'; label.textContent = slot;
         const time = document.createElement('span'); time.className = 'slot-time';
@@ -350,7 +355,7 @@ function renderChangeSlotOptions() {
 
     slots.forEach(slot => {
         const option = document.createElement('label');
-        option.className = 'slot-option';
+        option.className = `slot-option ${getSlotColorClass(slot)}`.trim();
         const input = document.createElement('input');
         input.type = 'radio';
         input.name = 'change-slot';

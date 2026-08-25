@@ -919,3 +919,35 @@ body:not(.admin-body)::after { right: 4vw; bottom: 4vh; content: "♥"; color: r
 @media (max-width: 520px) {
     .modal-panel { background: linear-gradient(150deg, #fbf3ff, #e5f7ff); }
 }
+
+/* 예약 모달: 차시 번호별 색상은 선택 후에도 유지한다. */
+.slot-option.slot-1 { border-color: #86b86a; background: #e5f7c9; color: #315b3a; }
+.slot-option.slot-2 { border-color: #71aee2; background: #dceeff; color: #28567f; }
+.slot-option.slot-3 { border-color: #ab8cd5; background: #eee2ff; color: #60477f; }
+.slot-option.slot-4 { border-color: #d7ad4d; background: #fff0bd; color: #765315; }
+
+.slot-option.slot-1 input { accent-color: #5d9b63; }
+.slot-option.slot-2 input { accent-color: #4d8fca; }
+.slot-option.slot-3 input { accent-color: #8d6dbb; }
+.slot-option.slot-4 input { accent-color: #bd8a25; }
+
+.slot-option.slot-1:hover:not(.disabled) { border-color: #5d9b63; background: #d7f0b1; }
+.slot-option.slot-2:hover:not(.disabled) { border-color: #4d8fca; background: #cce7ff; }
+.slot-option.slot-3:hover:not(.disabled) { border-color: #8d6dbb; background: #e4d3ff; }
+.slot-option.slot-4:hover:not(.disabled) { border-color: #bd8a25; background: #ffe7a1; }
+
+.slot-option.slot-1:has(input:checked) { border-color: #4d8a57; background: #c9eca0; box-shadow: 0 5px 12px rgba(77, 138, 87, 0.24), inset 0 1px 1px rgba(255, 255, 255, 0.94); }
+.slot-option.slot-2:has(input:checked) { border-color: #3d7fba; background: #bddfff; box-shadow: 0 5px 12px rgba(61, 127, 186, 0.23), inset 0 1px 1px rgba(255, 255, 255, 0.94); }
+.slot-option.slot-3:has(input:checked) { border-color: #7856a9; background: #dbc6fa; box-shadow: 0 5px 12px rgba(120, 86, 169, 0.23), inset 0 1px 1px rgba(255, 255, 255, 0.94); }
+.slot-option.slot-4:has(input:checked) { border-color: #a87818; background: #ffe08a; box-shadow: 0 5px 12px rgba(168, 120, 24, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.94); }
+
+.slot-option.disabled,
+.slot-option.disabled.slot-1,
+.slot-option.disabled.slot-2,
+.slot-option.disabled.slot-3,
+.slot-option.disabled.slot-4 {
+    border-color: #c7c2cf;
+    background: #eceaf0;
+    color: #686373;
+    box-shadow: none;
+}
