@@ -603,12 +603,17 @@ function renderCalendarList(kind) {
         const includePast = document.getElementById('academic-include-past').checked;
         document.getElementById('academic-month-label').textContent = `${academicListMonth.getFullYear()}년 ${academicListMonth.getMonth() + 1}월`;
         filtered = filtered.filter(item => item.startDate <= monthEndText && item.endDate >= monthStart && (includePast || item.endDate >= todayText));
+    } else {
+        const today = new Date();
+        const todayText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const includePast = document.getElementById('blocked-include-past').checked;
+        filtered = filtered.filter(item => includePast || item.endDate >= todayText);
     }
     filtered.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.row - b.row);
     list.replaceChildren();
 
     if (filtered.length === 0) {
-        list.appendChild(createTextElement('p', 'empty-state', kind === 'academic' ? '이 달에 표시할 학교 일정이 없습니다.' : '등록된 상담 불가 기간이 없습니다.'));
+        list.appendChild(createTextElement('p', 'empty-state', kind === 'academic' ? '이 달에 표시할 학교 일정이 없습니다.' : (document.getElementById('blocked-include-past').checked ? '등록된 상담 불가일이 없습니다.' : '예정된 상담 불가일이 없습니다.')));
         return;
     }
 
@@ -1516,6 +1521,7 @@ document.getElementById('academic-month-next').addEventListener('click', () => {
     renderCalendarList('academic');
 });
 document.getElementById('academic-include-past').addEventListener('change', () => renderCalendarList('academic'));
+document.getElementById('blocked-include-past').addEventListener('change', () => renderCalendarList('blocked'));
 document.getElementById('availability-include-past').addEventListener('change', renderAvailability);
 
 initializeAdminDateInputs();
