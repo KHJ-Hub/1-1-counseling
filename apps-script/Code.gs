@@ -368,18 +368,22 @@ function notifyDiscordCancellation(name, date, slot) {
   });
 }
 
-function notifyDiscordReservationChange(name, oldDate, oldSlot, newDate, newSlot) {
+function notifyDiscordReservationChange(name, oldDate, oldSlot, newDate, newSlot, changedBy) {
+  const fields = [
+    { name: "학생 이름", value: name, inline: true },
+    { name: "기존 예약", value: oldDate + " · " + formatSlotWithTime(oldSlot), inline: false },
+    { name: "변경 예약", value: newDate + " · " + formatSlotWithTime(newSlot), inline: false }
+  ];
+  if (changedBy) fields.push({ name: "변경 주체", value: changedBy, inline: true });
+  fields.push(
+    { name: "변경 시각", value: discordTimestampLabel(), inline: false },
+    { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
+  );
   return sendDiscordEmbed({
     title: "🔄 상담 예약 변경",
     url: getAdminPageUrl(),
     color: 10181046,
-    fields: [
-      { name: "학생 이름", value: name, inline: true },
-      { name: "기존 예약", value: oldDate + " · " + formatSlotWithTime(oldSlot), inline: false },
-      { name: "변경 예약", value: newDate + " · " + formatSlotWithTime(newSlot), inline: false },
-      { name: "변경 시각", value: discordTimestampLabel(), inline: false },
-      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
-    ]
+    fields: fields
   });
 }
 
@@ -403,9 +407,9 @@ function notifyDiscordCancellationSafely(name, date, slot) {
   }
 }
 
-function notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot) {
+function notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot, changedBy) {
   try {
-    notifyDiscordReservationChange(name, oldDate, oldSlot, newDate, newSlot);
+    notifyDiscordReservationChange(name, oldDate, oldSlot, newDate, newSlot, changedBy);
   } catch (error) {
     console.error("Discord reservation change notification failed.");
   }
@@ -867,7 +871,29 @@ function findReservationForChange(data, sheet) {
   return jsonOutput({ ok: true, reservations: result.reservations });
 }
 
-function changeReservation(data, ss, sheet) {
+function isReservationSlotTaken(sheet, date, slot, excludedRow) {
+  return sheet.getDataRange().getValues().slice(1).some((candidate, index) => {
+    return index + 2 !== excludedRow && parseKoreanDate(candidate[0]) === date &&
+      (candidate[1] ? candidate[1].toString().trim() : "") === slot;
+  });
+}
+
+function hasWeeklyReservationConflict(rows, name, date, excludedRow) {
+  const requestDate = new Date(date + "T00:00:00+09:00");
+  const day = requestDate.getDay();
+  const mondayDiff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(requestDate); monday.setDate(requestDate.getDate() + mondayDiff); monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
+  return rows.slice(1).some((candidate, index) => {
+    if (index + 2 === excludedRow) return false;
+    const candidateDate = parseKoreanDate(candidate[0]);
+    const candidateTime = candidateDate ? new Date(candidateDate + "T00:00:00+09:00").getTime() : NaN;
+    const candidateName = candidate[2] ? candidate[2].toString().trim() : "";
+    return candidateName === name && candidateTime >= monday.getTime() && candidateTime <= sunday.getTime();
+  });
+}
+
+function changeReservation(data, ss, sheet, changedBy) {
   if (!isChangeReservationEnabled()) return "CHANGE_RESERVATION_DISABLED";
   if (getOperationSettings().operating === false) return "SERVICE_PAUSED";
 
@@ -902,25 +928,10 @@ function changeReservation(data, ss, sheet) {
     if (result) return result;
 
     const rows = sheet.getDataRange().getValues();
-    const slotTaken = rows.slice(1).some((candidate, index) => {
-      return index + 2 !== rowNumber && parseKoreanDate(candidate[0]) === newDate &&
-        (candidate[1] ? candidate[1].toString().trim() : "") === newSlot;
-    });
+    const slotTaken = isReservationSlotTaken(sheet, newDate, newSlot, rowNumber);
     if (slotTaken) return "SLOT_TAKEN";
 
-    const requestDate = new Date(newDate + "T00:00:00+09:00");
-    const day = requestDate.getDay();
-    const mondayDiff = day === 0 ? -6 : 1 - day;
-    const monday = new Date(requestDate); monday.setDate(requestDate.getDate() + mondayDiff); monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
-    const weeklyDuplicate = rows.slice(1).some((candidate, index) => {
-      if (index + 2 === rowNumber) return false;
-      const candidateDate = parseKoreanDate(candidate[0]);
-      const candidateTime = candidateDate ? new Date(candidateDate + "T00:00:00+09:00").getTime() : NaN;
-      const candidateName = candidate[2] ? candidate[2].toString().trim() : "";
-      return candidateName === name && candidateTime >= monday.getTime() && candidateTime <= sunday.getTime();
-    });
-    if (weeklyDuplicate) return "DUPLICATE_WEEKLY";
+    if (hasWeeklyReservationConflict(rows, name, newDate, rowNumber)) return "DUPLICATE_WEEKLY";
 
     calendarEventId = row[CALENDAR_EVENT_ID_COLUMN - 1] ? row[CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
     sheet.getRange(rowNumber, 1, 1, 2).setValues([[newDate, newSlot]]);
@@ -932,7 +943,7 @@ function changeReservation(data, ss, sheet) {
   if (result === "Success") {
     deleteCalendarEventSafely(calendarEventId);
     createCalendarEventForReservationSafely(rowNumber, newDate, newSlot, name);
-    notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot);
+    notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot, changedBy);
   }
   return result;
 }
@@ -1108,6 +1119,8 @@ function handleAdminAction(data) {
     return jsonOutput({ ok: true });
   }
   if (data.action === "adminListReservations") return adminListReservations(data);
+  if (data.action === "adminGetReservationChangeSlots") return adminGetReservationChangeSlots(data);
+  if (data.action === "adminChangeReservation") return adminChangeReservation(data);
   if (data.action === "adminDeleteReservation") return adminDeleteReservation(data);
   if (data.action === "adminUpdateConsultation") return adminUpdateConsultation(data);
   if (data.action === "adminListStudentHistory") return adminListStudentHistory(data);
@@ -1164,6 +1177,60 @@ function adminListReservations(data) {
     return a.slot.localeCompare(b.slot);
   });
   return jsonOutput({ ok: true, reservations: reservations });
+}
+
+function getAdminReservationChangeTarget(data, sheet) {
+  const rowNumber = Number(data.row);
+  const oldDate = data.oldDate ? data.oldDate.toString().trim() : "";
+  const oldSlot = data.oldSlot ? data.oldSlot.toString().trim() : "";
+  const name = data.name ? data.name.toString().trim() : "";
+  if (!Number.isInteger(rowNumber) || rowNumber < 2 || !isIsoDate(oldDate) || CONSULT_SLOTS.indexOf(oldSlot) === -1 || !name) return { error: "INVALID_ROW" };
+  if (rowNumber > sheet.getLastRow()) return { error: "STALE_DATA" };
+  const row = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
+  const currentDate = parseKoreanDate(row[0]);
+  const currentSlot = row[1] ? row[1].toString().trim() : "";
+  const currentName = row[2] ? row[2].toString().trim() : "";
+  if (currentDate !== oldDate || currentSlot !== oldSlot || currentName !== name) return { error: "STALE_DATA" };
+  if (sheetBoolean(row[4])) return { error: "COMPLETED_RESERVATION" };
+  return { rowNumber: rowNumber, row: row, name: currentName, oldDate: currentDate, oldSlot: currentSlot };
+}
+
+function adminGetReservationChangeSlots(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
+  const target = getAdminReservationChangeTarget(data || {}, sheet);
+  if (target.error) return jsonOutput({ ok: false, error: target.error });
+  const date = data.newDate ? data.newDate.toString().trim() : "";
+  if (!isIsoDate(date)) return jsonOutput({ ok: false, error: "INVALID_DATE" });
+
+  const allowedSlots = getAllowedSlotsForDate(ss, date);
+  const weeklyConflict = hasWeeklyReservationConflict(sheet.getDataRange().getValues(), target.name, date, target.rowNumber);
+  const slots = allowedSlots.map(slot => {
+    const validationError = getReservationChangeValidationError(ss, date, slot);
+    const taken = !validationError && isReservationSlotTaken(sheet, date, slot, target.rowNumber);
+    return { slot: slot, available: !validationError && !taken && !weeklyConflict, error: validationError || (taken ? "SLOT_TAKEN" : (weeklyConflict ? "DUPLICATE_WEEKLY" : "")) };
+  });
+  return jsonOutput({ ok: true, slots: slots });
+}
+
+function adminChangeReservation(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
+  const target = getAdminReservationChangeTarget(data || {}, sheet);
+  if (target.error) return jsonOutput({ ok: false, error: target.error });
+  const password = target.row[3] ? target.row[3].toString().trim() : "";
+  const result = changeReservation({
+    row: target.rowNumber,
+    name: target.name,
+    password: password,
+    oldDate: target.oldDate,
+    oldSlot: target.oldSlot,
+    newDate: data.newDate,
+    newSlot: data.newSlot
+  }, ss, sheet, "관리자");
+  return result === "Success" ? jsonOutput({ ok: true }) : jsonOutput({ ok: false, error: result || "SERVER_ERROR" });
 }
 
 function adminDeleteReservation(data) {

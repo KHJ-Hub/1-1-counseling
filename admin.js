@@ -15,6 +15,7 @@ let availabilityItems = [];
 let operationSettings = null;
 let pendingDelete = null;
 let confirmTrigger = null;
+let pendingAdminReservationChange = null;
 let academicListMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let adminSlotTimes = {
     '자습 1차시': '08:20~10:10', '자습 2차시': '10:20~12:10',
@@ -128,6 +129,16 @@ function errorMessage(code) {
         STALE_DATA: '시트 내용이 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
         INVALID_ROW: '변경할 항목을 찾지 못했습니다.',
         INVALID_DATE: '날짜를 올바르게 입력해 주세요.',
+        PAST_DATE_NOT_ALLOWED: '지난 날짜로는 예약을 변경할 수 없습니다.',
+        WEEKEND_NOT_ALLOWED: '주말에는 예약을 변경할 수 없습니다.',
+        DATE_BLOCKED: '선택한 날짜는 상담 신청이 제한되어 있습니다.',
+        SLOT_UNAVAILABLE: '선택한 차시는 상담 가능 시간이 아닙니다.',
+        SLOT_TAKEN: '선택한 시간은 이미 예약되었습니다.',
+        DUPLICATE_WEEKLY: '해당 학생은 같은 주에 이미 다른 상담 예약이 있습니다.',
+        SAME_RESERVATION: '기존 예약과 다른 날짜 또는 차시를 선택해 주세요.',
+        COMPLETED_RESERVATION: '이미 완료된 상담은 예약을 변경할 수 없습니다.',
+        SERVICE_PAUSED: '현재 상담 신청이 일시 중지되어 예약을 변경할 수 없습니다.',
+        CHANGE_RESERVATION_DISABLED: '현재 예약 변경 기능이 일시 중지되어 있습니다.',
         INVALID_DATE_RANGE: '종료일은 시작일보다 빠를 수 없습니다.',
         TITLE_REQUIRED: '학사일정 이름을 입력해 주세요.',
         PUBLIC_HOLIDAY_MANAGED_AUTOMATICALLY: '법정공휴일과 대체공휴일은 자동으로 달력에 표시됩니다. 학교 자체 일정만 등록해 주세요.',
@@ -264,6 +275,7 @@ function renderReservations() {
         const actions = document.createElement('div');
         actions.className = 'item-actions';
         actions.appendChild(createActionButton('학생 이력', 'secondary', 'show-history', item.row));
+        if (!item.completed) actions.appendChild(createActionButton('예약 변경', 'secondary', 'change-reservation', item.row));
         actions.appendChild(createActionButton('예약 삭제', 'danger', 'delete-reservation', item.row));
         summary.appendChild(actions);
         article.appendChild(summary);
@@ -294,6 +306,134 @@ function renderReservations() {
         article.appendChild(editor);
         list.appendChild(article);
     });
+}
+
+function adminChangeSlotLabel(slot) {
+    const time = adminSlotTimes[slot];
+    return time ? `${slot} (${time})` : slot;
+}
+
+function closeAdminReservationChange() {
+    const backdrop = document.getElementById('admin-change-backdrop');
+    backdrop.classList.add('hidden');
+    backdrop.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    pendingAdminReservationChange = null;
+    document.getElementById('admin-change-slot-list').replaceChildren();
+    showMessage('admin-change-message', '');
+    showMessage('admin-change-confirm-message', '');
+}
+
+function openAdminReservationChange(item, trigger) {
+    pendingAdminReservationChange = { ...item, trigger, newDate: '', newSlot: '' };
+    document.getElementById('admin-change-student').textContent = item.name;
+    document.getElementById('admin-change-current-slot').textContent = `${formatAdminDate(item.date)} · ${adminChangeSlotLabel(item.slot)}`;
+    const dateInput = document.getElementById('admin-change-date');
+    dateInput.value = '';
+    document.getElementById('admin-change-slot-list').replaceChildren();
+    document.getElementById('admin-change-select-step').classList.remove('hidden');
+    document.getElementById('admin-change-confirm-step').classList.add('hidden');
+    showMessage('admin-change-message', '');
+    const backdrop = document.getElementById('admin-change-backdrop');
+    backdrop.classList.remove('hidden');
+    backdrop.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    setTimeout(() => dateInput.focus(), 0);
+}
+
+function renderAdminReservationChangeSlots(slots) {
+    const list = document.getElementById('admin-change-slot-list');
+    list.replaceChildren();
+    if (!slots.length) {
+        list.appendChild(createTextElement('p', 'empty-state compact', '해당 날짜에는 변경 가능한 상담 시간이 없습니다.'));
+        return;
+    }
+    slots.forEach(item => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'admin-change-slot';
+        input.value = item.slot;
+        input.disabled = !item.available;
+        const text = document.createElement('span');
+        text.textContent = adminChangeSlotLabel(item.slot);
+        label.append(input, text);
+        list.appendChild(label);
+    });
+}
+
+async function loadAdminReservationChangeSlots() {
+    if (!pendingAdminReservationChange) return;
+    const rawDate = document.getElementById('admin-change-date').value;
+    const newDate = parseAdminDate(rawDate);
+    if (!newDate) {
+        renderAdminReservationChangeSlots([]);
+        showMessage('admin-change-message', rawDate ? '변경 날짜를 YYYY.MM.DD. 형식으로 입력해 주세요.' : '변경할 날짜를 선택해 주세요.');
+        return;
+    }
+    showMessage('admin-change-message', '변경 가능한 차시를 확인하는 중입니다.');
+    try {
+        const result = await adminRequest('adminGetReservationChangeSlots', {
+            row: pendingAdminReservationChange.row,
+            name: pendingAdminReservationChange.name,
+            oldDate: pendingAdminReservationChange.date,
+            oldSlot: pendingAdminReservationChange.slot,
+            newDate
+        });
+        pendingAdminReservationChange.newDate = newDate;
+        pendingAdminReservationChange.newSlot = '';
+        renderAdminReservationChangeSlots(result.slots || []);
+        const availableCount = (result.slots || []).filter(item => item.available).length;
+        showMessage('admin-change-message', availableCount ? `${availableCount}개 차시를 선택할 수 있습니다.` : '해당 날짜에는 변경 가능한 상담 시간이 없습니다.', availableCount > 0);
+    } catch (error) {
+        renderAdminReservationChangeSlots([]);
+        if (error.code !== 'AUTH_REQUIRED') showMessage('admin-change-message', errorMessage(error.code));
+    }
+}
+
+function openAdminReservationChangeConfirm() {
+    if (!pendingAdminReservationChange) return;
+    const selected = document.querySelector('input[name="admin-change-slot"]:checked');
+    if (!pendingAdminReservationChange.newDate || !selected || selected.disabled) {
+        showMessage('admin-change-message', '예약 가능한 새 날짜와 차시를 선택해 주세요.');
+        return;
+    }
+    pendingAdminReservationChange.newSlot = selected.value;
+    if (pendingAdminReservationChange.newDate === pendingAdminReservationChange.date && pendingAdminReservationChange.newSlot === pendingAdminReservationChange.slot) {
+        showMessage('admin-change-message', '기존 예약과 다른 날짜 또는 차시를 선택해 주세요.');
+        return;
+    }
+    document.getElementById('admin-change-confirm-student').textContent = pendingAdminReservationChange.name;
+    document.getElementById('admin-change-confirm-old').textContent = `${formatAdminDate(pendingAdminReservationChange.date)} · ${adminChangeSlotLabel(pendingAdminReservationChange.slot)}`;
+    document.getElementById('admin-change-confirm-new').textContent = `${formatAdminDate(pendingAdminReservationChange.newDate)} · ${adminChangeSlotLabel(pendingAdminReservationChange.newSlot)}`;
+    document.getElementById('admin-change-select-step').classList.add('hidden');
+    document.getElementById('admin-change-confirm-step').classList.remove('hidden');
+    showMessage('admin-change-confirm-message', '');
+    document.getElementById('admin-change-submit').focus();
+}
+
+async function submitAdminReservationChange() {
+    if (!pendingAdminReservationChange) return;
+    const button = document.getElementById('admin-change-submit');
+    setButtonBusy(button, true, '변경 중…');
+    showMessage('admin-change-confirm-message', '');
+    try {
+        await adminRequest('adminChangeReservation', {
+            row: pendingAdminReservationChange.row,
+            name: pendingAdminReservationChange.name,
+            oldDate: pendingAdminReservationChange.date,
+            oldSlot: pendingAdminReservationChange.slot,
+            newDate: pendingAdminReservationChange.newDate,
+            newSlot: pendingAdminReservationChange.newSlot
+        });
+        closeAdminReservationChange();
+        await loadAdminData();
+        showMessage('global-message', '예약 날짜와 차시를 변경했습니다.', true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('admin-change-confirm-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
 }
 
 function escapeCsvValue(value) {
@@ -968,6 +1108,21 @@ document.querySelectorAll('.integration-test').forEach(button => button.addEvent
     }
 }));
 
+document.getElementById('admin-change-date').addEventListener('change', loadAdminReservationChangeSlots);
+document.getElementById('admin-change-close').addEventListener('click', closeAdminReservationChange);
+document.getElementById('admin-change-cancel').addEventListener('click', closeAdminReservationChange);
+document.getElementById('admin-change-next').addEventListener('click', openAdminReservationChangeConfirm);
+document.getElementById('admin-change-back').addEventListener('click', () => {
+    document.getElementById('admin-change-confirm-step').classList.add('hidden');
+    document.getElementById('admin-change-select-step').classList.remove('hidden');
+    document.getElementById('admin-change-date').focus();
+});
+document.getElementById('admin-change-submit').addEventListener('click', submitAdminReservationChange);
+
+document.getElementById('admin-change-backdrop').addEventListener('click', event => {
+    if (event.target === event.currentTarget) closeAdminReservationChange();
+});
+
 document.getElementById('reservation-list').addEventListener('click', async event => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
@@ -982,6 +1137,11 @@ document.getElementById('reservation-list').addEventListener('click', async even
         document.getElementById('history-name').value = item.name;
         showTab('history');
         await loadStudentHistory(item.name);
+        return;
+    }
+    if (button.dataset.action === 'change-reservation') {
+        if (item.completed) return;
+        openAdminReservationChange(item, button);
         return;
     }
     if (button.dataset.action === 'save-consultation') {

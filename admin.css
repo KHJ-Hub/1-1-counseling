@@ -542,3 +542,30 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     background: rgba(255, 244, 216, 0.72);
     color: #7d5424;
 }
+
+.reservation-change-dialog { width: min(100% - 32px, 600px); }
+.admin-change-current,
+.admin-change-confirm-list {
+    margin: 18px 0;
+    padding: 14px;
+    border: 1px solid rgba(126, 103, 193, 0.32);
+    border-radius: var(--radius-sm);
+    background: rgba(245, 239, 255, 0.66);
+}
+.admin-change-current > span,
+.admin-change-confirm-list dt { display: block; color: var(--color-muted); font-size: 0.8rem; font-weight: 700; }
+.admin-change-current strong { display: block; margin-top: 4px; color: var(--color-primary-strong); }
+.admin-change-current p { margin: 5px 0 0; color: var(--color-text); font-weight: 650; }
+.admin-change-fields { display: grid; gap: 14px; }
+.admin-change-slot-list { min-width: 0; margin: 0; padding: 0; border: 0; }
+.admin-change-slot-list .slot-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.admin-change-slot-list .slot-checks label { min-height: 56px; align-items: center; justify-content: center; text-align: center; }
+.admin-change-slot-list .slot-checks label:has(input:disabled) { cursor: not-allowed; opacity: 0.48; }
+.admin-change-confirm-list { display: grid; gap: 12px; }
+.admin-change-confirm-list div { display: grid; gap: 3px; }
+.admin-change-confirm-list dd { margin: 0; color: var(--color-text); font-weight: 700; overflow-wrap: anywhere; }
+
+@media (max-width: 520px) {
+    .reservation-change-dialog { width: min(100% - 20px, 600px); }
+    .admin-change-slot-list .slot-checks { grid-template-columns: 1fr; }
+}

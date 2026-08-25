@@ -353,6 +353,44 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260824-discord-policy"></script>
+    <div id="admin-change-backdrop" class="modal-backdrop hidden" aria-hidden="true">
+        <section id="admin-change-dialog" class="modal-panel reservation-change-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-change-title">
+            <button id="admin-change-close" class="modal-close" type="button" aria-label="예약 변경 닫기">×</button>
+            <div id="admin-change-select-step">
+                <h3 id="admin-change-title" class="modal-title">예약 변경</h3>
+                <p class="modal-description">현재 예약을 확인한 뒤 새 날짜와 차시를 선택하세요.</p>
+                <div class="admin-change-current">
+                    <span>현재 예약</span>
+                    <strong id="admin-change-student"></strong>
+                    <p id="admin-change-current-slot"></p>
+                </div>
+                <div class="admin-change-fields">
+                    <div><label class="form-label" for="admin-change-date">변경 날짜</label><input id="admin-change-date" class="form-input" type="date" required></div>
+                    <fieldset class="admin-change-slot-list"><legend class="form-label">변경 차시</legend><div id="admin-change-slot-list" class="slot-checks"></div></fieldset>
+                </div>
+                <p id="admin-change-message" class="admin-message hidden" role="alert"></p>
+                <div class="modal-actions">
+                    <button id="admin-change-cancel" class="admin-button secondary" type="button">돌아가기</button>
+                    <button id="admin-change-next" class="admin-button primary" type="button">변경 내용 확인</button>
+                </div>
+            </div>
+            <div id="admin-change-confirm-step" class="hidden">
+                <h3 class="modal-title">예약 변경 내용을 확인해 주세요</h3>
+                <p class="modal-description">변경 후 기존 예약 시간은 자동으로 비워집니다.</p>
+                <dl class="admin-change-confirm-list">
+                    <div><dt>학생</dt><dd id="admin-change-confirm-student"></dd></div>
+                    <div><dt>기존</dt><dd id="admin-change-confirm-old"></dd></div>
+                    <div><dt>변경</dt><dd id="admin-change-confirm-new"></dd></div>
+                </dl>
+                <p id="admin-change-confirm-message" class="admin-message hidden" role="alert"></p>
+                <div class="modal-actions">
+                    <button id="admin-change-back" class="admin-button secondary" type="button">돌아가기</button>
+                    <button id="admin-change-submit" class="admin-button primary" type="button">변경 확정</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="admin.js?v=20260825-admin-change"></script>
 </body>
 </html>
