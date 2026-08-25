@@ -951,3 +951,50 @@ body:not(.admin-body)::after { right: 4vw; bottom: 4vh; content: "♥"; color: r
     color: #686373;
     box-shadow: none;
 }
+
+/* 예약이 열린 모든 차시에서 찬 날짜는 이름 대신 한 개의 요약 라벨로 표시합니다. */
+.fc .closed-event {
+    border: 2px solid #9070bd !important;
+    background: #eadfff !important;
+    color: #584274 !important;
+    cursor: pointer;
+}
+.fc .closed-event:hover {
+    border-color: #7655a5 !important;
+    background: #decaff !important;
+}
+.fc .closed-event .fc-event-title::before {
+    margin-right: 3px;
+    content: "●";
+    font-size: 0.56em;
+}
+
+.closed-summary-date {
+    margin-bottom: 13px;
+    color: #5b5286;
+    font-weight: 760;
+    font-variant-numeric: tabular-nums;
+}
+.closed-summary-list {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid rgba(125, 112, 188, 0.35);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.64);
+}
+.closed-summary-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 58px;
+    padding: 11px 13px;
+    gap: 12px;
+}
+.closed-summary-item + .closed-summary-item { border-top: 1px solid rgba(125, 112, 188, 0.2); }
+.closed-summary-slot { color: #5b5286; font-size: 0.88rem; font-weight: 760; font-variant-numeric: tabular-nums; }
+.closed-summary-name { color: #3f3767; font-size: 0.92rem; font-weight: 800; text-align: right; overflow-wrap: anywhere; }
+
+@media (max-width: 520px) {
+    .closed-summary-item { grid-template-columns: 1fr; min-height: 0; gap: 4px; }
+    .closed-summary-name { text-align: left; }
+}

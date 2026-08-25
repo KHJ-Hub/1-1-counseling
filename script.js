@@ -261,6 +261,64 @@ function updateNearestAvailableCard(events) {
     action.hidden = false;
 }
 
+function buildClosedReservationSummaries(events) {
+    const reservationsByDate = {};
+
+    events.forEach(event => {
+        if (!event || !event.extendedProps || event.extendedProps.type !== 'consult' || !event.start) return;
+        const dateStr = String(event.start).slice(0, 10);
+        const slot = String(event.extendedProps.slot || '').trim();
+        if (!dateStr || !slot) return;
+
+        if (!reservationsByDate[dateStr]) reservationsByDate[dateStr] = {};
+        if (reservationsByDate[dateStr][slot]) return;
+
+        reservationsByDate[dateStr][slot] = {
+            slot,
+            name: event.extendedProps.completed
+                ? '상담 완료'
+                : (String(event.extendedProps.name || event.title || '예약됨').trim() || '예약됨')
+        };
+    });
+
+    return Object.keys(reservationsByDate).reduce((summaries, dateStr) => {
+        const availableSlots = getAvailableSlots(dateStr);
+        if (!availableSlots.length || !availableSlots.every(slot => reservationsByDate[dateStr][slot])) return summaries;
+
+        summaries[dateStr] = availableSlots.map(slot => reservationsByDate[dateStr][slot]);
+        return summaries;
+    }, {});
+}
+
+function openClosedReservationSummary(dateStr, reservations) {
+    const date = String(dateStr || '').slice(0, 10);
+    const reservationMap = new Map((reservations || []).map(item => [item.slot, item]));
+    const list = document.getElementById('closed-summary-list');
+    list.replaceChildren();
+
+    document.getElementById('closed-summary-date').textContent = formatKoreanDate(date);
+    getAvailableSlots(date).forEach(slot => {
+        const item = document.createElement('div');
+        item.className = 'closed-summary-item';
+
+        const slotLabel = document.createElement('div');
+        slotLabel.className = 'closed-summary-slot';
+        const time = slotTimes[slot];
+        slotLabel.textContent = time && time.start && time.end
+            ? `${slot} (${time.start}~${time.end})`
+            : slot;
+
+        const name = document.createElement('div');
+        name.className = 'closed-summary-name';
+        name.textContent = reservationMap.get(slot)?.name || '예약 없음';
+
+        item.append(slotLabel, name);
+        list.appendChild(item);
+    });
+
+    openModal('closed-summary-modal', document.getElementById('closed-summary-close'));
+}
+
 function openNearestAvailableSlot() {
     if (!nearestAvailableSlot || !calendar) return;
 
@@ -683,6 +741,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('vacation-guide').textContent = serviceSettings.vacationNotice || '방학 중에는 선생님이 열어둔 날짜와 시간만 신청할 수 있어요.';
         document.getElementById('booking-password-help').textContent = serviceSettings.passwordNotice || '예약 취소 시 사용할 숫자 4자리를 입력해 주세요.';
         let dateCounts = {};
+        let occupiedSlotsByDate = {};
         data.events = data.events.filter(ev => !(ev.extendedProps && ev.extendedProps.isPublicHoliday === true && vacationDates.includes(ev.start)));
 
         data.events.forEach(ev => {
@@ -697,25 +756,37 @@ document.addEventListener('DOMContentLoaded', async function() {
             } else if (ev.extendedProps && ev.extendedProps.type === "consult") {
                 ev.classNames = ev.extendedProps.completed ? ['consult-event', 'completed-consult-event'] : ['consult-event'];
                 dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;
+                if (!occupiedSlotsByDate[ev.start]) occupiedSlotsByDate[ev.start] = new Set();
+                occupiedSlotsByDate[ev.start].add(ev.extendedProps.slot);
             } else if (ev.extendedProps && ev.extendedProps.type === "vacation") {
                 ev.classNames = ['vacation-event'];
             }
         });
 
+        const closedReservationSummaries = buildClosedReservationSummaries(data.events);
+        Object.keys(closedReservationSummaries).forEach(dateStr => {
+            data.events.forEach(event => {
+                if (event.start === dateStr && event.extendedProps && event.extendedProps.type === 'consult') {
+                    // 예약 가능 여부 계산에는 유지하되, 월간 달력에는 이름 대신 마감 라벨만 표시합니다.
+                    event.display = 'none';
+                }
+            });
+        });
+
         updateNearestAvailableCard(data.events);
 
-        for (let dStr in dateCounts) {
-            const availableCount = getAvailableSlots(dStr).length;
-            if (availableCount > 0 && dateCounts[dStr] >= availableCount) {
+        for (let dStr in closedReservationSummaries) {
+            if (closedReservationSummaries[dStr]) {
                 data.events.push({
-                    title: "🚨예약 마감🚨",
+                    title: "예약 마감",
                     start: dStr,
                     allDay: true,
-                    backgroundColor: "#ff8787",
-                    borderColor: "#ff8787",
-                    textColor: "white",
                     classNames: ['closed-event'],
-                    extendedProps: { type: "closed", slot: "마감" }
+                    extendedProps: {
+                        type: "closed",
+                        slot: "마감",
+                        reservations: closedReservationSummaries[dStr]
+                    }
                 });
             }
         }
@@ -739,7 +810,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (sheetHolidays.includes(dateStr)) info.el.classList.add('is-blocked-day');
                 else if (vacationDates.includes(dateStr)) info.el.classList.add('is-vacation-day');
                 if (publicHolidays.includes(dateStr)) info.el.classList.add('is-holiday-date');
-                if (!isPastDate && day !== 0 && day !== 6 && !sheetHolidays.includes(dateStr) && availableSlotCount > (dateCounts[dateStr] || 0)) {
+                const occupiedSlotCount = occupiedSlotsByDate[dateStr] ? occupiedSlotsByDate[dateStr].size : 0;
+                if (!isPastDate && day !== 0 && day !== 6 && !sheetHolidays.includes(dateStr) && availableSlotCount > occupiedSlotCount) {
                     info.el.classList.add('is-bookable-day');
                 }
             },
@@ -815,7 +887,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             },
 
             eventClick: function(info) {
-                if (["holiday", "vacation", "closed"].includes(info.event.extendedProps.type)) return;
+                if (info.event.extendedProps.type === 'closed') {
+                    setModalTrigger(info.el);
+                    openClosedReservationSummary(info.event.startStr, info.event.extendedProps.reservations);
+                    return;
+                }
+                if (["holiday", "vacation"].includes(info.event.extendedProps.type)) return;
                 if (info.event.extendedProps.completed) {
                     showNotice("취소 불가", "이미 완료된 상담은 취소할 수 없습니다.");
                     return;
