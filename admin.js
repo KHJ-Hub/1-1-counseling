@@ -134,6 +134,7 @@ function errorMessage(code) {
         STALE_DATA: '시트 내용이 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
         INVALID_ROW: '변경할 항목을 찾지 못했습니다.',
         NOT_FOUND: '기존 예약을 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.',
+        RESERVATION_NOT_FOUND: '기존 예약을 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.',
         INVALID_DATE: '날짜를 올바르게 입력해 주세요.',
         PAST_DATE_NOT_ALLOWED: '지난 날짜로는 예약을 변경할 수 없습니다.',
         WEEKEND_NOT_ALLOWED: '주말에는 예약을 변경할 수 없습니다.',

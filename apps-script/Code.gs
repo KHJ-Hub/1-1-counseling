@@ -934,10 +934,25 @@ function hasWeeklyReservationConflict(rows, name, date, excludedRow) {
   });
 }
 
+function logAdminReservationChangeLookupFailure(sheet, rowNumber, oldDate, oldSlot, reason) {
+  const candidateCount = sheet.getDataRange().getValues().slice(1).filter(row => {
+    return parseKoreanDate(row[0]) === oldDate && (row[1] ? row[1].toString().trim() : "") === oldSlot;
+  }).length;
+  console.warn("Admin reservation change lookup failed: " + JSON.stringify({
+    reason: reason,
+    normalizedOldDate: oldDate,
+    oldSlot: oldSlot,
+    rowPresent: Number.isInteger(rowNumber) && rowNumber >= 2 && rowNumber <= sheet.getLastRow(),
+    candidateCount: candidateCount
+  }));
+}
+
 function changeReservation(data, ss, sheet, changedBy) {
   if (!isChangeReservationEnabled()) return "CHANGE_RESERVATION_DISABLED";
   if (getOperationSettings().operating === false) return "SERVICE_PAUSED";
 
+  const isAdminChange = changedBy === "관리자";
+  const notFoundCode = isAdminChange ? "RESERVATION_NOT_FOUND" : "NOT_FOUND";
   const name = data.name ? data.name.toString().trim() : "";
   const password = data.password ? data.password.toString().trim() : "";
   const oldDate = data.oldDate ? data.oldDate.toString().trim() : "";
@@ -946,23 +961,29 @@ function changeReservation(data, ss, sheet, changedBy) {
   const newSlot = data.newSlot ? data.newSlot.toString().trim() : "";
   const rowNumber = Number(data.row);
 
-  if (!name || name.length > 100 || !/^\d{4}$/.test(password)) return "NOT_FOUND";
-  if (!Number.isInteger(rowNumber) || rowNumber < 2 || !isIsoDate(oldDate) || CONSULT_SLOTS.indexOf(oldSlot) === -1) return "NOT_FOUND";
+  if (!name || name.length > 100 || (!isAdminChange && !/^\d{4}$/.test(password))) return notFoundCode;
+  if (!Number.isInteger(rowNumber) || rowNumber < 2 || !isIsoDate(oldDate) || CONSULT_SLOTS.indexOf(oldSlot) === -1) return notFoundCode;
   if (oldDate === newDate && oldSlot === newSlot) return "SAME_RESERVATION";
   if (!isIsoDate(newDate) || CONSULT_SLOTS.indexOf(newSlot) === -1) return "INVALID_DATE";
 
   const lock = LockService.getScriptLock();
-  let result = "NOT_FOUND";
+  let result = notFoundCode;
   let calendarEventId = "";
   lock.waitLock(10000);
   try {
-    if (rowNumber > sheet.getLastRow()) return "NOT_FOUND";
+    if (rowNumber > sheet.getLastRow()) {
+      if (isAdminChange) logAdminReservationChangeLookupFailure(sheet, rowNumber, oldDate, oldSlot, "ROW_OUT_OF_RANGE");
+      return notFoundCode;
+    }
     const row = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
     const currentDate = parseKoreanDate(row[0]);
     const currentSlot = row[1] ? row[1].toString().trim() : "";
     const currentName = row[2] ? row[2].toString().trim() : "";
     const currentPassword = row[3] ? row[3].toString().trim() : "";
-    if (currentDate !== oldDate || currentSlot !== oldSlot || currentName !== name || currentPassword !== password) return "NOT_FOUND";
+    if (currentDate !== oldDate || currentSlot !== oldSlot || currentName !== name || (!isAdminChange && currentPassword !== password)) {
+      if (isAdminChange) logAdminReservationChangeLookupFailure(sheet, rowNumber, oldDate, oldSlot, "ROW_MISMATCH");
+      return notFoundCode;
+    }
     if (sheetBoolean(row[4])) return "COMPLETED_RESERVATION";
 
     result = getReservationChangeValidationError(ss, newDate, newSlot);
@@ -1289,11 +1310,9 @@ function adminChangeReservation(data) {
   if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
   const target = getAdminReservationChangeTarget(data || {}, sheet);
   if (target.error) return jsonOutput({ ok: false, error: target.error });
-  const password = target.row[3] ? target.row[3].toString().trim() : "";
   const result = changeReservation({
     row: target.rowNumber,
     name: target.name,
-    password: password,
     oldDate: target.oldDate,
     oldSlot: target.oldSlot,
     newDate: data.newDate,
