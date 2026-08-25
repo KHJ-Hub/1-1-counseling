@@ -941,8 +941,24 @@ function changeReservation(data, ss, sheet, changedBy) {
   }
 
   if (result === "Success") {
-    deleteCalendarEventSafely(calendarEventId);
-    createCalendarEventForReservationSafely(rowNumber, newDate, newSlot, name);
+    const canCreateCalendarEvent = !calendarEventId || deleteCalendarEventSafely(calendarEventId);
+    if (canCreateCalendarEvent) {
+      if (calendarEventId) {
+        const calendarLock = LockService.getScriptLock();
+        calendarLock.waitLock(10000);
+        try {
+          if (rowNumber <= sheet.getLastRow()) {
+            const currentCalendarId = sheet.getRange(rowNumber, CALENDAR_EVENT_ID_COLUMN).getValue();
+            if ((currentCalendarId || "").toString().trim() === calendarEventId) sheet.getRange(rowNumber, CALENDAR_EVENT_ID_COLUMN).clearContent();
+          }
+        } finally {
+          calendarLock.releaseLock();
+        }
+      }
+      createCalendarEventForReservationSafely(rowNumber, newDate, newSlot, name);
+    } else {
+      console.error("Google Calendar event deletion failed after reservation change; new event creation skipped.");
+    }
     notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot, changedBy);
   }
   return result;
