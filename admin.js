@@ -151,6 +151,7 @@ function errorMessage(code) {
         ADMIN_PASSWORD_POLICY: '관리자 비밀번호는 4자 이상 64자 이하로 입력해 주세요.',
         INVALID_ACTION: '지원하지 않는 관리자 작업입니다.',
         INTEGRATION_TEST_FAILED: '연동 테스트를 실행하지 못했습니다. Apps Script 실행 로그를 확인해 주세요.',
+        TRIGGER_INSTALL_FAILED: '아침 알림 트리거를 다시 설치하지 못했습니다. Apps Script 권한과 실행 로그를 확인해 주세요.',
         MEMORIAL_NOT_MANAGED_AS_HOLIDAY: '국군의 날 등 기념일은 자동 공휴일이나 상담 차단 일정으로 등록하지 않습니다. 학교 자체 행사는 구체적인 일정명으로 등록해 주세요.',
         SERVER_ERROR: '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
         INVALID_RESPONSE: '서버 응답을 확인할 수 없습니다. Apps Script 배포 버전을 확인해 주세요.',
@@ -558,20 +559,40 @@ async function loadStats() {
 }
 
 function renderIntegrationStatus(status) {
+    const morning = status.morningSummaryTrigger || {};
     const labels = [
         ['Discord Webhook', status.discordConfigured],
         ['당일 상담 아침 요약', status.dailySummaryEnabled],
         ['Google Calendar 연동', status.calendarEnabled],
         ['상담 시간대 설정', status.slotTimesValid],
-        ['Apps Script 트리거', status.triggersInstalled]
+        ['당일 상담 아침 알림 트리거', morning.installed === true],
+        ['프로젝트 시간대', status.projectTimeZone === status.expectedTimeZone]
     ];
     const container = document.getElementById('integration-status');
-    container.replaceChildren(...labels.map(([label, enabled]) => {
+    const items = labels.map(([label, enabled]) => {
         const item = document.createElement('div');
         item.className = 'integration-status-item';
         item.append(createTextElement('span', '', label), createTextElement('strong', enabled ? 'status-complete' : 'status-pending', enabled ? '설정됨' : '미설정'));
         return item;
-    }));
+    });
+    if (morning.handler) {
+        const detail = document.createElement('p');
+        detail.className = 'integration-trigger-detail';
+        detail.textContent = `자동 알림: ${morning.handler} · ${morning.schedule || '매일 오전 8시대'} · ${status.projectTimeZone || status.expectedTimeZone || '시간대 확인 필요'}`;
+        items.push(detail);
+    }
+    if (Array.isArray(status.legacyNotificationTriggers) && status.legacyNotificationTriggers.length) {
+        const legacy = document.createElement('p');
+        legacy.className = 'integration-trigger-detail is-warning';
+        legacy.textContent = `이전 정책 트리거 감지: ${status.legacyNotificationTriggers.map(item => item.handler).join(', ')} — installCounselingTriggers() 실행으로 정리하세요.`;
+        items.push(legacy);
+    } else {
+        const legacy = document.createElement('p');
+        legacy.className = 'integration-trigger-detail';
+        legacy.textContent = '내일 상담 안내 트리거: 사용 안 함';
+        items.push(legacy);
+    }
+    container.replaceChildren(...items);
 }
 
 function operationTypeLabel(value) {
@@ -893,6 +914,23 @@ document.getElementById('integration-refresh').addEventListener('click', async e
     try {
         await loadIntegrationStatus();
         showMessage('integration-message', '설정 상태를 새로 확인했습니다.', true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('integration-message', errorMessage(error.code));
+    } finally {
+        setButtonBusy(button, false, '');
+    }
+});
+
+document.getElementById('morning-trigger-reinstall').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    if (!window.confirm('당일 상담 아침 알림 트리거만 다시 설치합니다. 이전 차시 시작·내일 안내 트리거가 있으면 함께 정리됩니다. 계속할까요?')) return;
+    setButtonBusy(button, true, '설치 중…');
+    showMessage('integration-message', '');
+    try {
+        const result = await adminRequest('adminReinstallMorningSummaryTrigger');
+        await loadIntegrationStatus();
+        const handler = result.morningSummaryTrigger && result.morningSummaryTrigger.handler ? result.morningSummaryTrigger.handler : 'runTodayCounselingSummary';
+        showMessage('integration-message', `아침 알림 트리거를 다시 설치했습니다. 연결 함수: ${handler}`, true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('integration-message', errorMessage(error.code));
     } finally {

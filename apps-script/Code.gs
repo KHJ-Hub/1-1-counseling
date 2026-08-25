@@ -33,6 +33,8 @@ const COUNSELING_TRIGGER_HANDLERS = [
 // 이전 정책에서 만들어졌을 수 있는 트리거까지 안전하게 정리한다.
 // 현재 자동 발송 정책은 당일 아침 요약만 사용한다.
 const REQUIRED_COUNSELING_TRIGGER_HANDLERS = ["runTodayCounselingSummary"];
+const MORNING_SUMMARY_TRIGGER_HANDLER = "runTodayCounselingSummary";
+const MORNING_SUMMARY_TRIGGER_SCHEDULE_LABEL = "매일 오전 8시대 (정각 기준 약 ±15분 오차 가능)";
 const SLOT_PROPERTY_MAP = {
   "야자 1차시": { start: "SLOT_1_START", end: "SLOT_1_END" },
   "야자 2차시": { start: "SLOT_2_START", end: "SLOT_2_END" },
@@ -1126,6 +1128,7 @@ function handleAdminAction(data) {
   if (data.action === "adminBackupCurrentData") return adminBackupCurrentData();
   if (data.action === "adminTestDiscord") return adminRunIntegrationTest(testDiscordNotification);
   if (data.action === "adminTestTodaySummary") return adminRunIntegrationTest(testTodayCounselingSummary);
+  if (data.action === "adminReinstallMorningSummaryTrigger") return adminReinstallMorningSummaryTrigger();
   if (data.action === "adminTestTomorrowSummary" || data.action === "adminTestSlotStart") {
     return jsonOutput({ ok: true, sent: false, skipped: true, message: "현재 알림 정책에서는 지원하지 않는 알림입니다." });
   }
@@ -1958,7 +1961,10 @@ function runDailySummary(kind) {
     console.log("내일 상담 안내는 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
     return false;
   }
-  if (!isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED")) return false;
+  if (!isPropertyEnabled("DISCORD_DAILY_SUMMARY_ENABLED")) {
+    console.log("당일 상담 아침 알림 생략: DISCORD_DAILY_SUMMARY_ENABLED가 true가 아닙니다.");
+    return false;
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -1966,10 +1972,17 @@ function runDailySummary(kind) {
     const date = localIsoDate(now);
     const key = kind + "|" + date;
     const state = cleanDatedState(readJsonProperty(SUMMARY_STATE_KEY), localIsoDate(addDays(now, -14)));
-    if (state[key]) return false;
-    if (!sendCounselingSummary(date, kind, false)) return false;
+    if (state[key]) {
+      console.log("당일 상담 아침 알림 생략: 이미 발송됨 (" + key + ")");
+      return false;
+    }
+    if (!sendCounselingSummary(date, kind, false)) {
+      console.log("당일 상담 아침 알림 생략: 오늘 미완료 예약이 없거나 Discord 전송에 실패했습니다. (" + date + ")");
+      return false;
+    }
     state[key] = discordTimestampLabel();
     writeJsonProperty(SUMMARY_STATE_KEY, state);
+    console.log("당일 상담 아침 알림 발송 완료: " + date);
     return true;
   } finally {
     lock.releaseLock();
@@ -2007,17 +2020,47 @@ function removeCounselingTriggers() {
 
 function installCounselingTriggers() {
   removeCounselingTriggers();
-  ScriptApp.newTrigger("runTodayCounselingSummary").timeBased().atHour(8).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
+  ScriptApp.newTrigger(MORNING_SUMMARY_TRIGGER_HANDLER).timeBased().atHour(8).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
   return getCounselingTriggerStatus();
+}
+
+function getCounselingTriggerDiagnostics() {
+  const handlers = {};
+  COUNSELING_TRIGGER_HANDLERS.forEach(handler => { handlers[handler] = []; });
+  const all = [];
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    const handler = trigger.getHandlerFunction();
+    const descriptor = {
+      handler: handler,
+      eventType: String(trigger.getEventType()),
+      triggerSource: String(trigger.getTriggerSource()),
+      uniqueId: trigger.getUniqueId()
+    };
+    all.push(descriptor);
+    if (Object.prototype.hasOwnProperty.call(handlers, handler)) handlers[handler].push(descriptor);
+  });
+  const morningTriggers = handlers[MORNING_SUMMARY_TRIGGER_HANDLER] || [];
+  const legacyTriggers = all.filter(item => item.handler === "checkCounselingSlotStartNotifications" || item.handler === "runTomorrowCounselingSummary");
+  return {
+    projectTimeZone: Session.getScriptTimeZone(),
+    expectedTimeZone: TIME_ZONE,
+    morning: {
+      handler: MORNING_SUMMARY_TRIGGER_HANDLER,
+      installed: morningTriggers.length > 0,
+      eventType: "CLOCK",
+      schedule: MORNING_SUMMARY_TRIGGER_SCHEDULE_LABEL,
+      triggers: morningTriggers
+    },
+    legacyTriggers: legacyTriggers,
+    handlers: handlers
+  };
 }
 
 function getCounselingTriggerStatus() {
   const installed = {};
   COUNSELING_TRIGGER_HANDLERS.forEach(handler => { installed[handler] = false; });
-  ScriptApp.getProjectTriggers().forEach(trigger => {
-    const handler = trigger.getHandlerFunction();
-    if (Object.prototype.hasOwnProperty.call(installed, handler)) installed[handler] = true;
-  });
+  const diagnostics = getCounselingTriggerDiagnostics();
+  Object.keys(installed).forEach(handler => { installed[handler] = (diagnostics.handlers[handler] || []).length > 0; });
   return installed;
 }
 
@@ -2030,13 +2073,30 @@ function adminRunIntegrationTest(testFunction) {
   }
 }
 
+function adminReinstallMorningSummaryTrigger() {
+  try {
+    const triggers = installCounselingTriggers();
+    const diagnostics = getCounselingTriggerDiagnostics();
+    return jsonOutput({
+      ok: true,
+      triggers: triggers,
+      morningSummaryTrigger: diagnostics.morning
+    });
+  } catch (error) {
+    logServerError("Morning summary trigger reinstall failed", error);
+    return jsonOutput({ ok: false, error: "TRIGGER_INSTALL_FAILED" });
+  }
+}
+
 function adminGetIntegrationStatus() {
   const properties = getScriptProperties();
   const slotConfigs = getAllSlotTimeConfigs();
   let triggers = {};
   let triggerStatusAvailable = true;
+  let triggerDiagnostics = null;
   try {
     triggers = getCounselingTriggerStatus();
+    triggerDiagnostics = getCounselingTriggerDiagnostics();
   } catch (error) {
     triggerStatusAvailable = false;
     COUNSELING_TRIGGER_HANDLERS.forEach(handler => { triggers[handler] = false; });
@@ -2050,7 +2110,11 @@ function adminGetIntegrationStatus() {
       calendarEnabled: isPropertyEnabled("GOOGLE_CALENDAR_ENABLED"),
       slotTimesValid: Object.keys(slotConfigs).length === CONSULT_SLOTS.length,
       triggersInstalled: triggerStatusAvailable && REQUIRED_COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true),
-      triggerStatusAvailable: triggerStatusAvailable
+      triggerStatusAvailable: triggerStatusAvailable,
+      morningSummaryTrigger: triggerDiagnostics ? triggerDiagnostics.morning : null,
+      legacyNotificationTriggers: triggerDiagnostics ? triggerDiagnostics.legacyTriggers : [],
+      projectTimeZone: triggerDiagnostics ? triggerDiagnostics.projectTimeZone : "",
+      expectedTimeZone: TIME_ZONE
     }
   });
 }
@@ -2153,9 +2217,24 @@ function adminCheckOperationStatus() {
   try {
     const integration = JSON.parse(adminGetIntegrationStatus().getContent()).status || {};
     addOperationCheckItem(items, integration.discordConfigured ? "success" : "warning", "Discord", integration.discordConfigured ? "Webhook이 설정되어 있습니다." : "Webhook이 설정되지 않았습니다.");
-    const triggerLevel = integration.triggerStatusAvailable === false ? "warning" : integration.triggersInstalled ? "success" : "warning";
-    const triggerDetail = integration.triggerStatusAvailable === false ? "확인 필요: 트리거 권한 또는 상태를 확인하세요." : integration.triggersInstalled ? "필요한 트리거가 설치되어 있습니다." : "필요한 트리거가 설치되어 있지 않습니다.";
-    addOperationCheckItem(items, triggerLevel, "자동 알림 트리거", triggerDetail);
+    const morningTrigger = integration.morningSummaryTrigger || {};
+    const triggerLevel = integration.triggerStatusAvailable === false ? "warning" : morningTrigger.installed ? "success" : "warning";
+    const triggerDetail = integration.triggerStatusAvailable === false
+      ? "확인 필요: 트리거 권한 또는 상태를 확인하세요."
+      : morningTrigger.installed
+        ? "" + morningTrigger.handler + " · " + morningTrigger.schedule + " · " + (integration.projectTimeZone || TIME_ZONE)
+        : morningTrigger.handler + " 트리거가 설치되어 있지 않습니다.";
+    addOperationCheckItem(items, triggerLevel, "당일 상담 아침 알림 트리거", triggerDetail);
+    if (integration.legacyNotificationTriggers && integration.legacyNotificationTriggers.length) {
+      addOperationCheckItem(items, "warning", "이전 알림 트리거", integration.legacyNotificationTriggers.map(item => item.handler).join(", ") + "가 남아 있습니다. installCounselingTriggers()를 실행해 정리하세요.");
+    } else {
+      addOperationCheckItem(items, "success", "내일 상담 안내 트리거", "사용하지 않음 (현재 알림 정책과 일치)");
+    }
+    if (integration.projectTimeZone && integration.projectTimeZone !== TIME_ZONE) {
+      addOperationCheckItem(items, "warning", "프로젝트 시간대", integration.projectTimeZone + "로 설정되어 있습니다. " + TIME_ZONE + "인지 확인하세요.");
+    } else {
+      addOperationCheckItem(items, "success", "프로젝트 시간대", TIME_ZONE + "으로 확인했습니다.");
+    }
     addOperationCheckItem(items, integration.calendarEnabled ? "success" : "warning", "Google Calendar", integration.calendarEnabled ? "연동이 활성화되어 있습니다." : "연동을 사용하지 않도록 설정되어 있습니다.");
   } catch (error) {
     logServerError("Integration operation check failed", error);

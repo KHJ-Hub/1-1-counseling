@@ -524,3 +524,21 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .setup-guide { border-color: rgba(230, 147, 196, 0.5); background: rgba(255, 232, 246, 0.72); }
 .month-navigator { background: rgba(255, 255, 255, 0.72); }
 .month-nav-button { border-color: #a38bdd; background: #f3e7ff; color: #5c4b8f; }
+
+.integration-trigger-detail {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px dashed rgba(126, 103, 193, 0.36);
+    border-radius: 12px;
+    background: rgba(244, 238, 255, 0.6);
+    color: #5a4e86;
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.integration-trigger-detail.is-warning {
+    border-color: rgba(214, 142, 70, 0.56);
+    background: rgba(255, 244, 216, 0.72);
+    color: #7d5424;
+}
