@@ -275,6 +275,7 @@ function buildClosedReservationSummaries(events) {
 
         reservationsByDate[dateStr][slot] = {
             slot,
+            completed: Boolean(event.extendedProps.completed),
             name: event.extendedProps.completed
                 ? '상담 완료'
                 : (String(event.extendedProps.name || event.title || '예약됨').trim() || '예약됨')
@@ -298,7 +299,9 @@ function openClosedReservationSummary(dateStr, reservations) {
 
     document.getElementById('closed-summary-date').textContent = formatKoreanDate(date);
     getAvailableSlots(date).forEach(slot => {
-        const item = document.createElement('div');
+        const reservation = reservationMap.get(slot);
+        const item = document.createElement('button');
+        item.type = 'button';
         item.className = 'closed-summary-item';
 
         const slotLabel = document.createElement('div');
@@ -310,9 +313,24 @@ function openClosedReservationSummary(dateStr, reservations) {
 
         const name = document.createElement('div');
         name.className = 'closed-summary-name';
-        name.textContent = reservationMap.get(slot)?.name || '예약 없음';
+        name.textContent = reservation?.name || '예약 없음';
 
-        item.append(slotLabel, name);
+        const arrow = document.createElement('span');
+        arrow.className = 'closed-summary-arrow';
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.textContent = reservation && !reservation.completed ? '›' : '';
+
+        const canCancel = Boolean(reservation && !reservation.completed);
+        item.disabled = !canCancel;
+        item.classList.toggle('is-readonly', !canCancel);
+        if (canCancel) {
+            item.setAttribute('aria-label', `${slot} ${reservation.name} 예약 취소하기`);
+            item.addEventListener('click', () => openCancelModal(date, reservation.slot, reservation.name));
+        } else {
+            item.setAttribute('aria-label', `${slot} ${reservation?.name || '예약 없음'}`);
+        }
+
+        item.append(slotLabel, name, arrow);
         list.appendChild(item);
     });
 
@@ -740,7 +758,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             : '현재 상담 신청을 잠시 중지했습니다.';
         document.getElementById('vacation-guide').textContent = serviceSettings.vacationNotice || '방학 중에는 선생님이 열어둔 날짜와 시간만 신청할 수 있어요.';
         document.getElementById('booking-password-help').textContent = serviceSettings.passwordNotice || '예약 취소 시 사용할 숫자 4자리를 입력해 주세요.';
-        let dateCounts = {};
         let occupiedSlotsByDate = {};
         data.events = data.events.filter(ev => !(ev.extendedProps && ev.extendedProps.isPublicHoliday === true && vacationDates.includes(ev.start)));
 
@@ -755,7 +772,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     : (isTeacherBlocked ? '선생님 상담 불가' : (ev.title || "").replace(/🚫/g, "").trim());
             } else if (ev.extendedProps && ev.extendedProps.type === "consult") {
                 ev.classNames = ev.extendedProps.completed ? ['consult-event', 'completed-consult-event'] : ['consult-event'];
-                dateCounts[ev.start] = (dateCounts[ev.start] || 0) + 1;
                 if (!occupiedSlotsByDate[ev.start]) occupiedSlotsByDate[ev.start] = new Set();
                 occupiedSlotsByDate[ev.start].add(ev.extendedProps.slot);
             } else if (ev.extendedProps && ev.extendedProps.type === "vacation") {
