@@ -65,6 +65,7 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 | `ADMIN_PAGE_URL` | HTTPS URL | 관리자 링크, 미설정 시 `https://khj-hub.github.io/1-1-counseling/admin.html` |
 | `CHANGE_RESERVATION_ENABLED` | `true/false` | 예약 변경 기능. 미설정 또는 `true`면 사용, `false`면 즉시 비활성화 |
 | `DISCORD_DAILY_SUMMARY_ENABLED` | `true/false` | 당일 상담 아침 요약 활성화 |
+| `DISCORD_ADMIN_CHANGE_REMINDER_ENABLED` | `true/false` | 당일 예정 상담을 관리자가 변경했을 때 오후 4시 안내 리마인드. 미설정 또는 `true`면 사용 |
 | `GOOGLE_CALENDAR_ENABLED` | `true/false` | Google Calendar 연동 활성화 |
 | `GOOGLE_CALENDAR_ID` | Calendar ID | 연동할 캘린더 ID, 브라우저에 노출하지 않음 |
 | `SLOT_1_START` / `SLOT_1_END` | `HH:mm` | 야자 1차시 시작·종료 |
@@ -87,7 +88,7 @@ Apps Script 편집기의 **프로젝트 설정 → 스크립트 속성**에서 �
 
 ## Discord 알림
 
-Discord는 새 예약·예약 취소·예약 변경 알림을 즉시 전송하며 관리자 페이지 링크를 포함합니다. 예약 변경에 성공하면 신청·취소 알림 대신 변경 알림 1건만 전송합니다. 당일 상담 아침 요약은 오전 8시 전후에만 전송하고, **미완료 예약이 1건 이상 있는 날에만** 발송합니다. 예약이 없는 날, 내일 상담 안내, 차시 시작 전 알림은 발송하지 않습니다. 당일 요약은 Script Properties에 전송 상태를 저장해 같은 날짜에 중복 발송하지 않습니다.
+Discord는 새 예약·예약 취소·예약 변경 알림을 즉시 전송하며 관리자 페이지 링크를 포함합니다. 예약 변경에 성공하면 신청·취소 알림 대신 변경 알림 1건만 전송합니다. 당일 상담 아침 요약은 오전 8시 전후에만 전송하고, **미완료 예약이 1건 이상 있는 날에만** 발송합니다. 예약이 없는 날, 내일 상담 안내, 차시 시작 전 알림은 발송하지 않습니다. 당일 요약은 Script Properties에 전송 상태를 저장해 같은 날짜에 중복 발송하지 않습니다. 관리자가 **오늘 예정이던 예약**을 변경하면, 같은 날 오후 4시 전후에 학생 안내 여부를 확인하는 관리자용 리마인드 1회를 보냅니다. 학생이 직접 변경한 예약과 미래 예약 변경은 대상이 아닙니다.
 
 Discord 장애나 Webhook 미설정은 예약·취소 결과를 바꾸지 않습니다. 학생 비밀번호와 상담 메모는 전송하지 않습니다.
 
@@ -95,6 +96,7 @@ Discord 장애나 Webhook 미설정은 예약·취소 결과를 바꾸지 않습
 
 - `testDiscordNotification()`: 기본 Webhook 테스트
 - `testTodayCounselingSummary()`: 오늘 요약 테스트
+- `testTodayAdminChangeReminder()`: 오늘 관리자 변경 리마인드 테스트 (대상 기록이 있을 때만 전송, 테스트는 발송 완료 상태를 기록하지 않음)
 
 관리자 설정 탭의 테스트 버튼도 동일 기능을 서버 인증 후 실행합니다.
 
@@ -119,9 +121,11 @@ Calendar 연동 코드를 처음 실행하면 Apps Script가 Calendar 읽기·�
 2. 권한을 승인합니다.
 3. 왼쪽 **트리거**에서 다음 핸들러를 확인합니다.
    - `runTodayCounselingSummary`: 매일 오전 8시 전후 (당일 미완료 예약이 1건 이상일 때만 발송)
+   - `runTodayAdminChangeReminder`: 매일 오후 4시 전후 (오늘 예정이던 예약을 관리자가 변경한 기록이 있을 때만 발송)
 4. 관리자 설정 화면의 연동 상태에서 다음을 확인합니다.
    - 당일 상담 아침 알림 트리거: `runTodayCounselingSummary`
-   - 실행 시간: 매일 오전 8시대 (Apps Script 시간 기반 트리거는 정각보다 약 ±15분 오차가 있을 수 있음)
+   - 당일 관리자 변경 리마인드 트리거: `runTodayAdminChangeReminder`
+   - 실행 시간: 매일 오전 8시대 / 오후 4시대 (Apps Script 시간 기반 트리거는 정각보다 약 ±15분 오차가 있을 수 있음)
    - 프로젝트 시간대: `Asia/Seoul`
    - 내일 상담 안내 트리거: 사용 안 함
 

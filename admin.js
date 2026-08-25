@@ -700,12 +700,15 @@ async function loadStats() {
 
 function renderIntegrationStatus(status) {
     const morning = status.morningSummaryTrigger || {};
+    const adminChangeReminder = status.adminChangeReminderTrigger || {};
     const labels = [
         ['Discord Webhook', status.discordConfigured],
         ['당일 상담 아침 요약', status.dailySummaryEnabled],
+        ['당일 관리자 변경 리마인드', status.adminChangeReminderEnabled],
         ['Google Calendar 연동', status.calendarEnabled],
         ['상담 시간대 설정', status.slotTimesValid],
         ['당일 상담 아침 알림 트리거', morning.installed === true],
+        ['당일 관리자 변경 리마인드 트리거', adminChangeReminder.installed === true],
         ['프로젝트 시간대', status.projectTimeZone === status.expectedTimeZone]
     ];
     const container = document.getElementById('integration-status');
@@ -719,6 +722,12 @@ function renderIntegrationStatus(status) {
         const detail = document.createElement('p');
         detail.className = 'integration-trigger-detail';
         detail.textContent = `자동 알림: ${morning.handler} · ${morning.schedule || '매일 오전 8시대'} · ${status.projectTimeZone || status.expectedTimeZone || '시간대 확인 필요'}`;
+        items.push(detail);
+    }
+    if (adminChangeReminder.handler) {
+        const detail = document.createElement('p');
+        detail.className = 'integration-trigger-detail';
+        detail.textContent = `변경 리마인드: ${adminChangeReminder.handler} · ${adminChangeReminder.schedule || '매일 오후 4시대'} · ${status.projectTimeZone || status.expectedTimeZone || '시간대 확인 필요'}`;
         items.push(detail);
     }
     if (Array.isArray(status.legacyNotificationTriggers) && status.legacyNotificationTriggers.length) {
@@ -1063,14 +1072,15 @@ document.getElementById('integration-refresh').addEventListener('click', async e
 
 document.getElementById('morning-trigger-reinstall').addEventListener('click', async event => {
     const button = event.currentTarget;
-    if (!window.confirm('당일 상담 아침 알림 트리거만 다시 설치합니다. 이전 차시 시작·내일 안내 트리거가 있으면 함께 정리됩니다. 계속할까요?')) return;
+    if (!window.confirm('당일 아침 요약과 당일 관리자 변경 리마인드 트리거를 다시 설치합니다. 이전 차시 시작·내일 안내 트리거가 있으면 함께 정리됩니다. 계속할까요?')) return;
     setButtonBusy(button, true, '설치 중…');
     showMessage('integration-message', '');
     try {
         const result = await adminRequest('adminReinstallMorningSummaryTrigger');
         await loadIntegrationStatus();
         const handler = result.morningSummaryTrigger && result.morningSummaryTrigger.handler ? result.morningSummaryTrigger.handler : 'runTodayCounselingSummary';
-        showMessage('integration-message', `아침 알림 트리거를 다시 설치했습니다. 연결 함수: ${handler}`, true);
+        const reminderHandler = result.adminChangeReminderTrigger && result.adminChangeReminderTrigger.handler ? result.adminChangeReminderTrigger.handler : 'runTodayAdminChangeReminder';
+        showMessage('integration-message', `알림 트리거를 다시 설치했습니다. 아침: ${handler} · 오후 4시: ${reminderHandler}`, true);
     } catch (error) {
         if (error.code !== 'AUTH_REQUIRED') showMessage('integration-message', errorMessage(error.code));
     } finally {

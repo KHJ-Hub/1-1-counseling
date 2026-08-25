@@ -23,18 +23,23 @@ const CALENDAR_EVENT_ID_COLUMN = 7;
 const CALENDAR_EVENT_ID_HEADER = "Calendar Event ID";
 const SLOT_START_STATE_KEY = "COUNSELING_SLOT_START_STATE";
 const SUMMARY_STATE_KEY = "COUNSELING_SUMMARY_STATE";
+const ADMIN_CHANGE_REMINDER_STATE_KEY = "COUNSELING_ADMIN_CHANGE_REMINDER_STATE";
+const ADMIN_CHANGE_REMINDER_ENABLED_KEY = "DISCORD_ADMIN_CHANGE_REMINDER_ENABLED";
 const OPERATION_SETTINGS_KEY = "COUNSELING_OPERATION_SETTINGS";
 const BACKUP_SOURCE_SHEET_NAMES = [CONSULT_SHEET_NAME, AVAILABILITY_SHEET_NAME, CALENDAR_SHEET_NAME];
 const COUNSELING_TRIGGER_HANDLERS = [
   "checkCounselingSlotStartNotifications",
   "runTodayCounselingSummary",
-  "runTomorrowCounselingSummary"
+  "runTomorrowCounselingSummary",
+  "runTodayAdminChangeReminder"
 ];
 // 이전 정책에서 만들어졌을 수 있는 트리거까지 안전하게 정리한다.
 // 현재 자동 발송 정책은 당일 아침 요약만 사용한다.
-const REQUIRED_COUNSELING_TRIGGER_HANDLERS = ["runTodayCounselingSummary"];
+const REQUIRED_COUNSELING_TRIGGER_HANDLERS = ["runTodayCounselingSummary", "runTodayAdminChangeReminder"];
 const MORNING_SUMMARY_TRIGGER_HANDLER = "runTodayCounselingSummary";
 const MORNING_SUMMARY_TRIGGER_SCHEDULE_LABEL = "매일 오전 8시대 (정각 기준 약 ±15분 오차 가능)";
+const ADMIN_CHANGE_REMINDER_TRIGGER_HANDLER = "runTodayAdminChangeReminder";
+const ADMIN_CHANGE_REMINDER_TRIGGER_SCHEDULE_LABEL = "매일 오후 4시대 (정각 기준 약 ±15분 오차 가능)";
 const SLOT_PROPERTY_MAP = {
   "야자 1차시": { start: "SLOT_1_START", end: "SLOT_1_END" },
   "야자 2차시": { start: "SLOT_2_START", end: "SLOT_2_END" },
@@ -412,6 +417,38 @@ function notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, n
     notifyDiscordReservationChange(name, oldDate, oldSlot, newDate, newSlot, changedBy);
   } catch (error) {
     console.error("Discord reservation change notification failed.");
+  }
+}
+
+function isAdminChangeReminderEnabled() {
+  const raw = getScriptProperties().getProperty(ADMIN_CHANGE_REMINDER_ENABLED_KEY);
+  return raw === null || raw === "" || raw.toLowerCase() === "true";
+}
+
+function recordTodayAdminReservationChangeReminder(change) {
+  if (!isAdminChangeReminderEnabled() || change.oldDate !== localIsoDate(new Date())) return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const state = cleanDatedState(readJsonProperty(ADMIN_CHANGE_REMINDER_STATE_KEY), localIsoDate(addDays(new Date(), -14)));
+    const key = change.oldDate + "|row:" + change.rowNumber;
+    const existing = state[key];
+    if (existing && existing.sentAt) return;
+    state[key] = Object.assign({}, existing || {}, {
+      name: change.name,
+      oldDate: existing && existing.oldDate ? existing.oldDate : change.oldDate,
+      oldSlot: existing && existing.oldSlot ? existing.oldSlot : change.oldSlot,
+      newDate: change.newDate,
+      newSlot: change.newSlot,
+      rowNumber: change.rowNumber,
+      recordedAt: discordTimestampLabel(),
+      sentAt: ""
+    });
+    writeJsonProperty(ADMIN_CHANGE_REMINDER_STATE_KEY, state);
+  } catch (error) {
+    console.error("Today admin reservation change reminder recording failed.");
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -959,6 +996,16 @@ function changeReservation(data, ss, sheet, changedBy) {
     } else {
       console.error("Google Calendar event deletion failed after reservation change; new event creation skipped.");
     }
+    if (changedBy === "관리자") {
+      recordTodayAdminReservationChangeReminder({
+        name: name,
+        oldDate: oldDate,
+        oldSlot: oldSlot,
+        newDate: newDate,
+        newSlot: newSlot,
+        rowNumber: rowNumber
+      });
+    }
     notifyDiscordReservationChangeSafely(name, oldDate, oldSlot, newDate, newSlot, changedBy);
   }
   return result;
@@ -1157,6 +1204,7 @@ function handleAdminAction(data) {
   if (data.action === "adminBackupCurrentData") return adminBackupCurrentData();
   if (data.action === "adminTestDiscord") return adminRunIntegrationTest(testDiscordNotification);
   if (data.action === "adminTestTodaySummary") return adminRunIntegrationTest(testTodayCounselingSummary);
+  if (data.action === "adminTestTodayAdminChangeReminder") return adminRunIntegrationTest(testTodayAdminChangeReminder);
   if (data.action === "adminReinstallMorningSummaryTrigger") return adminReinstallMorningSummaryTrigger();
   if (data.action === "adminTestTomorrowSummary" || data.action === "adminTestSlotStart") {
     return jsonOutput({ ok: true, sent: false, skipped: true, message: "현재 알림 정책에서는 지원하지 않는 알림입니다." });
@@ -2085,6 +2133,68 @@ function testTodayCounselingSummary() {
   return sendCounselingSummary(localIsoDate(new Date()), "today", true);
 }
 
+function getTodayAdminChangeReminderTargets(state, date) {
+  return Object.keys(state).map(key => state[key]).filter(item => item && item.oldDate === date && !item.sentAt);
+}
+
+function buildTodayAdminChangeReminderLines(targets) {
+  const limited = targets.slice(0, 10);
+  const lines = limited.map((item, index) => {
+    return (index + 1) + ". " + item.name + "\n기존: " + item.oldDate + " · " + formatSlotWithTime(item.oldSlot) + "\n변경: " + item.newDate + " · " + formatSlotWithTime(item.newSlot);
+  });
+  if (targets.length > limited.length) lines.push("외 " + (targets.length - limited.length) + "건");
+  return lines.join("\n\n").slice(0, 1000);
+}
+
+function sendTodayAdminChangeReminder(targets, testMode) {
+  if (!targets.length) return false;
+  return sendDiscordEmbed({
+    title: testMode ? "🧪 [테스트] 학생 안내 확인" : "🔔 학생 안내 확인",
+    url: getAdminPageUrl(),
+    color: 16753920,
+    description: "오늘 예정이었던 상담이 관리자에 의해 변경되었습니다.\n학생에게 변경 내용을 안내했는지 확인해 주세요.",
+    fields: [
+      { name: "오늘 안내가 필요한 예약 변경", value: targets.length + "건", inline: true },
+      { name: "변경 내역", value: buildTodayAdminChangeReminderLines(targets), inline: false },
+      { name: "관리자 페이지", value: "[바로가기](" + getAdminPageUrl() + ")", inline: false }
+    ]
+  });
+}
+
+function runTodayAdminChangeReminder() {
+  if (!isAdminChangeReminderEnabled()) {
+    console.log("당일 관리자 변경 리마인드 생략: " + ADMIN_CHANGE_REMINDER_ENABLED_KEY + "가 false입니다.");
+    return false;
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const now = new Date();
+    const date = localIsoDate(now);
+    const state = cleanDatedState(readJsonProperty(ADMIN_CHANGE_REMINDER_STATE_KEY), localIsoDate(addDays(now, -14)));
+    const targets = getTodayAdminChangeReminderTargets(state, date);
+    if (!targets.length) {
+      console.log("당일 관리자 변경 리마인드 생략: 대상 없음 (" + date + ")");
+      return false;
+    }
+    if (!sendTodayAdminChangeReminder(targets, false)) {
+      console.error("당일 관리자 변경 리마인드 전송 실패: " + date);
+      return false;
+    }
+    targets.forEach(item => { item.sentAt = discordTimestampLabel(); });
+    writeJsonProperty(ADMIN_CHANGE_REMINDER_STATE_KEY, state);
+    console.log("당일 관리자 변경 리마인드 발송 완료: " + date + " · " + targets.length + "건");
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function testTodayAdminChangeReminder() {
+  const state = cleanDatedState(readJsonProperty(ADMIN_CHANGE_REMINDER_STATE_KEY), localIsoDate(addDays(new Date(), -14)));
+  return sendTodayAdminChangeReminder(getTodayAdminChangeReminderTargets(state, localIsoDate(new Date())), true);
+}
+
 function testTomorrowCounselingSummary() {
   console.log("내일 상담 안내 테스트는 현재 Discord 알림 정책에 따라 발송하지 않습니다.");
   return false;
@@ -2104,6 +2214,7 @@ function removeCounselingTriggers() {
 function installCounselingTriggers() {
   removeCounselingTriggers();
   ScriptApp.newTrigger(MORNING_SUMMARY_TRIGGER_HANDLER).timeBased().atHour(8).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
+  ScriptApp.newTrigger(ADMIN_CHANGE_REMINDER_TRIGGER_HANDLER).timeBased().atHour(16).nearMinute(0).everyDays(1).inTimezone(TIME_ZONE).create();
   return getCounselingTriggerStatus();
 }
 
@@ -2123,6 +2234,7 @@ function getCounselingTriggerDiagnostics() {
     if (Object.prototype.hasOwnProperty.call(handlers, handler)) handlers[handler].push(descriptor);
   });
   const morningTriggers = handlers[MORNING_SUMMARY_TRIGGER_HANDLER] || [];
+  const adminChangeReminderTriggers = handlers[ADMIN_CHANGE_REMINDER_TRIGGER_HANDLER] || [];
   const legacyTriggers = all.filter(item => item.handler === "checkCounselingSlotStartNotifications" || item.handler === "runTomorrowCounselingSummary");
   return {
     projectTimeZone: Session.getScriptTimeZone(),
@@ -2133,6 +2245,13 @@ function getCounselingTriggerDiagnostics() {
       eventType: "CLOCK",
       schedule: MORNING_SUMMARY_TRIGGER_SCHEDULE_LABEL,
       triggers: morningTriggers
+    },
+    adminChangeReminder: {
+      handler: ADMIN_CHANGE_REMINDER_TRIGGER_HANDLER,
+      installed: adminChangeReminderTriggers.length > 0,
+      eventType: "CLOCK",
+      schedule: ADMIN_CHANGE_REMINDER_TRIGGER_SCHEDULE_LABEL,
+      triggers: adminChangeReminderTriggers
     },
     legacyTriggers: legacyTriggers,
     handlers: handlers
@@ -2163,7 +2282,8 @@ function adminReinstallMorningSummaryTrigger() {
     return jsonOutput({
       ok: true,
       triggers: triggers,
-      morningSummaryTrigger: diagnostics.morning
+      morningSummaryTrigger: diagnostics.morning,
+      adminChangeReminderTrigger: diagnostics.adminChangeReminder
     });
   } catch (error) {
     logServerError("Morning summary trigger reinstall failed", error);
@@ -2195,6 +2315,8 @@ function adminGetIntegrationStatus() {
       triggersInstalled: triggerStatusAvailable && REQUIRED_COUNSELING_TRIGGER_HANDLERS.every(handler => triggers[handler] === true),
       triggerStatusAvailable: triggerStatusAvailable,
       morningSummaryTrigger: triggerDiagnostics ? triggerDiagnostics.morning : null,
+      adminChangeReminderEnabled: isAdminChangeReminderEnabled(),
+      adminChangeReminderTrigger: triggerDiagnostics ? triggerDiagnostics.adminChangeReminder : null,
       legacyNotificationTriggers: triggerDiagnostics ? triggerDiagnostics.legacyTriggers : [],
       projectTimeZone: triggerDiagnostics ? triggerDiagnostics.projectTimeZone : "",
       expectedTimeZone: TIME_ZONE
@@ -2308,6 +2430,18 @@ function adminCheckOperationStatus() {
         ? "" + morningTrigger.handler + " · " + morningTrigger.schedule + " · " + (integration.projectTimeZone || TIME_ZONE)
         : morningTrigger.handler + " 트리거가 설치되어 있지 않습니다.";
     addOperationCheckItem(items, triggerLevel, "당일 상담 아침 알림 트리거", triggerDetail);
+    const adminChangeReminderTrigger = integration.adminChangeReminderTrigger || {};
+    const reminderLevel = integration.triggerStatusAvailable === false ? "warning"
+      : !integration.adminChangeReminderEnabled ? "info"
+      : adminChangeReminderTrigger.installed ? "success" : "warning";
+    const reminderDetail = integration.triggerStatusAvailable === false
+      ? "확인 필요: 트리거 권한 또는 상태를 확인하세요."
+      : !integration.adminChangeReminderEnabled
+        ? "사용 안 함 (" + ADMIN_CHANGE_REMINDER_ENABLED_KEY + "=false)"
+        : adminChangeReminderTrigger.installed
+          ? adminChangeReminderTrigger.handler + " · " + adminChangeReminderTrigger.schedule + " · " + (integration.projectTimeZone || TIME_ZONE)
+          : adminChangeReminderTrigger.handler + " 트리거가 설치되어 있지 않습니다.";
+    addOperationCheckItem(items, reminderLevel, "당일 관리자 변경 리마인드 트리거", reminderDetail);
     if (integration.legacyNotificationTriggers && integration.legacyNotificationTriggers.length) {
       addOperationCheckItem(items, "warning", "이전 알림 트리거", integration.legacyNotificationTriggers.map(item => item.handler).join(", ") + "가 남아 있습니다. installCounselingTriggers()를 실행해 정리하세요.");
     } else {
