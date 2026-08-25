@@ -428,8 +428,12 @@ function isAdminChangeReminderEnabled() {
 function recordTodayAdminReservationChangeReminder(change) {
   if (!isAdminChangeReminderEnabled() || change.oldDate !== localIsoDate(new Date())) return;
   const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  let locked = false;
   try {
+    // 리마인드 기록은 예약 변경이 끝난 뒤의 보조 처리다. 잠금 대기 실패가
+    // 이미 저장된 예약 변경의 응답을 실패로 바꾸지 않도록 예외를 이 함수 안에서 끝낸다.
+    lock.waitLock(10000);
+    locked = true;
     const state = cleanDatedState(readJsonProperty(ADMIN_CHANGE_REMINDER_STATE_KEY), localIsoDate(addDays(new Date(), -14)));
     const key = change.oldDate + "|row:" + change.rowNumber;
     const existing = state[key];
@@ -446,9 +450,9 @@ function recordTodayAdminReservationChangeReminder(change) {
     });
     writeJsonProperty(ADMIN_CHANGE_REMINDER_STATE_KEY, state);
   } catch (error) {
-    console.error("Today admin reservation change reminder recording failed.");
+    logServerError("Today admin reservation change reminder recording failed", error);
   } finally {
-    lock.releaseLock();
+    if (locked) lock.releaseLock();
   }
 }
 

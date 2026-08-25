@@ -123,6 +123,9 @@ function setButtonBusy(button, busy, busyText) {
 }
 
 function errorMessage(code) {
+    if (typeof code === 'string' && code.startsWith('HOLIDAY_NOT_ALLOWED:')) {
+        return '선택한 날짜는 공휴일이라 예약을 변경할 수 없습니다.';
+    }
     const messages = {
         INVALID_CREDENTIALS: '관리자 비밀번호가 올바르지 않습니다.',
         AUTH_REQUIRED: '관리자 세션이 만료되었습니다. 다시 로그인해 주세요.',
@@ -130,6 +133,7 @@ function errorMessage(code) {
         AVAILABILITY_SHEET_NOT_FOUND: '“상담가능시간” 시트를 찾지 못했습니다. README의 시트 설정을 확인해 주세요.',
         STALE_DATA: '시트 내용이 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
         INVALID_ROW: '변경할 항목을 찾지 못했습니다.',
+        NOT_FOUND: '기존 예약을 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.',
         INVALID_DATE: '날짜를 올바르게 입력해 주세요.',
         PAST_DATE_NOT_ALLOWED: '지난 날짜로는 예약을 변경할 수 없습니다.',
         WEEKEND_NOT_ALLOWED: '주말에는 예약을 변경할 수 없습니다.',
