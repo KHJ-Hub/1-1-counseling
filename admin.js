@@ -16,6 +16,8 @@ let operationSettings = null;
 let pendingDelete = null;
 let confirmTrigger = null;
 let pendingAdminReservationChange = null;
+let studentHistory = [];
+let studentHistoryName = '';
 let academicListMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let availabilityGroupsByKey = new Map();
 let expandedAvailabilityGroupKeys = new Set();
@@ -290,6 +292,11 @@ function renderReservations() {
         studentInfo.className = 'reservation-student-info';
         studentInfo.appendChild(createTextElement('div', 'item-title', item.name));
         studentInfo.appendChild(createTextElement('div', 'reservation-student-meta', `${consultationCategoryLabel(item.consultationCategory)} · 올해 ${item.schoolYearConsultationCount || 0}회`));
+        if (item.recentCompletedDays !== null && item.recentCompletedDays !== undefined) {
+            const recentText = `최근 상담: ${item.recentCompletedDays}일 전`;
+            studentInfo.appendChild(createTextElement('div', 'recent-consultation-meta', recentText));
+            if (item.recentCompletedDays <= 7) studentInfo.appendChild(createTextElement('span', 'recent-consultation-badge', '최근 상담 있음'));
+        }
         if (item.completed) {
             const statusRow = document.createElement('div');
             statusRow.className = 'reservation-statuses';
@@ -345,6 +352,7 @@ function renderReservations() {
         memoInput.value = item.memo || '';
         memoLabel.appendChild(memoInput);
         memoField.appendChild(memoLabel);
+        memoField.appendChild(createActionButton(item.memoImportant ? '★ 중요' : '☆ 중요 표시', 'secondary', 'toggle-important', item.row));
         editor.appendChild(memoField);
         editor.appendChild(createActionButton('상태·메모 저장', 'primary', 'save-consultation', item.row));
         article.appendChild(editor);
@@ -513,6 +521,38 @@ function exportReservationsCsv() {
     showMessage('reservation-export-message', `${filtered.length}건을 CSV로 내보냈습니다. 비밀번호와 상담 메모 본문은 포함하지 않았습니다.`, true);
 }
 
+function escapePrintText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+}
+
+async function openReservationPrintView() {
+    const today = new Date();
+    const day = today.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    const toIso = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+    const startDate = toIso(monday);
+    const endDate = toIso(sunday);
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+    if (!printWindow) {
+        showMessage('reservation-export-message', '팝업이 차단되어 인쇄용 보기를 열 수 없습니다. 브라우저에서 팝업을 허용해 주세요.');
+        return;
+    }
+    try {
+        const result = await adminRequest('adminListReservations', { includeCompleted: true });
+        const items = (result.reservations || []).filter(item => item.date >= startDate && item.date <= endDate);
+        const rows = items.map(item => `<tr><td>${escapePrintText(item.date)}</td><td>${escapePrintText(item.slot)}</td><td>${escapePrintText(item.name)}</td><td>${escapePrintText(consultationCategoryLabel(item.consultationCategory))}</td><td>${item.completed ? '완료' : '예정'}${item.followUpStatus === 'follow_up' ? ' · 추후 상담 필요' : ''}</td><td>${item.memo ? '메모 있음' : '메모 없음'}</td></tr>`).join('');
+        printWindow.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>상담 일정 ${startDate}~${endDate}</title><style>@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,"Noto Sans KR",sans-serif;color:#202820;margin:0}h1{font-size:20px;margin:0 0 5px}p{color:#667066;margin:0 0 18px;font-size:12px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cdd6cf;padding:7px 6px;text-align:left}th{background:#eef4ef;font-weight:700}tr{break-inside:avoid}@media print{.no-print{display:none}}</style></head><body><h1>상담 일정</h1><p>${startDate} ~ ${endDate} · 취소된 예약 제외</p>${items.length ? `<table><thead><tr><th>날짜</th><th>차시</th><th>학생</th><th>상담 분야</th><th>상태</th><th>메모</th></tr></thead><tbody>${rows}</tbody></table>` : '<p>이번 주 상담 일정이 없습니다.</p>'}</body></html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 150);
+    } catch (error) {
+        printWindow.close();
+        if (error.code !== 'AUTH_REQUIRED') showMessage('reservation-export-message', errorMessage(error.code));
+    }
+}
+
 function renderOperationCheck(result) {
     const container = document.getElementById('operation-check-results');
     const items = result.items || [];
@@ -650,13 +690,17 @@ function renderAvailability() {
 }
 
 function renderHistory(history, name) {
+    studentHistory = history;
+    studentHistoryName = name;
     const list = document.getElementById('history-list');
     list.replaceChildren();
-    if (history.length === 0) {
+    const importantOnly = document.getElementById('history-important-only')?.checked === true;
+    const visibleHistory = importantOnly ? history.filter(item => item.memoImportant) : history;
+    if (visibleHistory.length === 0) {
         list.appendChild(createTextElement('p', 'empty-state', `${name} 학생의 상담 이력이 없습니다.`));
         return;
     }
-    history.forEach(item => {
+    visibleHistory.forEach(item => {
         const article = document.createElement('article');
         article.className = 'list-item history-item';
         article.dataset.row = String(item.row);
@@ -665,6 +709,7 @@ function renderHistory(history, name) {
         article.dataset.name = item.name;
         article.dataset.completed = String(item.completed);
         article.dataset.followUpStatus = item.followUpStatus || '';
+        article.dataset.memoImportant = String(item.memoImportant === true);
         
         const summary = document.createElement('div');
         summary.className = 'history-summary';
@@ -682,6 +727,7 @@ function renderHistory(history, name) {
         memo.className = 'history-memo';
         memo.appendChild(createTextElement('span', 'history-memo-label', '상담 메모'));
         memo.appendChild(createTextElement('p', `history-memo-text memo-display${item.memo ? '' : ' is-empty'}`, item.memo || '메모 없음'));
+        if (item.memoImportant) memo.appendChild(createTextElement('span', 'important-memo-label', '★ 중요 메모'));
         content.appendChild(memo);
         summary.appendChild(content);
 
@@ -690,6 +736,7 @@ function renderHistory(history, name) {
         actions.appendChild(createTextElement('span', `history-status-badge ${item.completed ? 'is-complete' : 'is-pending'}`, item.completed ? '완료' : '미완료'));
         const followUpLabel = followUpStatusLabel(item.followUpStatus);
         if (followUpLabel) actions.appendChild(createTextElement('span', `follow-up-badge ${item.followUpStatus}`, followUpLabel));
+        actions.appendChild(createActionButton(item.memoImportant ? '★ 중요' : '☆ 중요 표시', 'secondary', 'toggle-important', item.row));
         actions.appendChild(createActionButton('메모 수정', 'secondary', 'edit-history-memo', item.row));
         summary.appendChild(actions);
         article.appendChild(summary);
@@ -1157,6 +1204,7 @@ document.getElementById('reservation-name-filter').addEventListener('input', ren
 document.getElementById('reservation-date-filter').addEventListener('change', renderReservations);
 document.getElementById('reservation-slot-filter').addEventListener('change', renderReservations);
 document.getElementById('reservation-export-csv').addEventListener('click', exportReservationsCsv);
+document.getElementById('reservation-print').addEventListener('click', openReservationPrintView);
 document.getElementById('reservation-include-completed').addEventListener('change', async event => {
     const checkbox = event.currentTarget;
     checkbox.disabled = true;
@@ -1292,6 +1340,18 @@ document.getElementById('reservation-list').addEventListener('click', async even
         openAdminReservationChange(item, button);
         return;
     }
+    if (button.dataset.action === 'toggle-important') {
+        setButtonBusy(button, true, '저장 중…');
+        try {
+            await adminRequest('adminUpdateConsultation', { row: item.row, date: item.date, slot: item.slot, name: item.name, completed: item.completed, memo: item.memo || '', followUpStatus: item.followUpStatus || '', isImportant: !item.memoImportant });
+            await loadAdminData();
+        } catch (error) {
+            if (error.code !== 'AUTH_REQUIRED') showMessage('global-message', errorMessage(error.code));
+        } finally {
+            setButtonBusy(button, false, '');
+        }
+        return;
+    }
     if (button.dataset.action === 'save-consultation') {
         const article = button.closest('.reservation-item');
         const completed = article.querySelector('[data-field="completed"]').checked;
@@ -1347,6 +1407,10 @@ async function loadStudentHistory(name) {
     }
 }
 
+document.getElementById('history-important-only').addEventListener('change', () => {
+    if (studentHistoryName) renderHistory(studentHistory, studentHistoryName);
+});
+
 document.getElementById('history-list').addEventListener('click', async event => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
@@ -1373,6 +1437,24 @@ document.getElementById('history-list').addEventListener('click', async event =>
         try {
             await adminRequest('adminUpdateConsultation', { row, date, slot, name, completed, memo, followUpStatus });
             showMessage('history-message', '메모를 수정했습니다.', true);
+            await loadStudentHistory(name);
+        } catch (error) {
+            if (error.code !== 'AUTH_REQUIRED') showMessage('history-message', errorMessage(error.code));
+        } finally {
+            setButtonBusy(button, false, '');
+        }
+    } else if (button.dataset.action === 'toggle-important') {
+        const row = Number(article.dataset.row);
+        const date = article.dataset.date;
+        const slot = article.dataset.slot;
+        const name = article.dataset.name;
+        const completed = article.dataset.completed === 'true';
+        const followUpStatus = article.dataset.followUpStatus || '';
+        const isImportant = article.dataset.memoImportant !== 'true';
+        const memo = article.querySelector('.history-memo-input').value;
+        setButtonBusy(button, true, '저장 중…');
+        try {
+            await adminRequest('adminUpdateConsultation', { row, date, slot, name, completed, memo, followUpStatus, isImportant });
             await loadStudentHistory(name);
         } catch (error) {
             if (error.code !== 'AUTH_REQUIRED') showMessage('history-message', errorMessage(error.code));

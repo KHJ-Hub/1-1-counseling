@@ -235,6 +235,8 @@
 .reservation-summary { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(110px, 0.8fr) minmax(120px, 0.8fr) auto; align-items: center; gap: 12px; }
 .reservation-student-info { display: grid; min-width: 0; gap: 4px; }
 .reservation-student-meta { color: var(--color-muted); font-size: 0.8rem; font-weight: 700; }
+.recent-consultation-meta { color: #8a6b36; font-size: 0.78rem; font-weight: 700; }
+.recent-consultation-badge { display: inline-flex; width: fit-content; padding: 3px 8px; border-radius: 999px; background: #fff1bd; color: #7b5d1d; font-size: 0.72rem; font-weight: 760; }
 .reservation-statuses { display: flex; flex-wrap: wrap; gap: 5px; }
 .reservation-statuses .completed-badge { margin-left: 0; }
 .reservation-editor { display: grid; grid-template-columns: auto minmax(130px, 0.55fr) minmax(220px, 1fr) auto; align-items: end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-border); gap: 12px; }
@@ -259,6 +261,8 @@
 .history-memo-label { color: var(--color-muted); font-size: 0.78rem; font-weight: 750; letter-spacing: 0.01em; }
 .history-memo-text { margin: 0; color: var(--color-text); font-size: 0.95rem; line-height: 1.6; overflow-wrap: anywhere; }
 .history-memo-text.is-empty { color: var(--color-muted); }
+.important-memo-label { display: inline-flex; width: fit-content; padding: 3px 8px; border-radius: 999px; background: #fff1bd; color: #7b5d1d; font-size: 0.75rem; font-weight: 760; }
+.history-important-filter { width: fit-content; margin: 0 0 12px; }
 .history-actions { display: flex; min-width: 112px; flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; }
 .history-actions .admin-button { width: 100%; }
 .history-editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border); gap: 14px; }

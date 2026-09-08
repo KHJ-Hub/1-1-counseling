@@ -86,6 +86,7 @@
                 </div>
                 <div class="admin-action-row reservation-actions">
                     <button id="reservation-export-csv" class="admin-button secondary" type="button">CSV 내보내기</button>
+                    <button id="reservation-print" class="admin-button secondary" type="button">인쇄용 보기</button>
                 </div>
                 <p id="reservation-export-message" class="admin-message hidden" role="status"></p>
                 <p id="reservation-count" class="list-count"></p>
@@ -116,6 +117,7 @@
                     <div class="admin-form-actions"><button id="history-submit" class="admin-button primary" type="submit">이력 조회</button></div>
                 </form>
                 <p id="history-message" class="admin-message hidden" role="status"></p>
+                <label class="completed-filter history-important-filter" for="history-important-only"><input id="history-important-only" type="checkbox"> 중요 메모만 보기</label>
                 <div id="history-list" class="admin-list"></div>
             </section>
 
