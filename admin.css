@@ -136,6 +136,9 @@
 .vacation-period-item { display: grid; gap: 2px; }
 .vacation-period-name { margin: 0 !important; color: var(--color-primary-strong) !important; font: inherit !important; font-weight: 780; line-height: 1.25; }
 .vacation-period-date { margin: 0 !important; color: var(--color-muted) !important; font-size: 0.82rem !important; font-weight: 650; line-height: 1.35; white-space: nowrap; }
+.weekly-summary-list { display: grid !important; gap: 4px; }
+.weekly-summary-total { color: var(--color-primary-strong); font-weight: 800; }
+.weekly-summary-details { color: var(--color-muted); font-size: 0.76rem; font-weight: 650; line-height: 1.4; }
 .operation-settings-form,
 .bulk-availability-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 13px; }
 .settings-accordion { grid-column: 1 / -1; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
@@ -230,9 +233,16 @@
 .list-item.availability-item { grid-template-columns: minmax(140px, 0.55fr) minmax(280px, 1.7fr) auto; }
 .reservation-item { display: block; }
 .reservation-summary { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(110px, 0.8fr) minmax(120px, 0.8fr) auto; align-items: center; gap: 12px; }
-.reservation-editor { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto; align-items: end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-border); gap: 12px; }
+.reservation-student-info { display: grid; min-width: 0; gap: 4px; }
+.reservation-student-meta { color: var(--color-muted); font-size: 0.8rem; font-weight: 700; }
+.reservation-statuses { display: flex; flex-wrap: wrap; gap: 5px; }
+.reservation-statuses .completed-badge { margin-left: 0; }
+.reservation-editor { display: grid; grid-template-columns: auto minmax(130px, 0.55fr) minmax(220px, 1fr) auto; align-items: end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-border); gap: 12px; }
 .completed-label { display: flex; min-height: 44px; align-items: center; gap: 7px; font-weight: 720; }
 .completed-badge { display: inline-flex; min-height: 25px; align-items: center; margin-left: 8px; padding: 2px 9px; border-radius: 999px; background: var(--color-blocked); color: #625b6d; font-size: 0.72rem; vertical-align: middle; }
+.follow-up-field { display: grid; gap: 6px; min-width: 0; }
+.follow-up-badge { display: inline-flex; min-height: 25px; align-items: center; padding: 2px 9px; border-radius: 999px; background: #fff1bd; color: #7b5d1d; font-size: 0.72rem; font-weight: 760; white-space: nowrap; }
+.history-category-badge { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 999px; background: #eee8ff; color: #605187; font-size: 0.82rem; font-weight: 750; white-space: nowrap; }
 .memo-field { min-width: 0; }
 .memo-input { min-height: 76px; resize: vertical; }
 .history-item { display: block; padding: 18px; }

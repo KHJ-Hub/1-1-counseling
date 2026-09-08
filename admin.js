@@ -24,6 +24,15 @@ let adminSlotTimes = {
     '자습 3차시': '13:00~14:50', '자습 4차시': '15:10~17:00'
 };
 const ADMIN_SLOT_NAMES = { semester: ['야자 1차시', '야자 2차시', '야자 3차시'], vacation: ['자습 1차시', '자습 2차시', '자습 3차시', '자습 4차시'], closed: [] };
+const CONSULTATION_CATEGORY_LABELS = ['진로', '학업', '학교생활', '친구관계', '기타'];
+
+function consultationCategoryLabel(value) {
+    return CONSULTATION_CATEGORY_LABELS.includes(value) ? value : '미분류';
+}
+
+function followUpStatusLabel(value) {
+    return value === 'closed' ? '종결' : value === 'follow_up' ? '추후 상담 필요' : '';
+}
 
 function initializeSettingsAccordions() {
     const accordions = Array.from(document.querySelectorAll('[data-settings-accordion]'));
@@ -152,6 +161,7 @@ function errorMessage(code) {
         TITLE_TOO_LONG: '학사일정 이름은 100자 이하로 입력해 주세요.',
         NAME_REQUIRED: '학생 이름을 입력해 주세요.',
         INVALID_COMPLETED: '상담 완료 상태를 확인해 주세요.',
+        INVALID_FOLLOW_UP_STATUS: '상담 결과를 다시 선택해 주세요.',
         MEMO_TOO_LONG: '상담 메모는 2,000자 이하로 입력해 주세요.',
         INVALID_AVAILABILITY: '상담 가능 시간 설정을 확인해 주세요.',
         AVAILABILITY_COLUMNS_REQUIRED: '상담가능시간 시트 E1~G1에 운영유형, 4차시, 비고 헤더를 추가해 주세요.',
@@ -276,7 +286,19 @@ function renderReservations() {
 
         const summary = document.createElement('div');
         summary.className = 'reservation-summary';
-        summary.appendChild(createTextElement('div', 'item-title', item.name));
+        const studentInfo = document.createElement('div');
+        studentInfo.className = 'reservation-student-info';
+        studentInfo.appendChild(createTextElement('div', 'item-title', item.name));
+        studentInfo.appendChild(createTextElement('div', 'reservation-student-meta', `${consultationCategoryLabel(item.consultationCategory)} · 올해 ${item.schoolYearConsultationCount || 0}회`));
+        if (item.completed) {
+            const statusRow = document.createElement('div');
+            statusRow.className = 'reservation-statuses';
+            statusRow.appendChild(createTextElement('span', 'completed-badge', '상담 완료'));
+            const followUpLabel = followUpStatusLabel(item.followUpStatus);
+            if (followUpLabel) statusRow.appendChild(createTextElement('span', `follow-up-badge ${item.followUpStatus}`, followUpLabel));
+            studentInfo.appendChild(statusRow);
+        }
+        summary.appendChild(studentInfo);
         summary.appendChild(createTextElement('div', 'item-meta', item.date));
         summary.appendChild(createTextElement('div', 'item-meta', item.slot));
         const actions = document.createElement('div');
@@ -297,6 +319,21 @@ function renderReservations() {
         completedInput.checked = item.completed === true;
         completedLabel.append(completedInput, document.createTextNode(' 상담 완료'));
         editor.appendChild(completedLabel);
+
+        const followUpField = document.createElement('label');
+        followUpField.className = 'form-label follow-up-field';
+        followUpField.appendChild(document.createTextNode('상담 결과'));
+        const followUpSelect = document.createElement('select');
+        followUpSelect.className = 'form-input';
+        followUpSelect.dataset.field = 'follow-up-status';
+        [['', '선택'], ['closed', '종결'], ['follow_up', '추후 상담 필요']].forEach(([value, text]) => {
+            const option = document.createElement('option');
+            option.value = value; option.textContent = text; option.selected = item.followUpStatus === value;
+            followUpSelect.appendChild(option);
+        });
+        followUpSelect.disabled = !item.completed;
+        followUpField.appendChild(followUpSelect);
+        editor.appendChild(followUpField);
 
         const memoField = document.createElement('div');
         memoField.className = 'memo-field';
@@ -627,6 +664,7 @@ function renderHistory(history, name) {
         article.dataset.slot = item.slot;
         article.dataset.name = item.name;
         article.dataset.completed = String(item.completed);
+        article.dataset.followUpStatus = item.followUpStatus || '';
         
         const summary = document.createElement('div');
         summary.className = 'history-summary';
@@ -637,6 +675,7 @@ function renderHistory(history, name) {
         const details = document.createElement('div');
         details.className = 'history-details';
         details.appendChild(createTextElement('span', 'history-slot-badge', item.slot));
+        details.appendChild(createTextElement('span', 'history-category-badge', consultationCategoryLabel(item.consultationCategory)));
         content.appendChild(details);
 
         const memo = document.createElement('div');
@@ -649,6 +688,8 @@ function renderHistory(history, name) {
         const actions = document.createElement('div');
         actions.className = 'history-actions';
         actions.appendChild(createTextElement('span', `history-status-badge ${item.completed ? 'is-complete' : 'is-pending'}`, item.completed ? '완료' : '미완료'));
+        const followUpLabel = followUpStatusLabel(item.followUpStatus);
+        if (followUpLabel) actions.appendChild(createTextElement('span', `follow-up-badge ${item.followUpStatus}`, followUpLabel));
         actions.appendChild(createActionButton('메모 수정', 'secondary', 'edit-history-memo', item.row));
         summary.appendChild(actions);
         article.appendChild(summary);
@@ -847,6 +888,7 @@ function renderOperationStatus(dashboard = {}) {
         ['학급', settings.className || '-'],
         ['현재 운영모드', operationTypeLabel(dashboard.operationType)],
         ['방학 기간', vacationPeriods, 'vacation-periods'],
+        ['이번 주 상담', dashboard.weeklySummary || {}, 'weekly-summary'],
         ['오늘 상담', dashboard.todayAvailable ? '가능' : '불가'],
         ['다음 상담 가능일', dashboard.nextAvailableDate || '예정 없음'],
         ['Discord', dashboard.discordConfigured ? '설정됨' : '미설정'],
@@ -872,6 +914,11 @@ function renderOperationStatus(dashboard = {}) {
                     valueElement.appendChild(periodItem);
                 });
             }
+        } else if (type === 'weekly-summary') {
+            valueElement.classList.add('weekly-summary-list');
+            const summary = value || {};
+            valueElement.appendChild(createTextElement('span', 'weekly-summary-total', `총 ${summary.total || 0}건`));
+            valueElement.appendChild(createTextElement('span', 'weekly-summary-details', `완료 ${summary.completed || 0} · 예정 ${summary.scheduled || 0} · 추후 상담 필요 ${summary.followUp || 0}`));
         } else {
             valueElement.textContent = value;
         }
@@ -1249,6 +1296,12 @@ document.getElementById('reservation-list').addEventListener('click', async even
         const article = button.closest('.reservation-item');
         const completed = article.querySelector('[data-field="completed"]').checked;
         const memo = article.querySelector('[data-field="memo"]').value;
+        const followUpStatus = article.querySelector('[data-field="follow-up-status"]').value;
+        if (completed && !item.completed && !followUpStatus) {
+            showMessage('global-message', '상담 완료 처리 시 상담 결과(종결 또는 추후 상담 필요)를 선택해 주세요.');
+            article.querySelector('[data-field="follow-up-status"]').focus();
+            return;
+        }
         setButtonBusy(button, true, '저장 중…');
         try {
             await adminRequest('adminUpdateConsultation', {
@@ -1257,7 +1310,8 @@ document.getElementById('reservation-list').addEventListener('click', async even
                 slot: item.slot,
                 name: item.name,
                 completed,
-                memo
+                memo,
+                followUpStatus
             });
             await loadAdminData();
             showMessage('global-message', '상담 완료 상태와 메모를 저장했습니다.', true);
@@ -1267,6 +1321,15 @@ document.getElementById('reservation-list').addEventListener('click', async even
             setButtonBusy(button, false, '');
         }
     }
+});
+
+document.getElementById('reservation-list').addEventListener('change', event => {
+    if (event.target.dataset.field !== 'completed') return;
+    const article = event.target.closest('.reservation-item');
+    const followUpSelect = article && article.querySelector('[data-field="follow-up-status"]');
+    if (!followUpSelect) return;
+    followUpSelect.disabled = !event.target.checked;
+    if (!event.target.checked) followUpSelect.value = '';
 });
 
 async function loadStudentHistory(name) {
@@ -1302,12 +1365,13 @@ document.getElementById('history-list').addEventListener('click', async event =>
         const slot = article.dataset.slot;
         const name = article.dataset.name;
         const completed = article.dataset.completed === 'true';
+        const followUpStatus = article.dataset.followUpStatus || '';
         const memo = article.querySelector('.history-memo-input').value;
 
         setButtonBusy(button, true, '저장 중…');
         showMessage('history-message', '');
         try {
-            await adminRequest('adminUpdateConsultation', { row, date, slot, name, completed, memo });
+            await adminRequest('adminUpdateConsultation', { row, date, slot, name, completed, memo, followUpStatus });
             showMessage('history-message', '메모를 수정했습니다.', true);
             await loadStudentHistory(name);
         } catch (error) {

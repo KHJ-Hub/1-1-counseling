@@ -515,6 +515,7 @@ function openBookingConfirmation(request) {
     pendingBookingRequest = request;
     document.getElementById('booking-confirm-date').textContent = request.date;
     document.getElementById('booking-confirm-slot').textContent = request.slot;
+    document.getElementById('booking-confirm-category').textContent = request.consultationCategory;
     document.getElementById('booking-confirm-name').textContent = request.name;
     openModal('booking-confirm-modal', document.getElementById('booking-confirm-submit'));
 }
@@ -573,6 +574,7 @@ bookingForm.addEventListener('submit', event => {
     const selectedSlot = bookingForm.querySelector('input[name="booking-slot"]:checked');
     const name = document.getElementById('booking-name').value;
     const password = document.getElementById('booking-password').value;
+    const consultationCategory = document.getElementById('booking-category').value;
     const pwdTrimmed = password.trim();
 
     if (!selectedSlot || selectedSlot.disabled) {
@@ -582,6 +584,11 @@ bookingForm.addEventListener('submit', event => {
     if (!name || name.trim() === '') {
         showFormMessage('booking-message', '신청자 이름을 입력해 주세요.');
         document.getElementById('booking-name').focus();
+        return;
+    }
+    if (!consultationCategory) {
+        showFormMessage('booking-message', '상담 분야를 선택해 주세요.');
+        document.getElementById('booking-category').focus();
         return;
     }
     if (!pwdTrimmed) {
@@ -596,7 +603,7 @@ bookingForm.addEventListener('submit', event => {
     }
 
     showFormMessage('booking-message', '');
-    openBookingConfirmation({ date: selectedBookingDate, slot: selectedSlot.value, name: name.trim(), password: pwdTrimmed });
+    openBookingConfirmation({ date: selectedBookingDate, slot: selectedSlot.value, consultationCategory, name: name.trim(), password: pwdTrimmed });
 });
 
 document.querySelectorAll('[data-booking-confirm-back]').forEach(button => {
@@ -962,6 +969,8 @@ function sendData(payload, requestType) {
         } else if (result && result.indexOf("HOLIDAY_NOT_ALLOWED:") === 0) {
             const reason = result.split(":")[1] || "공휴일";
             showFormMessage(messageId, reason + "에는 상담을 예약할 수 없습니다.");
+        } else if (result === "CONSULTATION_CATEGORY_REQUIRED" || result === "INVALID_CONSULTATION_CATEGORY") {
+            showFormMessage(messageId, "상담 분야를 선택해 주세요.");
         } else if (result === "INVALID_DATE" || result === "INVALID_SLOT" || result === "INVALID_PASSWORD" || result === "INVALID_NAME" || result === "NAME_REQUIRED") {
             showFormMessage(messageId, "입력 내용을 확인한 뒤 다시 시도해 주세요.");
         } else if (result === "WRONG_PASSWORD") {

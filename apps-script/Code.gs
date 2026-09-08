@@ -21,6 +21,10 @@ const DEFAULT_ADMIN_PAGE_URL = "https://khj-hub.github.io/1-1-counseling/admin.h
 const TIME_ZONE = "Asia/Seoul";
 const CALENDAR_EVENT_ID_COLUMN = 7;
 const CALENDAR_EVENT_ID_HEADER = "Calendar Event ID";
+const CONSULTATION_CATEGORY_HEADER = "상담 분야";
+const FOLLOW_UP_STATUS_HEADER = "후속 상담 상태";
+const CONSULTATION_CATEGORIES = ["진로", "학업", "학교생활", "친구관계", "기타"];
+const FOLLOW_UP_STATUSES = ["closed", "follow_up"];
 const SLOT_START_STATE_KEY = "COUNSELING_SLOT_START_STATE";
 const SUMMARY_STATE_KEY = "COUNSELING_SUMMARY_STATE";
 const ADMIN_CHANGE_REMINDER_STATE_KEY = "COUNSELING_ADMIN_CHANGE_REMINDER_STATE";
@@ -1036,6 +1040,66 @@ function changeReservation(data, ss, sheet, changedBy) {
   return result;
 }
 
+function findConsultationMetadataColumn(headers, names) {
+  for (let i = 0; i < headers.length; i++) {
+    const header = headers[i] === undefined || headers[i] === null ? "" : headers[i].toString().trim();
+    if (names.indexOf(header) !== -1) return i + 1;
+  }
+  return 0;
+}
+
+function getConsultationMetadataColumns(sheet) {
+  const lastColumn = Math.max(sheet.getLastColumn(), CALENDAR_EVENT_ID_COLUMN);
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  return {
+    category: findConsultationMetadataColumn(headers, [CONSULTATION_CATEGORY_HEADER, "상담분야", "consultationCategory"]),
+    followUpStatus: findConsultationMetadataColumn(headers, [FOLLOW_UP_STATUS_HEADER, "후속상담상태", "followUpStatus"])
+  };
+}
+
+// 기존 열 순서를 바꾸지 않고, 새 운영 필드가 없을 때만 마지막 열 뒤에 추가합니다.
+function ensureConsultationMetadataColumns(sheet) {
+  const columns = getConsultationMetadataColumns(sheet);
+  let nextColumn = sheet.getLastColumn() + 1;
+  if (!columns.category) {
+    columns.category = nextColumn++;
+    sheet.getRange(1, columns.category).setValue(CONSULTATION_CATEGORY_HEADER);
+  }
+  if (!columns.followUpStatus) {
+    columns.followUpStatus = nextColumn++;
+    sheet.getRange(1, columns.followUpStatus).setValue(FOLLOW_UP_STATUS_HEADER);
+  }
+  return columns;
+}
+
+function normalizeConsultationCategory(value) {
+  const category = value === undefined || value === null ? "" : value.toString().trim();
+  return CONSULTATION_CATEGORIES.indexOf(category) !== -1 ? category : "";
+}
+
+function normalizeFollowUpStatus(value) {
+  const status = value === undefined || value === null ? "" : value.toString().trim();
+  return FOLLOW_UP_STATUSES.indexOf(status) !== -1 ? status : "";
+}
+
+function getSchoolYearRange(schoolYear) {
+  const startYear = Number(schoolYear);
+  if (!Number.isInteger(startYear)) return { start: "", end: "" };
+  return {
+    start: startYear + "-03-01",
+    end: (startYear + 1) + "-02-" + String(new Date(startYear + 1, 2, 0).getDate()).padStart(2, "0")
+  };
+}
+
+function getWeekRange(dateText) {
+  const base = new Date(dateText + "T00:00:00+09:00");
+  const day = base.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  base.setDate(base.getDate() + mondayOffset);
+  const start = localIsoDate(base);
+  return { start: start, end: localIsoDate(addDays(new Date(start + "T00:00:00+09:00"), 6)) };
+}
+
 function doPost(e) {
   let data;
   try {
@@ -1088,6 +1152,8 @@ function doPost(e) {
     if (!isIsoDate(date)) return textOutput("INVALID_DATE");
     if (CONSULT_SLOTS.indexOf(slot) === -1) return textOutput("INVALID_SLOT");
     if (!/^\d{4}$/.test(trimmedPwd)) return textOutput("INVALID_PASSWORD");
+    const consultationCategory = normalizeConsultationCategory(data.consultationCategory);
+    if (!consultationCategory) return textOutput(data.consultationCategory ? "INVALID_CONSULTATION_CATEGORY" : "CONSULTATION_CATEGORY_REQUIRED");
 
     const lock = LockService.getScriptLock();
     let savedRowNumber = null;
@@ -1133,8 +1199,10 @@ function doPost(e) {
           if (isDuplicate) {
             earlyResult = "DUPLICATE_WEEKLY";
           } else {
+            const metadataColumns = ensureConsultationMetadataColumns(sheet);
             sheet.appendRow([date, slot, trimmedName, trimmedPwd]);
             savedRowNumber = sheet.getLastRow();
+            sheet.getRange(savedRowNumber, metadataColumns.category).setValue(consultationCategory);
           }
         }
       }
@@ -1245,6 +1313,15 @@ function adminListReservations(data) {
 
   const includeCompleted = Boolean(data && data.includeCompleted === true);
   const rows = sheet.getDataRange().getValues();
+  const metadataColumns = getConsultationMetadataColumns(sheet);
+  const schoolYearRange = getSchoolYearRange(getOperationSettings().schoolYear);
+  const completedCountsByName = {};
+  rows.slice(1).forEach(row => {
+    const rowDate = parseKoreanDate(row[0]);
+    const rowName = row[2] ? row[2].toString().trim() : "";
+    if (!rowDate || !rowName || !sheetBoolean(row[4]) || rowDate < schoolYearRange.start || rowDate > schoolYearRange.end) return;
+    completedCountsByName[rowName] = (completedCountsByName[rowName] || 0) + 1;
+  });
   const reservations = [];
   for (let i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
@@ -1258,7 +1335,10 @@ function adminListReservations(data) {
       slot: rows[i][1] ? rows[i][1].toString().trim() : "",
       name: rows[i][2] ? rows[i][2].toString() : "",
       completed: completed,
-      memo: rows[i][5] ? rows[i][5].toString() : ""
+      memo: rows[i][5] ? rows[i][5].toString() : "",
+      consultationCategory: metadataColumns.category && rows[i][metadataColumns.category - 1] ? normalizeConsultationCategory(rows[i][metadataColumns.category - 1]) : "",
+      followUpStatus: metadataColumns.followUpStatus && rows[i][metadataColumns.followUpStatus - 1] ? normalizeFollowUpStatus(rows[i][metadataColumns.followUpStatus - 1]) : "",
+      schoolYearConsultationCount: completedCountsByName[rows[i][2] ? rows[i][2].toString().trim() : ""] || 0
     });
   }
 
@@ -1366,6 +1446,11 @@ function adminUpdateConsultation(data) {
     return jsonOutput({ ok: false, error: "INVALID_COMPLETED" });
   }
   if (memo.length > 2000) return jsonOutput({ ok: false, error: "MEMO_TOO_LONG" });
+  const hasFollowUpStatus = Object.prototype.hasOwnProperty.call(data, "followUpStatus");
+  const requestedFollowUpStatus = normalizeFollowUpStatus(data.followUpStatus);
+  if (hasFollowUpStatus && data.followUpStatus && !requestedFollowUpStatus) {
+    return jsonOutput({ ok: false, error: "INVALID_FOLLOW_UP_STATUS" });
+  }
 
   const lock = LockService.getScriptLock();
   let calendarEventId = "";
@@ -1373,15 +1458,19 @@ function adminUpdateConsultation(data) {
   lock.waitLock(10000);
   try {
     if (rowNumber > sheet.getLastRow()) return jsonOutput({ ok: false, error: "STALE_DATA" });
-    const row = sheet.getRange(rowNumber, 1, 1, CALENDAR_EVENT_ID_COLUMN).getValues()[0];
+    const metadataColumns = ensureConsultationMetadataColumns(sheet);
+    const row = sheet.getRange(rowNumber, 1, 1, Math.max(CALENDAR_EVENT_ID_COLUMN, metadataColumns.followUpStatus)).getValues()[0];
     const currentDate = parseKoreanDate(row[0]);
     const currentSlot = row[1] ? row[1].toString().trim() : "";
     const currentName = row[2] ? row[2].toString() : "";
     if (currentDate !== data.date || currentSlot !== data.slot || currentName !== data.name) {
       return jsonOutput({ ok: false, error: "STALE_DATA" });
     }
-
+    const storedFollowUpStatus = metadataColumns.followUpStatus && row[metadataColumns.followUpStatus - 1]
+      ? normalizeFollowUpStatus(row[metadataColumns.followUpStatus - 1]) : "";
+    const followUpStatus = data.completed ? (hasFollowUpStatus ? requestedFollowUpStatus : storedFollowUpStatus) : "";
     sheet.getRange(rowNumber, 5, 1, 2).setValues([[data.completed, memo]]);
+    sheet.getRange(rowNumber, metadataColumns.followUpStatus).setValue(followUpStatus);
     calendarEventId = row[CALENDAR_EVENT_ID_COLUMN - 1] ? row[CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
     reservationName = currentName;
   } finally {
@@ -1398,6 +1487,7 @@ function adminListStudentHistory(data) {
   if (!name) return jsonOutput({ ok: false, error: "NAME_REQUIRED" });
 
   const rows = sheet.getDataRange().getValues();
+  const metadataColumns = getConsultationMetadataColumns(sheet);
   const history = [];
   for (let i = 1; i < rows.length; i++) {
     const rowName = rows[i][2] ? rows[i][2].toString().trim() : "";
@@ -1410,7 +1500,9 @@ function adminListStudentHistory(data) {
       slot: rows[i][1] ? rows[i][1].toString().trim() : "",
       name: rowName,
       completed: sheetBoolean(rows[i][4]),
-      memo: rows[i][5] ? rows[i][5].toString() : ""
+      memo: rows[i][5] ? rows[i][5].toString() : "",
+      consultationCategory: metadataColumns.category && rows[i][metadataColumns.category - 1] ? normalizeConsultationCategory(rows[i][metadataColumns.category - 1]) : "",
+      followUpStatus: metadataColumns.followUpStatus && rows[i][metadataColumns.followUpStatus - 1] ? normalizeFollowUpStatus(rows[i][metadataColumns.followUpStatus - 1]) : ""
     });
   }
   history.sort((a, b) => a.date === b.date ? a.slot.localeCompare(b.slot) : (a.date < b.date ? 1 : -1));
@@ -1642,6 +1734,20 @@ function adminGetOperationSettings() {
     }
   }
   const integration = JSON.parse(adminGetIntegrationStatus().getContent());
+  const weekRange = getWeekRange(today);
+  const consultSheet = ss.getSheetByName(CONSULT_SHEET_NAME);
+  const consultRows = consultSheet ? consultSheet.getDataRange().getValues() : [];
+  const metadataColumns = consultSheet ? getConsultationMetadataColumns(consultSheet) : { followUpStatus: 0 };
+  const schoolYearRange = getSchoolYearRange(settings.schoolYear);
+  const weeklySummary = { startDate: weekRange.start, endDate: weekRange.end, total: 0, completed: 0, scheduled: 0, followUp: 0 };
+  consultRows.slice(1).forEach(row => {
+    const date = parseKoreanDate(row[0]);
+    if (!date || date < weekRange.start || date > weekRange.end || date < schoolYearRange.start || date > schoolYearRange.end) return;
+    weeklySummary.total++;
+    if (sheetBoolean(row[4])) weeklySummary.completed++;
+    else weeklySummary.scheduled++;
+    if (metadataColumns.followUpStatus && normalizeFollowUpStatus(row[metadataColumns.followUpStatus - 1]) === "follow_up") weeklySummary.followUp++;
+  });
   return jsonOutput({
     ok: true,
     settings: Object.assign({}, settings, { slotTimes: resolvedSlotTimes }),
@@ -1651,7 +1757,8 @@ function adminGetOperationSettings() {
       todayAvailable: todayAvailable,
       nextAvailableDate: nextAvailableDate,
       discordConfigured: Boolean(integration.status && integration.status.discordConfigured),
-      triggersInstalled: Boolean(integration.status && integration.status.triggersInstalled)
+      triggersInstalled: Boolean(integration.status && integration.status.triggersInstalled),
+      weeklySummary: weeklySummary
     }
   });
 }
