@@ -26,6 +26,7 @@ const CALENDAR_EVENT_ID_HEADER = "Calendar Event ID";
 const CONSULTATION_CATEGORY_HEADER = "상담 분야";
 const FOLLOW_UP_STATUS_HEADER = "후속 상담 상태";
 const MEMO_IMPORTANT_HEADER = "중요 메모";
+const CONSULTATION_SOURCE_HEADER = "상담 출처";
 const CONSULTATION_CATEGORIES = ["진로", "학업", "학교생활", "친구관계", "기타"];
 const FOLLOW_UP_STATUSES = ["closed", "follow_up"];
 const SLOT_START_STATE_KEY = "COUNSELING_SLOT_START_STATE";
@@ -733,6 +734,7 @@ function doGet() {
   
   const sheet1 = ss.getSheetByName("상담신청현황"); 
   const data1 = sheet1 ? sheet1.getDataRange().getValues() : [];
+  const consultationMetadataColumns = sheet1 ? getConsultationMetadataColumns(sheet1) : { source: 0 };
   
   const slotColors = { 
     "야자 1차시": "#d0c3fa",
@@ -743,6 +745,7 @@ function doGet() {
 
   for (let i = 1; i < data1.length; i++) {
     if(data1[i][0]) {
+      if (consultationMetadataColumns.source && normalizeConsultationSource(data1[i][consultationMetadataColumns.source - 1]) === "walk_in") continue;
       const fmtDate = parseKoreanDate(data1[i][0]); 
       if (!fmtDate) continue; 
       const slot = data1[i][1] ? data1[i][1].toString().trim() : "";
@@ -1057,7 +1060,8 @@ function getConsultationMetadataColumns(sheet) {
   return {
     category: findConsultationMetadataColumn(headers, [CONSULTATION_CATEGORY_HEADER, "상담분야", "consultationCategory"]),
     followUpStatus: findConsultationMetadataColumn(headers, [FOLLOW_UP_STATUS_HEADER, "후속상담상태", "followUpStatus"]),
-    memoImportant: findConsultationMetadataColumn(headers, [MEMO_IMPORTANT_HEADER, "isImportant"])
+    memoImportant: findConsultationMetadataColumn(headers, [MEMO_IMPORTANT_HEADER, "isImportant"]),
+    source: findConsultationMetadataColumn(headers, [CONSULTATION_SOURCE_HEADER, "source"])
   };
 }
 
@@ -1077,12 +1081,20 @@ function ensureConsultationMetadataColumns(sheet) {
     columns.memoImportant = nextColumn++;
     sheet.getRange(1, columns.memoImportant).setValue(MEMO_IMPORTANT_HEADER);
   }
+  if (!columns.source) {
+    columns.source = nextColumn++;
+    sheet.getRange(1, columns.source).setValue(CONSULTATION_SOURCE_HEADER);
+  }
   return columns;
 }
 
 function normalizeConsultationCategory(value) {
   const category = value === undefined || value === null ? "" : value.toString().trim();
   return CONSULTATION_CATEGORIES.indexOf(category) !== -1 ? category : "";
+}
+
+function normalizeConsultationSource(value) {
+  return value === "walk_in" ? "walk_in" : "reservation";
 }
 
 function normalizeFollowUpStatus(value) {
@@ -1445,6 +1457,7 @@ function handleAdminAction(data) {
   if (data.action === "adminChangeReservation") return adminChangeReservation(data);
   if (data.action === "adminDeleteReservation") return adminDeleteReservation(data);
   if (data.action === "adminUpdateConsultation") return adminUpdateConsultation(data);
+  if (data.action === "adminAddWalkInConsultation") return adminAddWalkInConsultation(data);
   if (data.action === "adminListStudentHistory") return adminListStudentHistory(data);
   if (data.action === "adminListCalendarItems") return adminListCalendarItems();
   if (data.action === "adminCreateCalendarItem") return adminCreateCalendarItem(data);
@@ -1510,6 +1523,7 @@ function adminListReservations(data) {
       consultationCategory: metadataColumns.category && rows[i][metadataColumns.category - 1] ? normalizeConsultationCategory(rows[i][metadataColumns.category - 1]) : "",
       followUpStatus: metadataColumns.followUpStatus && rows[i][metadataColumns.followUpStatus - 1] ? normalizeFollowUpStatus(rows[i][metadataColumns.followUpStatus - 1]) : "",
       memoImportant: metadataColumns.memoImportant && rows[i][metadataColumns.memoImportant - 1] ? sheetBoolean(rows[i][metadataColumns.memoImportant - 1]) : false,
+      source: metadataColumns.source ? normalizeConsultationSource(rows[i][metadataColumns.source - 1]) : "reservation",
       schoolYearConsultationCount: completedCountsByName[rowName] || 0,
       recentCompletedDate: recentCompletedDate,
       recentCompletedDays: recentCompletedDays
@@ -1658,6 +1672,38 @@ function adminUpdateConsultation(data) {
   return jsonOutput({ ok: true });
 }
 
+// 현장 상담은 예약 가능 시간이나 학생 비밀번호와 무관한, 이미 완료된 상담 기록입니다.
+function adminAddWalkInConsultation(data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
+  const date = data.date ? data.date.toString().trim() : "";
+  const name = data.name ? data.name.toString().trim() : "";
+  const category = normalizeConsultationCategory(data.consultationCategory);
+  const followUpStatus = normalizeFollowUpStatus(data.followUpStatus);
+  const memo = data.memo === undefined || data.memo === null ? "" : data.memo.toString().trim();
+  const isImportant = data.isImportant === true;
+  if (!isIsoDate(date)) return jsonOutput({ ok: false, error: "INVALID_DATE" });
+  if (!name || name.length > 100) return jsonOutput({ ok: false, error: "NAME_REQUIRED" });
+  if (!category) return jsonOutput({ ok: false, error: "CONSULTATION_CATEGORY_REQUIRED" });
+  if (!followUpStatus) return jsonOutput({ ok: false, error: "INVALID_FOLLOW_UP_STATUS" });
+  if (memo.length > 2000) return jsonOutput({ ok: false, error: "MEMO_TOO_LONG" });
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const metadataColumns = ensureConsultationMetadataColumns(sheet);
+    sheet.appendRow([date, "현장 상담", name, "", true, memo]);
+    const rowNumber = sheet.getLastRow();
+    sheet.getRange(rowNumber, metadataColumns.category).setValue(category);
+    sheet.getRange(rowNumber, metadataColumns.followUpStatus).setValue(followUpStatus);
+    sheet.getRange(rowNumber, metadataColumns.memoImportant).setValue(isImportant);
+    sheet.getRange(rowNumber, metadataColumns.source).setValue("walk_in");
+    return jsonOutput({ ok: true, row: rowNumber });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function adminListStudentHistory(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
   if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
@@ -1681,7 +1727,8 @@ function adminListStudentHistory(data) {
       memo: rows[i][5] ? rows[i][5].toString() : "",
       consultationCategory: metadataColumns.category && rows[i][metadataColumns.category - 1] ? normalizeConsultationCategory(rows[i][metadataColumns.category - 1]) : "",
       followUpStatus: metadataColumns.followUpStatus && rows[i][metadataColumns.followUpStatus - 1] ? normalizeFollowUpStatus(rows[i][metadataColumns.followUpStatus - 1]) : "",
-      memoImportant: metadataColumns.memoImportant && rows[i][metadataColumns.memoImportant - 1] ? sheetBoolean(rows[i][metadataColumns.memoImportant - 1]) : false
+      memoImportant: metadataColumns.memoImportant && rows[i][metadataColumns.memoImportant - 1] ? sheetBoolean(rows[i][metadataColumns.memoImportant - 1]) : false,
+      source: metadataColumns.source ? normalizeConsultationSource(rows[i][metadataColumns.source - 1]) : "reservation"
     });
   }
   history.sort((a, b) => a.date === b.date ? a.slot.localeCompare(b.slot) : (a.date < b.date ? 1 : -1));

@@ -37,6 +37,10 @@ function followUpStatusLabel(value) {
     return value === 'closed' ? '종결' : value === 'follow_up' ? '추후 상담 필요' : '';
 }
 
+function consultationSourceLabel(value) {
+    return value === 'walk_in' ? '현장 상담' : '';
+}
+
 function initializeSettingsAccordions() {
     const accordions = Array.from(document.querySelectorAll('[data-settings-accordion]'));
     let savedState = {};
@@ -163,6 +167,7 @@ function errorMessage(code) {
         PUBLIC_HOLIDAY_MANAGED_AUTOMATICALLY: '법정공휴일과 대체공휴일은 자동으로 달력에 표시됩니다. 학교 자체 일정만 등록해 주세요.',
         TITLE_TOO_LONG: '학사일정 이름은 100자 이하로 입력해 주세요.',
         NAME_REQUIRED: '학생 이름을 입력해 주세요.',
+        CONSULTATION_CATEGORY_REQUIRED: '상담 분야를 선택해 주세요.',
         INVALID_COMPLETED: '상담 완료 상태를 확인해 주세요.',
         INVALID_FOLLOW_UP_STATUS: '상담 결과를 다시 선택해 주세요.',
         MEMO_TOO_LONG: '상담 메모는 2,000자 이하로 입력해 주세요.',
@@ -293,6 +298,8 @@ function renderReservations() {
         studentInfo.className = 'reservation-student-info';
         studentInfo.appendChild(createTextElement('div', 'item-title', item.name));
         studentInfo.appendChild(createTextElement('div', 'reservation-student-meta', `${consultationCategoryLabel(item.consultationCategory)} · 올해 ${item.schoolYearConsultationCount || 0}회`));
+        const sourceLabel = consultationSourceLabel(item.source);
+        if (sourceLabel) studentInfo.appendChild(createTextElement('span', 'consultation-source-badge', sourceLabel));
         if (item.recentCompletedDays !== null && item.recentCompletedDays !== undefined) {
             const recentText = `최근 상담: ${item.recentCompletedDays}일 전`;
             studentInfo.appendChild(createTextElement('div', 'recent-consultation-meta', recentText));
@@ -751,6 +758,8 @@ function renderHistory(history, name) {
         details.className = 'history-details';
         details.appendChild(createTextElement('span', 'history-slot-badge', item.slot));
         details.appendChild(createTextElement('span', 'history-category-badge', consultationCategoryLabel(item.consultationCategory)));
+        const sourceLabel = consultationSourceLabel(item.source);
+        if (sourceLabel) details.appendChild(createTextElement('span', 'consultation-source-badge', sourceLabel));
         content.appendChild(details);
 
         const memo = document.createElement('div');
@@ -1350,6 +1359,58 @@ document.getElementById('admin-change-submit').addEventListener('click', submitA
 
 document.getElementById('admin-change-backdrop').addEventListener('click', event => {
     if (event.target === event.currentTarget) closeAdminReservationChange();
+});
+
+function localTodayIso() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function closeWalkInDialog() {
+    const backdrop = document.getElementById('walkin-backdrop');
+    backdrop.classList.add('hidden');
+    backdrop.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    showMessage('walkin-message', '');
+}
+
+document.getElementById('walkin-open').addEventListener('click', () => {
+    const form = document.getElementById('walkin-form');
+    form.reset();
+    document.getElementById('walkin-date').value = formatAdminDate(localTodayIso());
+    const backdrop = document.getElementById('walkin-backdrop');
+    backdrop.classList.remove('hidden');
+    backdrop.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    setTimeout(() => document.getElementById('walkin-name').focus(), 0);
+});
+document.getElementById('walkin-close').addEventListener('click', closeWalkInDialog);
+document.getElementById('walkin-cancel').addEventListener('click', closeWalkInDialog);
+document.getElementById('walkin-backdrop').addEventListener('click', event => { if (event.target === event.currentTarget) closeWalkInDialog(); });
+document.getElementById('walkin-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const date = parseAdminDate(document.getElementById('walkin-date').value);
+    const name = document.getElementById('walkin-name').value.trim();
+    const consultationCategory = document.getElementById('walkin-category').value;
+    const followUpStatus = document.getElementById('walkin-follow-up').value;
+    const memo = document.getElementById('walkin-memo').value.trim();
+    const isImportant = document.getElementById('walkin-important').checked;
+    if (!date || !name || !consultationCategory || !followUpStatus) { showMessage('walkin-message', '날짜, 학생 이름, 상담 분야, 상담 결과를 입력해 주세요.'); return; }
+    if (!window.confirm(`${formatAdminDate(date)} ${name} 학생의 현장 상담 기록을 저장할까요?`)) return;
+    const button = document.getElementById('walkin-submit');
+    setButtonBusy(button, true, '저장 중…');
+    try {
+        await adminRequest('adminAddWalkInConsultation', { date, name, consultationCategory, followUpStatus, memo, isImportant });
+        await loadAdminData();
+        closeWalkInDialog();
+        document.getElementById('reservation-include-completed').checked = true;
+        const result = await adminRequest('adminListReservations', { includeCompleted: true });
+        reservations = result.reservations || [];
+        renderReservations();
+        showMessage('global-message', '현장 상담 기록을 저장했습니다.', true);
+    } catch (error) {
+        if (error.code !== 'AUTH_REQUIRED') showMessage('walkin-message', errorMessage(error.code));
+    } finally { setButtonBusy(button, false, ''); }
 });
 
 document.getElementById('reservation-list').addEventListener('click', async event => {

@@ -245,6 +245,7 @@
 .follow-up-field { display: grid; gap: 6px; min-width: 0; }
 .follow-up-badge { display: inline-flex; min-height: 25px; align-items: center; padding: 2px 9px; border-radius: 999px; background: #fff1bd; color: #7b5d1d; font-size: 0.72rem; font-weight: 760; white-space: nowrap; }
 .history-category-badge { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 999px; background: #eee8ff; color: #605187; font-size: 0.82rem; font-weight: 750; white-space: nowrap; }
+.consultation-source-badge { display: inline-flex; width: fit-content; min-height: 24px; align-items: center; padding: 2px 8px; border: 1px solid rgba(82, 137, 184, .45); border-radius: 999px; background: #e4f4ff; color: #396989; font-size: .72rem; font-weight: 760; white-space: nowrap; }
 .memo-field { min-width: 0; }
 .memo-input { min-height: 76px; resize: vertical; }
 .history-item { display: block; padding: 18px; }

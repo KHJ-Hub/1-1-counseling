@@ -6,7 +6,7 @@
     <title>교사용 학생 상담 관리 | 2026학년도 · 1학년 1반</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
     <link rel="stylesheet" href="styles.css?v=20260819-jelly-y2k-unified">
-    <link rel="stylesheet" href="admin.css?v=20260819-jelly-y2k-unified">
+    <link rel="stylesheet" href="admin.css?v=20260909-walkin">
 </head>
 <body class="admin-body">
     <header class="admin-header">
@@ -85,6 +85,7 @@
                     </label>
                 </div>
                 <div class="admin-action-row reservation-actions">
+                    <button id="walkin-open" class="admin-button primary" type="button">현장 상담 추가</button>
                     <button id="reservation-export-csv" class="admin-button secondary" type="button">CSV 내보내기</button>
                     <button id="reservation-print" class="admin-button secondary" type="button">인쇄용 보기</button>
                 </div>
@@ -402,6 +403,24 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260825-admin-change"></script>
+    <div id="walkin-backdrop" class="modal-backdrop hidden" aria-hidden="true">
+        <section id="walkin-dialog" class="modal-panel reservation-change-dialog" role="dialog" aria-modal="true" aria-labelledby="walkin-title">
+            <button id="walkin-close" class="modal-close" type="button" aria-label="현장 상담 추가 닫기">×</button>
+            <h3 id="walkin-title" class="modal-title">현장 상담 추가</h3>
+            <p class="modal-description">예약 없이 진행한 상담을 완료 기록으로 남깁니다. 학생 화면에는 표시되지 않습니다.</p>
+            <form id="walkin-form" class="admin-change-fields" novalidate>
+                <div><label class="form-label" for="walkin-date">상담 날짜</label><input id="walkin-date" class="form-input" type="date" required></div>
+                <div><label class="form-label" for="walkin-name">학생 이름</label><input id="walkin-name" class="form-input" type="text" maxlength="100" required></div>
+                <div><label class="form-label" for="walkin-category">상담 분야</label><select id="walkin-category" class="form-input" required><option value="">선택</option><option>진로</option><option>학업</option><option>학교생활</option><option>친구관계</option><option>기타</option></select></div>
+                <div><label class="form-label" for="walkin-follow-up">상담 결과</label><select id="walkin-follow-up" class="form-input" required><option value="">선택</option><option value="closed">종결</option><option value="follow_up">추후 상담 필요</option></select></div>
+                <div><label class="form-label" for="walkin-memo">상담 메모</label><textarea id="walkin-memo" class="form-input memo-input" maxlength="2000"></textarea></div>
+                <label class="completed-filter" for="walkin-important"><input id="walkin-important" type="checkbox"> 중요 메모로 표시</label>
+                <p id="walkin-message" class="admin-message hidden" role="alert"></p>
+                <div class="modal-actions"><button id="walkin-cancel" class="admin-button secondary" type="button">취소</button><button id="walkin-submit" class="admin-button primary" type="submit">현장 상담 저장</button></div>
+            </form>
+        </section>
+    </div>
+
+    <script src="admin.js?v=20260909-walkin"></script>
 </body>
 </html>
