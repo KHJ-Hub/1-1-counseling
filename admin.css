@@ -583,6 +583,15 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .admin-change-confirm-list { display: grid; gap: 12px; }
 .admin-change-confirm-list div { display: grid; gap: 3px; }
 .admin-change-confirm-list dd { margin: 0; color: var(--color-text); font-weight: 700; overflow-wrap: anywhere; }
+.waitlist-admin-section { margin-top: 26px; padding-top: 20px; border-top: 1px dashed rgba(126,103,193,.35); }
+.waitlist-admin-section h4 { margin: 0; color: var(--color-primary-strong); }
+.waitlist-admin-rows { display: grid; gap: 8px; margin-top: 12px; }
+.waitlist-admin-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border: 1px solid rgba(126,103,193,.22); border-radius: 12px; background: rgba(255,255,255,.62); }
+.waitlist-admin-rank { min-width: 24px; font-weight: 800; color: var(--color-primary-strong); }
+.waitlist-admin-name { font-weight: 800; }
+.waitlist-admin-category, .waitlist-admin-time { color: var(--color-muted); font-size: .85rem; }
+.waitlist-admin-row .item-actions { margin-left: auto; }
+@media (max-width: 520px) { .waitlist-admin-row .item-actions { width: 100%; margin-left: 0; } }
 
 @media (max-width: 520px) {
     .reservation-change-dialog { width: min(100% - 20px, 600px); }

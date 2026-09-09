@@ -300,8 +300,7 @@ function openClosedReservationSummary(dateStr, reservations) {
     document.getElementById('closed-summary-date').textContent = formatKoreanDate(date);
     getAvailableSlots(date).forEach(slot => {
         const reservation = reservationMap.get(slot);
-        const item = document.createElement('button');
-        item.type = 'button';
+        const item = document.createElement('div');
         item.className = 'closed-summary-item';
 
         const slotLabel = document.createElement('div');
@@ -315,27 +314,67 @@ function openClosedReservationSummary(dateStr, reservations) {
         name.className = 'closed-summary-name';
         name.textContent = reservation?.name || '예약 없음';
 
-        const arrow = document.createElement('span');
-        arrow.className = 'closed-summary-arrow';
-        arrow.setAttribute('aria-hidden', 'true');
-        arrow.textContent = reservation && !reservation.completed ? '›' : '';
-
         const canCancel = Boolean(reservation && !reservation.completed);
-        item.disabled = !canCancel;
         item.classList.toggle('is-readonly', !canCancel);
+        const actions = document.createElement('div');
+        actions.className = 'closed-summary-actions';
         if (canCancel) {
-            item.setAttribute('aria-label', `${slot} ${reservation.name} 예약 취소하기`);
-            item.addEventListener('click', () => openCancelModal(date, reservation.slot, reservation.name));
-        } else {
-            item.setAttribute('aria-label', `${slot} ${reservation?.name || '예약 없음'}`);
+            name.classList.add('is-action');
+            name.addEventListener('click', () => openCancelModal(date, reservation.slot, reservation.name));
+            const cancel = document.createElement('button');
+            cancel.type = 'button'; cancel.className = 'closed-summary-action'; cancel.textContent = '예약 취소';
+            cancel.addEventListener('click', () => openCancelModal(date, reservation.slot, reservation.name));
+            actions.appendChild(cancel);
+            const wait = document.createElement('button');
+            wait.type = 'button'; wait.className = 'closed-summary-action waitlist-action'; wait.textContent = '대기 신청';
+            wait.addEventListener('click', () => openWaitlistModal(date, reservation.slot));
+            actions.appendChild(wait);
         }
 
-        item.append(slotLabel, name, arrow);
+        item.append(slotLabel, name, actions);
         list.appendChild(item);
     });
 
     openModal('closed-summary-modal', document.getElementById('closed-summary-close'));
 }
+
+let waitlistTarget = { date: '', slot: '' };
+async function postJson(payload) {
+    const response = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const text = await response.text();
+    try { return JSON.parse(text); } catch (error) { return { ok: false, error: text || 'SERVER_ERROR' }; }
+}
+function openWaitlistModal(date, slot) {
+    waitlistTarget = { date: String(date).slice(0, 10), slot: String(slot || '').trim() };
+    document.getElementById('waitlist-target').textContent = `${formatKoreanDate(waitlistTarget.date)} · ${waitlistTarget.slot}`;
+    document.getElementById('waitlist-form').reset();
+    document.getElementById('waitlist-message').classList.add('hidden');
+    openModal('waitlist-modal', document.getElementById('waitlist-name'));
+}
+
+function waitlistErrorMessage(code) {
+    const messages = { WAITLIST_NOT_AVAILABLE: '이 시간은 대기 신청을 할 수 없습니다.', WAITLIST_DUPLICATE: '이미 신청한 예약 또는 대기가 있습니다.', WRONG_PASSWORD: '비밀번호가 일치하지 않습니다.', WAITLIST_NOT_FOUND: '대기 신청을 찾을 수 없습니다.', SERVICE_PAUSED: '현재 상담 신청이 일시 중지되어 있습니다.' };
+    return messages[code] || '대기 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+}
+
+document.getElementById('waitlist-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const message = document.getElementById('waitlist-message');
+    const payload = { action: 'submitWaitlist', ...waitlistTarget, name: document.getElementById('waitlist-name').value.trim(), password: document.getElementById('waitlist-password').value.trim(), consultationCategory: document.getElementById('waitlist-category').value };
+    if (!payload.name || !/^\d{4}$/.test(payload.password) || !payload.consultationCategory) { message.textContent = '이름, 숫자 4자리 비밀번호, 상담 분야를 입력해 주세요.'; message.classList.remove('hidden'); return; }
+    try {
+        const result = await postJson(payload);
+        if (!result.ok) throw new Error(result.error || 'WAITLIST_ERROR');
+        message.textContent = `대기 신청이 접수되었습니다. 현재 ${result.rank || 1}순위입니다.`; message.classList.remove('hidden'); message.classList.add('success');
+    } catch (error) { message.textContent = waitlistErrorMessage(error.message); message.classList.remove('hidden'); }
+});
+
+document.getElementById('waitlist-cancel-submit').addEventListener('click', async () => {
+    const message = document.getElementById('waitlist-message');
+    const payload = { action: 'cancelWaitlist', ...waitlistTarget, name: document.getElementById('waitlist-name').value.trim(), password: document.getElementById('waitlist-password').value.trim() };
+    try { const result = await postJson(payload); if (!result.ok) throw new Error(result.error || 'WAITLIST_ERROR'); message.textContent = '대기 신청을 취소했습니다.'; message.classList.remove('hidden'); message.classList.add('success'); }
+    catch (error) { message.textContent = waitlistErrorMessage(error.message); message.classList.remove('hidden'); }
+});
 
 function openNearestAvailableSlot() {
     if (!nearestAvailableSlot || !calendar) return;

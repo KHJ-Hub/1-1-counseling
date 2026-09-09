@@ -1,6 +1,8 @@
 const CONSULT_SHEET_NAME = "상담신청현황";
 const CALENDAR_SHEET_NAME = "학사일정";
 const AVAILABILITY_SHEET_NAME = "상담가능시간";
+const WAITLIST_SHEET_NAME = "상담대기";
+const WAITLIST_HEADERS = ["대기ID", "날짜", "차시", "이름", "비밀번호", "상담 분야", "신청일시", "상태"];
 const BLOCKED_PERIOD_TITLE = "상담불가";
 const SEMESTER_SLOTS = ["야자 1차시", "야자 2차시", "야자 3차시"];
 const VACATION_SLOTS = ["자습 1차시", "자습 2차시", "자습 3차시", "자습 4차시"];
@@ -1106,6 +1108,154 @@ function getWeekRange(dateText) {
   return { start: start, end: localIsoDate(addDays(new Date(start + "T00:00:00+09:00"), 6)) };
 }
 
+function getOrCreateWaitlistSheet(ss) {
+  let sheet = ss.getSheetByName(WAITLIST_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(WAITLIST_SHEET_NAME);
+    sheet.getRange(1, 1, 1, WAITLIST_HEADERS.length).setValues([WAITLIST_HEADERS]);
+  } else if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, WAITLIST_HEADERS.length).setValues([WAITLIST_HEADERS]);
+  }
+  return sheet;
+}
+
+function getWaitlistRows(sheet) {
+  return sheet.getDataRange().getValues().slice(1);
+}
+
+function getWaitlistRank(sheet, date, slot, name) {
+  return getWaitlistRows(sheet).filter(row => row[1] === date && row[2] === slot && row[7] === "waiting")
+    .sort((a, b) => new Date(a[6]).getTime() - new Date(b[6]).getTime())
+    .findIndex(row => row[3].toString().trim() === name) + 1;
+}
+
+function submitWaitlist(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const consultSheet = ss.getSheetByName(CONSULT_SHEET_NAME);
+  if (!consultSheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
+  const date = data.date ? data.date.toString().trim() : "";
+  const slot = data.slot ? data.slot.toString().trim() : "";
+  const name = data.name ? data.name.toString().trim() : "";
+  const password = data.password ? data.password.toString().trim() : "";
+  const category = normalizeConsultationCategory(data.consultationCategory);
+  if (!isIsoDate(date) || CONSULT_SLOTS.indexOf(slot) === -1) return jsonOutput({ ok: false, error: "INVALID_WAITLIST_TARGET" });
+  if (!name || !/^\d{4}$/.test(password) || !category) return jsonOutput({ ok: false, error: "INVALID_WAITLIST_INPUT" });
+  if (getOperationSettings().operating === false) return jsonOutput({ ok: false, error: "SERVICE_PAUSED" });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const allowed = getAllowedSlotsForDate(ss, date);
+    const reservations = consultSheet.getDataRange().getValues();
+    const taken = reservations.slice(1).some(row => parseKoreanDate(row[0]) === date && row[1].toString().trim() === slot && !sheetBoolean(row[4]));
+    if (!allowed.includes(slot) || !isBookableDateForServer(ss, date) || !taken) return jsonOutput({ ok: false, error: "WAITLIST_NOT_AVAILABLE" });
+    const sheet = getOrCreateWaitlistSheet(ss);
+    const duplicateReservation = reservations.slice(1).some(row => parseKoreanDate(row[0]) === date && row[1].toString().trim() === slot && row[2].toString().trim() === name && !sheetBoolean(row[4]));
+    const duplicateWait = getWaitlistRows(sheet).some(row => row[1] === date && row[2] === slot && row[3].toString().trim() === name && row[7] === "waiting");
+    if (duplicateReservation || duplicateWait) return jsonOutput({ ok: false, error: "WAITLIST_DUPLICATE" });
+    const id = Utilities.getUuid();
+    sheet.appendRow([id, date, slot, name, password, category, new Date(), "waiting"]);
+    return jsonOutput({ ok: true, waitlistId: id, rank: getWaitlistRank(sheet, date, slot, name) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function isBookableDateForServer(ss, date) {
+  const day = new Date(date + "T00:00:00+09:00").getDay();
+  if (day === 0 || day === 6 || date < localIsoDate(new Date())) return false;
+  const holidays = getKoreanHolidays(Number(date.substring(0, 4)));
+  if (holidays[date] || isDateBlocked(ss, date)) return false;
+  return true;
+}
+
+function cancelWaitlist(data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WAITLIST_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "WAITLIST_NOT_FOUND" });
+  const date = (data.date || "").toString().trim(); const slot = (data.slot || "").toString().trim(); const name = (data.name || "").toString().trim(); const password = (data.password || "").toString().trim();
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const rows = getWaitlistRows(sheet);
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i][1] === date && rows[i][2] === slot && rows[i][3].toString().trim() === name && rows[i][7] === "waiting") {
+        if (rows[i][4].toString().trim() !== password) return jsonOutput({ ok: false, error: "WRONG_PASSWORD" });
+        sheet.getRange(i + 2, 8).setValue("cancelled");
+        return jsonOutput({ ok: true });
+      }
+    }
+    return jsonOutput({ ok: false, error: "WAITLIST_NOT_FOUND" });
+  } finally { lock.releaseLock(); }
+}
+
+function adminListWaitlist() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WAITLIST_SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) return jsonOutput({ ok: true, waitlists: [] });
+  const rows = getWaitlistRows(sheet).map((row, index) => ({
+    row: index + 2, waitlistId: row[0] ? row[0].toString() : '', date: parseKoreanDate(row[1]),
+    slot: row[2] ? row[2].toString().trim() : '', name: row[3] ? row[3].toString().trim() : '',
+    consultationCategory: normalizeConsultationCategory(row[5]), createdAt: row[6] instanceof Date ? row[6].toISOString() : String(row[6] || ''),
+    status: row[7] ? row[7].toString().trim() : 'waiting'
+  })).filter(item => item.date && item.slot && item.status === 'waiting');
+  const ranks = {};
+  rows.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).forEach(item => {
+    const key = item.date + '|' + item.slot; ranks[key] = (ranks[key] || 0) + 1; item.rank = ranks[key];
+  });
+  rows.sort((a, b) => a.date.localeCompare(b.date) || a.slot.localeCompare(b.slot) || a.rank - b.rank);
+  return jsonOutput({ ok: true, waitlists: rows });
+}
+
+function adminCancelWaitlist(data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WAITLIST_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: 'WAITLIST_NOT_FOUND' });
+  const rowNumber = Number(data.row);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    if (!Number.isInteger(rowNumber) || rowNumber < 2 || rowNumber > sheet.getLastRow()) return jsonOutput({ ok: false, error: 'STALE_DATA' });
+    const row = sheet.getRange(rowNumber, 1, 1, WAITLIST_HEADERS.length).getValues()[0];
+    if (String(row[7] || '').trim() !== 'waiting') return jsonOutput({ ok: false, error: 'STALE_DATA' });
+    sheet.getRange(rowNumber, 8).setValue('cancelled');
+    return jsonOutput({ ok: true });
+  } finally { lock.releaseLock(); }
+}
+
+function adminPromoteWaitlist(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const waitSheet = ss.getSheetByName(WAITLIST_SHEET_NAME);
+  const consultSheet = ss.getSheetByName(CONSULT_SHEET_NAME);
+  if (!waitSheet || !consultSheet) return jsonOutput({ ok: false, error: 'SHEET_NOT_FOUND' });
+  const rowNumber = Number(data.row);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  let promoted = null;
+  try {
+    if (!Number.isInteger(rowNumber) || rowNumber < 2 || rowNumber > waitSheet.getLastRow()) return jsonOutput({ ok: false, error: 'STALE_DATA' });
+    const waitRow = waitSheet.getRange(rowNumber, 1, 1, WAITLIST_HEADERS.length).getValues()[0];
+    if (String(waitRow[7] || '').trim() !== 'waiting') return jsonOutput({ ok: false, error: 'STALE_DATA' });
+    const date = parseKoreanDate(waitRow[1]);
+    const slot = String(waitRow[2] || '').trim();
+    const name = String(waitRow[3] || '').trim();
+    const password = String(waitRow[4] || '').trim();
+    const category = normalizeConsultationCategory(waitRow[5]);
+    const validationError = getReservationChangeValidationError(ss, date, slot);
+    if (validationError) return jsonOutput({ ok: false, error: validationError });
+    if (isReservationSlotTaken(consultSheet, date, slot, null)) return jsonOutput({ ok: false, error: 'SLOT_TAKEN' });
+    const rows = consultSheet.getDataRange().getValues();
+    const mondayConflict = hasWeeklyReservationConflict(rows, name, date, null);
+    if (mondayConflict) return jsonOutput({ ok: false, error: 'DUPLICATE_WEEKLY' });
+    const metadataColumns = ensureConsultationMetadataColumns(consultSheet);
+    consultSheet.appendRow([date, slot, name, password]);
+    const reservationRow = consultSheet.getLastRow();
+    if (category) consultSheet.getRange(reservationRow, metadataColumns.category).setValue(category);
+    try {
+      waitSheet.getRange(rowNumber, 8).setValue('promoted');
+    } catch (error) {
+      consultSheet.deleteRow(reservationRow);
+      throw error;
+    }
+    promoted = { date: date, slot: slot, name: name, reservationRow: reservationRow };
+  } finally { lock.releaseLock(); }
+  if (promoted) notifyDiscordReservationSafely(promoted.name, promoted.date, promoted.slot);
+  return jsonOutput({ ok: true, reservation: promoted });
+}
+
 function doPost(e) {
   let data;
   try {
@@ -1124,6 +1274,13 @@ function doPost(e) {
       logServerError("Admin action failed [" + data.action + "]", error);
       return jsonOutput({ ok: false, error: "SERVER_ERROR" });
     }
+  }
+
+  if (data.action === 'submitWaitlist') {
+    try { return submitWaitlist(data); } catch (error) { logServerError('Waitlist submission failed', error); return jsonOutput({ ok: false, error: 'SERVER_ERROR' }); }
+  }
+  if (data.action === 'cancelWaitlist') {
+    try { return cancelWaitlist(data); } catch (error) { logServerError('Waitlist cancellation failed', error); return jsonOutput({ ok: false, error: 'SERVER_ERROR' }); }
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1281,6 +1438,9 @@ function handleAdminAction(data) {
     return jsonOutput({ ok: true });
   }
   if (data.action === "adminListReservations") return adminListReservations(data);
+  if (data.action === "adminListWaitlist") return adminListWaitlist();
+  if (data.action === "adminPromoteWaitlist") return adminPromoteWaitlist(data);
+  if (data.action === "adminCancelWaitlist") return adminCancelWaitlist(data);
   if (data.action === "adminGetReservationChangeSlots") return adminGetReservationChangeSlots(data);
   if (data.action === "adminChangeReservation") return adminChangeReservation(data);
   if (data.action === "adminDeleteReservation") return adminDeleteReservation(data);

@@ -202,6 +202,20 @@
             </div>
         </section>
 
+        <section id="waitlist-modal" class="modal-panel hidden" role="dialog" aria-modal="true" aria-labelledby="waitlist-title" aria-describedby="waitlist-description">
+            <button type="button" class="modal-close" data-close-modal aria-label="대기 신청 창 닫기">×</button>
+            <h3 id="waitlist-title" class="modal-title">상담 대기 신청</h3>
+            <p id="waitlist-description" class="modal-description">예약이 마감된 시간이에요. 빈자리가 생기면 선생님이 확인할 수 있도록 대기 신청을 남겨 주세요.</p>
+            <p id="waitlist-target" class="selected-date"></p>
+            <form id="waitlist-form" novalidate>
+                <div class="form-group"><label class="form-label" for="waitlist-name">이름</label><input id="waitlist-name" class="form-input" type="text" required></div>
+                <div class="form-group"><label class="form-label" for="waitlist-password">비밀번호</label><input id="waitlist-password" class="form-input" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required></div>
+                <div class="form-group"><label class="form-label" for="waitlist-category">상담 분야</label><select id="waitlist-category" class="form-input" required><option value="">상담 분야를 선택해 주세요</option><option>진로</option><option>학업</option><option>학교생활</option><option>친구관계</option><option>기타</option></select></div>
+                <p id="waitlist-message" class="form-message hidden" role="alert"></p>
+                <div class="modal-actions"><button type="button" class="modal-button button-secondary" data-close-modal>닫기</button><button type="submit" class="modal-button button-primary">대기 신청</button><button id="waitlist-cancel-submit" type="button" class="modal-button button-danger">대기 취소</button></div>
+            </form>
+        </section>
+
         <section id="notice-modal" class="modal-panel hidden" role="alertdialog" aria-modal="true" aria-labelledby="notice-title" aria-describedby="notice-message">
             <button type="button" class="modal-close" data-close-modal aria-label="안내 창 닫기">×</button>
             <h3 id="notice-title" class="modal-title">안내</h3>

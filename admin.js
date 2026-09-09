@@ -10,6 +10,7 @@ if (forceAdminLogin) {
 
 let adminToken = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
 let reservations = [];
+let waitlists = [];
 let calendarItems = [];
 let availabilityItems = [];
 let operationSettings = null;
@@ -357,6 +358,35 @@ function renderReservations() {
         editor.appendChild(createActionButton('상태·메모 저장', 'primary', 'save-consultation', item.row));
         article.appendChild(editor);
         list.appendChild(article);
+    });
+}
+
+function renderWaitlists() {
+    const list = document.getElementById('waitlist-admin-list');
+    if (!list) return;
+    list.replaceChildren();
+    if (!waitlists.length) { list.appendChild(createTextElement('p', 'empty-state', '현재 대기 중인 학생이 없습니다.')); return; }
+    const groups = new Map();
+    waitlists.forEach(item => { const key = `${item.date}|${item.slot}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(item); });
+    groups.forEach((items, key) => {
+        const [date, slot] = key.split('|');
+        const article = document.createElement('article'); article.className = 'list-item waitlist-group';
+        article.appendChild(createTextElement('div', 'item-title', `${formatAdminDate(date)} · ${adminChangeSlotLabel(slot)}`));
+        article.appendChild(createTextElement('div', 'item-meta', `대기 ${items.length}명`));
+        const rows = document.createElement('div'); rows.className = 'waitlist-admin-rows';
+        items.sort((a, b) => a.rank - b.rank).forEach(item => {
+            const row = document.createElement('div'); row.className = 'waitlist-admin-row';
+            row.appendChild(createTextElement('span', 'waitlist-admin-rank', `${item.rank}.`));
+            row.appendChild(createTextElement('span', 'waitlist-admin-name', item.name));
+            row.appendChild(createTextElement('span', 'waitlist-admin-category', consultationCategoryLabel(item.consultationCategory)));
+            const time = item.createdAt ? new Date(item.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+            row.appendChild(createTextElement('span', 'waitlist-admin-time', time));
+            const actions = document.createElement('div'); actions.className = 'item-actions';
+            actions.appendChild(createActionButton('예약으로 전환', 'primary', 'promote-waitlist', item.row));
+            actions.appendChild(createActionButton('대기 취소', 'danger', 'cancel-waitlist', item.row));
+            row.appendChild(actions); rows.appendChild(row);
+        });
+        article.appendChild(rows); list.appendChild(article);
     });
 }
 
@@ -1049,8 +1079,9 @@ async function loadAdminData(showSuccess = false) {
     setButtonBusy(refreshButton, true, '불러오는 중…');
     showMessage('global-message', '');
     try {
-        const [reservationResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
+        const [reservationResult, waitlistResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
             adminRequest('adminListReservations'),
+            adminRequest('adminListWaitlist'),
             adminRequest('adminListCalendarItems'),
             adminRequest('adminListAvailability'),
             adminRequest('adminGetCounselingStats'),
@@ -1058,6 +1089,7 @@ async function loadAdminData(showSuccess = false) {
             adminRequest('adminGetOperationSettings')
         ]);
         reservations = reservationResult.reservations || [];
+        waitlists = waitlistResult.waitlists || [];
         calendarItems = calendarResult.items || [];
         availabilityItems = availabilityResult.items || [];
         adminSlotTimes = { ...adminSlotTimes, ...(availabilityResult.slotTimes || {}) };
@@ -1065,6 +1097,7 @@ async function loadAdminData(showSuccess = false) {
             renderAvailabilitySlotChecks(document.getElementById('availability-operation').value || 'semester');
         }
         renderAllData();
+        renderWaitlists();
         renderStats(statsResult.stats || {});
         renderIntegrationStatus(integrationResult.status || {});
         renderOperationSettings(operationResult.settings || {}, operationResult.dashboard || {});
@@ -1380,6 +1413,24 @@ document.getElementById('reservation-list').addEventListener('click', async even
         } finally {
             setButtonBusy(button, false, '');
         }
+    }
+});
+
+document.getElementById('waitlist-admin-list').addEventListener('click', async event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const row = Number(button.dataset.row);
+    const action = button.dataset.action;
+    if (!Number.isInteger(row)) return;
+    if (action === 'cancel-waitlist') {
+        if (!window.confirm('이 대기 신청을 취소할까요?')) return;
+        try { await adminRequest('adminCancelWaitlist', { row }); await loadAdminData(); showMessage('waitlist-admin-message', '대기 신청을 취소했습니다.', true); }
+        catch (error) { if (error.code !== 'AUTH_REQUIRED') showMessage('waitlist-admin-message', errorMessage(error.code)); }
+    }
+    if (action === 'promote-waitlist') {
+        if (!window.confirm('이 학생을 예약으로 전환할까요?')) return;
+        try { await adminRequest('adminPromoteWaitlist', { row }); await loadAdminData(); showMessage('waitlist-admin-message', '대기자를 예약으로 전환했습니다.', true); }
+        catch (error) { if (error.code !== 'AUTH_REQUIRED') showMessage('waitlist-admin-message', errorMessage(error.code)); }
     }
 });
 
