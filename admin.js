@@ -11,6 +11,7 @@ if (forceAdminLogin) {
 let adminToken = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
 let reservations = [];
 let waitlists = [];
+let followUpStudents = [];
 let calendarItems = [];
 let availabilityItems = [];
 let operationSettings = null;
@@ -394,6 +395,32 @@ function renderWaitlists() {
             row.appendChild(actions); rows.appendChild(row);
         });
         article.appendChild(rows); list.appendChild(article);
+    });
+}
+
+function renderFollowUpStudents() {
+    const list = document.getElementById('followup-students-list');
+    const description = document.getElementById('followup-students-description');
+    if (!list || !description) return;
+    list.replaceChildren();
+    description.textContent = followUpStudents.length ? `현재 추후 상담이 필요한 학생 ${followUpStudents.length}명` : '현재 추후 상담 필요 학생 없음';
+    if (!followUpStudents.length) { list.appendChild(createTextElement('p', 'empty-state', '현재 추후 상담이 필요한 학생이 없습니다.')); return; }
+    followUpStudents.forEach(item => {
+        const article = document.createElement('article');
+        article.className = 'list-item followup-student-item';
+        article.appendChild(createTextElement('div', 'item-title', item.name));
+        const meta = document.createElement('div'); meta.className = 'followup-student-meta';
+        meta.append(
+            createTextElement('span', 'history-category-badge', consultationCategoryLabel(item.consultationCategory)),
+            createTextElement('span', '', `최근 상담: ${formatAdminDate(item.date)}`),
+            createTextElement('span', '', `올해 상담 ${item.schoolYearConsultationCount || 0}회`)
+        );
+        if (item.memoImportant) meta.appendChild(createTextElement('span', 'important-memo-label', '★ 중요 메모'));
+        article.appendChild(meta);
+        const actions = document.createElement('div'); actions.className = 'item-actions';
+        actions.appendChild(createActionButton('학생 이력 보기', 'secondary', 'show-followup-history', item.row));
+        article.appendChild(actions);
+        list.appendChild(article);
     });
 }
 
@@ -975,6 +1002,7 @@ function renderOperationStatus(dashboard = {}) {
         ['현재 운영모드', operationTypeLabel(dashboard.operationType)],
         ['방학 기간', vacationPeriods, 'vacation-periods'],
         ['이번 주 상담', dashboard.weeklySummary || {}, 'weekly-summary'],
+        ['추후 상담 필요', followUpStudents.length, 'followup-students'],
         ['오늘 상담', dashboard.todayAvailable ? '가능' : '불가'],
         ['다음 상담 가능일', dashboard.nextAvailableDate || '예정 없음'],
         ['Discord', dashboard.discordConfigured ? '설정됨' : '미설정'],
@@ -1005,6 +1033,12 @@ function renderOperationStatus(dashboard = {}) {
             const summary = value || {};
             valueElement.appendChild(createTextElement('span', 'weekly-summary-total', `총 ${summary.total || 0}건`));
             valueElement.appendChild(createTextElement('span', 'weekly-summary-details', `완료 ${summary.completed || 0} · 예정 ${summary.scheduled || 0} · 추후 상담 필요 ${summary.followUp || 0}`));
+        } else if (type === 'followup-students') {
+            valueElement.classList.add('followup-dashboard-value');
+            valueElement.appendChild(createTextElement('span', '', value ? `${value}명` : '현재 없음'));
+            const button = createTextElement('button', 'followup-dashboard-button', '모아보기');
+            button.type = 'button'; button.dataset.action = 'show-followup-students';
+            valueElement.appendChild(button);
         } else {
             valueElement.textContent = value;
         }
@@ -1088,8 +1122,9 @@ async function loadAdminData(showSuccess = false) {
     setButtonBusy(refreshButton, true, '불러오는 중…');
     showMessage('global-message', '');
     try {
-        const [reservationResult, waitlistResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
+        const [reservationResult, followUpResult, waitlistResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
             adminRequest('adminListReservations'),
+            adminRequest('adminListFollowUpStudents'),
             adminRequest('adminListWaitlist'),
             adminRequest('adminListCalendarItems'),
             adminRequest('adminListAvailability'),
@@ -1098,6 +1133,7 @@ async function loadAdminData(showSuccess = false) {
             adminRequest('adminGetOperationSettings')
         ]);
         reservations = reservationResult.reservations || [];
+        followUpStudents = followUpResult.students || [];
         waitlists = waitlistResult.waitlists || [];
         calendarItems = calendarResult.items || [];
         availabilityItems = availabilityResult.items || [];
@@ -1106,6 +1142,7 @@ async function loadAdminData(showSuccess = false) {
             renderAvailabilitySlotChecks(document.getElementById('availability-operation').value || 'semester');
         }
         renderAllData();
+        renderFollowUpStudents();
         renderWaitlists();
         renderStats(statsResult.stats || {});
         renderIntegrationStatus(integrationResult.status || {});
@@ -1242,6 +1279,11 @@ document.getElementById('logout-button').addEventListener('click', async () => {
 
 document.getElementById('refresh-button').addEventListener('click', () => loadAdminData(true));
 document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventListener('click', () => showTab(button.dataset.adminTab)));
+document.getElementById('operation-status-grid').addEventListener('click', event => {
+    if (!event.target.closest('[data-action="show-followup-students"]')) return;
+    showTab('reservations');
+    document.getElementById('followup-students-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 document.getElementById('reservation-name-filter').addEventListener('input', renderReservations);
 document.getElementById('reservation-date-filter').addEventListener('change', renderReservations);
 document.getElementById('reservation-slot-filter').addEventListener('change', renderReservations);
@@ -1493,6 +1535,16 @@ document.getElementById('waitlist-admin-list').addEventListener('click', async e
         try { await adminRequest('adminPromoteWaitlist', { row }); await loadAdminData(); showMessage('waitlist-admin-message', '대기자를 예약으로 전환했습니다.', true); }
         catch (error) { if (error.code !== 'AUTH_REQUIRED') showMessage('waitlist-admin-message', errorMessage(error.code)); }
     }
+});
+
+document.getElementById('followup-students-list').addEventListener('click', async event => {
+    const button = event.target.closest('button[data-action="show-followup-history"]');
+    if (!button) return;
+    const item = followUpStudents.find(student => student.row === Number(button.dataset.row));
+    if (!item) return;
+    document.getElementById('history-name').value = item.name;
+    showTab('history');
+    await loadStudentHistory(item.name);
 });
 
 document.getElementById('reservation-list').addEventListener('change', event => {

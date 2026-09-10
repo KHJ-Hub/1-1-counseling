@@ -6,7 +6,7 @@
     <title>교사용 학생 상담 관리 | 2026학년도 · 1학년 1반</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
     <link rel="stylesheet" href="styles.css?v=20260819-jelly-y2k-unified">
-    <link rel="stylesheet" href="admin.css?v=20260909-walkin">
+    <link rel="stylesheet" href="admin.css?v=20260910-followup">
 </head>
 <body class="admin-body">
     <header class="admin-header">
@@ -92,6 +92,10 @@
                 <p id="reservation-export-message" class="admin-message hidden" role="status"></p>
                 <p id="reservation-count" class="list-count"></p>
                 <div id="reservation-list" class="admin-list"></div>
+                <section id="followup-students-section" class="followup-students-section" aria-labelledby="followup-students-title">
+                    <div class="panel-heading"><div><h4 id="followup-students-title">추후 상담 필요</h4><p id="followup-students-description" class="admin-muted"></p></div></div>
+                    <div id="followup-students-list" class="admin-list"></div>
+                </section>
                 <section class="waitlist-admin-section" aria-labelledby="waitlist-admin-title">
                     <div class="panel-heading"><div><h4 id="waitlist-admin-title">상담 대기자</h4><p class="admin-muted">빈자리가 생기면 확인 후 예약으로 전환할 수 있습니다.</p></div></div>
                     <p id="waitlist-admin-message" class="admin-message hidden" role="status"></p>
@@ -421,6 +425,6 @@
         </section>
     </div>
 
-    <script src="admin.js?v=20260909-walkin"></script>
+    <script src="admin.js?v=20260910-followup"></script>
 </body>
 </html>

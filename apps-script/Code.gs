@@ -1450,6 +1450,7 @@ function handleAdminAction(data) {
     return jsonOutput({ ok: true });
   }
   if (data.action === "adminListReservations") return adminListReservations(data);
+  if (data.action === "adminListFollowUpStudents") return adminListFollowUpStudents();
   if (data.action === "adminListWaitlist") return adminListWaitlist();
   if (data.action === "adminPromoteWaitlist") return adminPromoteWaitlist(data);
   if (data.action === "adminCancelWaitlist") return adminCancelWaitlist(data);
@@ -1535,6 +1536,39 @@ function adminListReservations(data) {
     return a.slot.localeCompare(b.slot);
   });
   return jsonOutput({ ok: true, reservations: reservations });
+}
+
+// 학생별 가장 최근 완료 상담 결과만 사용해 현재 후속 상담 필요 여부를 계산합니다.
+function adminListFollowUpStudents() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
+  const rows = sheet.getDataRange().getValues();
+  const metadataColumns = getConsultationMetadataColumns(sheet);
+  const schoolYearRange = getSchoolYearRange(getOperationSettings().schoolYear);
+  const students = {};
+  rows.slice(1).forEach((row, index) => {
+    const date = parseKoreanDate(row[0]);
+    const name = row[2] ? row[2].toString().trim() : "";
+    if (!date || !name || !sheetBoolean(row[4]) || date < schoolYearRange.start || date > schoolYearRange.end) return;
+    const record = {
+      row: index + 2,
+      date: date,
+      name: name,
+      consultationCategory: metadataColumns.category ? normalizeConsultationCategory(row[metadataColumns.category - 1]) : "",
+      followUpStatus: metadataColumns.followUpStatus ? normalizeFollowUpStatus(row[metadataColumns.followUpStatus - 1]) : "",
+      memoImportant: metadataColumns.memoImportant ? sheetBoolean(row[metadataColumns.memoImportant - 1]) : false
+    };
+    if (!students[name]) students[name] = { count: 0, latest: record };
+    students[name].count++;
+    const latest = students[name].latest;
+    if (record.date > latest.date || (record.date === latest.date && record.row > latest.row)) students[name].latest = record;
+  });
+  const followUpStudents = Object.keys(students).map(name => {
+    const item = students[name];
+    return Object.assign({}, item.latest, { schoolYearConsultationCount: item.count });
+  }).filter(item => item.followUpStatus === "follow_up");
+  followUpStudents.sort((a, b) => b.date.localeCompare(a.date) || b.row - a.row);
+  return jsonOutput({ ok: true, students: followUpStudents });
 }
 
 function getAdminReservationChangeTarget(data, sheet) {

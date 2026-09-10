@@ -139,6 +139,12 @@
 .weekly-summary-list { display: grid !important; gap: 4px; }
 .weekly-summary-total { color: var(--color-primary-strong); font-weight: 800; }
 .weekly-summary-details { color: var(--color-muted); font-size: 0.76rem; font-weight: 650; line-height: 1.4; }
+.followup-dashboard-value { display: grid !important; gap: 7px; }
+.followup-dashboard-button { width: fit-content; padding: 4px 8px; border: 1px solid rgba(119, 88, 167, .45); border-radius: 999px; background: #f3e8ff; color: #65498d; font: inherit; font-size: .73rem; font-weight: 760; cursor: pointer; }
+.followup-dashboard-button:hover, .followup-dashboard-button:focus-visible { background: #e6d5fb; outline: none; }
+.followup-students-section { margin-top: 26px; padding-top: 20px; border-top: 1px dashed rgba(126,103,193,.35); }
+.followup-students-section h4 { margin: 0; color: var(--color-primary-strong); }
+.followup-student-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; color: var(--color-muted); font-size: .84rem; font-weight: 650; }
 .operation-settings-form,
 .bulk-availability-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 13px; }
 .settings-accordion { grid-column: 1 / -1; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
