@@ -12,6 +12,7 @@ let adminToken = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
 let reservations = [];
 let waitlists = [];
 let followUpStudents = [];
+let counselingOverview = { today: [], overdue: [], pendingTasks: [], records: [] };
 let calendarItems = [];
 let availabilityItems = [];
 let operationSettings = null;
@@ -172,6 +173,8 @@ function errorMessage(code) {
         INVALID_COMPLETED: '상담 완료 상태를 확인해 주세요.',
         INVALID_FOLLOW_UP_STATUS: '상담 결과를 다시 선택해 주세요.',
         MEMO_TOO_LONG: '상담 메모는 2,000자 이하로 입력해 주세요.',
+        FOLLOW_UP_TASK_TOO_LONG: '후속 할 일은 300자 이하로 입력해 주세요.',
+        INVALID_FOLLOW_UP_TASK_DONE: '후속 할 일 완료 상태를 확인해 주세요.',
         INVALID_AVAILABILITY: '상담 가능 시간 설정을 확인해 주세요.',
         AVAILABILITY_COLUMNS_REQUIRED: '상담가능시간 시트 E1~G1에 운영유형, 4차시, 비고 헤더를 추가해 주세요.',
         NOTE_TOO_LONG: '비고는 200자 이하로 입력해 주세요.',
@@ -363,6 +366,15 @@ function renderReservations() {
         memoField.appendChild(memoLabel);
         memoField.appendChild(createActionButton(item.memoImportant ? '★ 중요' : '☆ 중요 표시', 'secondary', 'toggle-important', item.row));
         editor.appendChild(memoField);
+        const taskField = document.createElement('div');
+        taskField.className = 'memo-field followup-task-field';
+        const taskLabel = createTextElement('label', 'form-label', '후속 할 일');
+        const taskInput = document.createElement('input');
+        taskInput.type = 'text'; taskInput.maxLength = 300; taskInput.className = 'form-input'; taskInput.dataset.field = 'follow-up-task'; taskInput.value = item.followUpTask || '';
+        taskLabel.appendChild(taskInput); taskField.appendChild(taskLabel);
+        const taskDone = document.createElement('label'); taskDone.className = 'completed-label';
+        const taskDoneInput = document.createElement('input'); taskDoneInput.type = 'checkbox'; taskDoneInput.dataset.field = 'follow-up-task-done'; taskDoneInput.checked = item.followUpTaskDone === true; taskDoneInput.disabled = !item.followUpTask;
+        taskDone.append(taskDoneInput, document.createTextNode(' 할 일 완료')); taskField.appendChild(taskDone); editor.appendChild(taskField);
         editor.appendChild(createActionButton('상태·메모 저장', 'primary', 'save-consultation', item.row));
         article.appendChild(editor);
         list.appendChild(article);
@@ -415,11 +427,74 @@ function renderFollowUpStudents() {
             createTextElement('span', '', `최근 상담: ${formatAdminDate(item.date)}`),
             createTextElement('span', '', `올해 상담 ${item.schoolYearConsultationCount || 0}회`)
         );
+        const next = item.nextReservation;
+        meta.appendChild(createTextElement('span', next ? 'next-reservation-meta' : 'next-reservation-meta is-empty', next ? `다음 예약: ${formatAdminDate(next.date)} ${next.slot}` : '다음 예약 없음'));
         if (item.memoImportant) meta.appendChild(createTextElement('span', 'important-memo-label', '★ 중요 메모'));
         article.appendChild(meta);
         const actions = document.createElement('div'); actions.className = 'item-actions';
         actions.appendChild(createActionButton('학생 이력 보기', 'secondary', 'show-followup-history', item.row));
         article.appendChild(actions);
+        list.appendChild(article);
+    });
+}
+
+function openStudentHistoryFromName(name) {
+    document.getElementById('history-name').value = name;
+    showTab('history');
+    return loadStudentHistory(name);
+}
+
+function renderDashboardWorkItems() {
+    const today = counselingOverview.today || [];
+    const overdue = counselingOverview.overdue || [];
+    const tasks = counselingOverview.pendingTasks || [];
+    const render = (listId, summaryId, items, emptyText, makeItem) => {
+        const list = document.getElementById(listId); const summary = document.getElementById(summaryId);
+        list.replaceChildren(); summary.textContent = items.length ? `${items.length}건` : emptyText;
+        if (!items.length) { list.appendChild(createTextElement('p', 'empty-state compact', emptyText)); return; }
+        items.forEach(item => list.appendChild(makeItem(item)));
+    };
+    render('today-checklist-list', 'today-checklist-summary', today, '오늘 예정된 상담이 없습니다.', item => {
+        const row = document.createElement('button'); row.type = 'button'; row.className = `dashboard-work-item ${item.completed ? 'is-complete' : ''}`;
+        row.dataset.action = 'open-dashboard-record'; row.dataset.row = String(item.row);
+        row.textContent = `${item.completed ? '☑' : '□'} ${item.name} · ${item.slot} · ${consultationCategoryLabel(item.consultationCategory)}${item.source === 'walk_in' ? ' · 현장 상담' : ''}`;
+        return row;
+    });
+    render('overdue-list', 'overdue-summary', overdue, '처리 필요한 지난 상담이 없습니다.', item => {
+        const row = document.createElement('button'); row.type = 'button'; row.className = 'dashboard-work-item is-alert';
+        row.dataset.action = 'open-dashboard-record'; row.dataset.row = String(item.row);
+        row.textContent = `${formatAdminDate(item.date)} · ${item.name} · ${consultationCategoryLabel(item.consultationCategory)} · ${item.slot} · 상담 완료 처리`;
+        return row;
+    });
+    render('task-list', 'task-summary', tasks, '미완료 후속 할 일이 없습니다.', item => {
+        const row = document.createElement('button'); row.type = 'button'; row.className = 'dashboard-work-item';
+        row.dataset.action = 'open-dashboard-history'; row.dataset.name = item.name;
+        row.textContent = `□ ${item.name} · ${item.followUpTask}`;
+        return row;
+    });
+}
+
+function renderRecordSearch() {
+    const query = document.getElementById('record-search-text').value.trim().toLowerCase();
+    const category = document.getElementById('record-search-category').value;
+    const status = document.getElementById('record-search-status').value;
+    const source = document.getElementById('record-search-source').value;
+    const records = (counselingOverview.records || []).filter(item => {
+        const searchable = `${item.name} ${item.consultationCategory} ${item.date} ${item.date.replaceAll('-', '.')}`.toLowerCase();
+        return (!query || searchable.includes(query)) && (!category || item.consultationCategory === category) && (!status || item.followUpStatus === status) && (!source || item.source === source);
+    }).sort((a, b) => b.date.localeCompare(a.date) || b.row - a.row);
+    const list = document.getElementById('record-search-list'); list.replaceChildren();
+    document.getElementById('record-search-count').textContent = `검색 결과 ${records.length}건`;
+    if (!records.length) { list.appendChild(createTextElement('p', 'empty-state', '조건에 맞는 상담 기록이 없습니다.')); return; }
+    records.forEach(item => {
+        const article = document.createElement('article'); article.className = 'list-item record-search-item';
+        article.appendChild(createTextElement('div', 'item-title', `${formatAdminDate(item.date)} · ${item.name}`));
+        const meta = document.createElement('div'); meta.className = 'followup-student-meta';
+        meta.append(createTextElement('span', 'history-category-badge', consultationCategoryLabel(item.consultationCategory)), createTextElement('span', '', item.source === 'walk_in' ? '현장 상담' : '예약 상담'), createTextElement('span', '', item.completed ? '완료' : '미완료'));
+        const result = followUpStatusLabel(item.followUpStatus); if (result) meta.appendChild(createTextElement('span', `follow-up-badge ${item.followUpStatus}`, result));
+        if (item.memoImportant) meta.appendChild(createTextElement('span', 'important-memo-label', '★ 중요 메모'));
+        article.appendChild(meta);
+        const actions = document.createElement('div'); actions.className = 'item-actions'; actions.appendChild(createActionButton('학생 이력 보기', 'secondary', 'show-record-history', item.row)); article.appendChild(actions);
         list.appendChild(article);
     });
 }
@@ -795,6 +870,7 @@ function renderHistory(history, name) {
         memo.appendChild(createTextElement('p', `history-memo-text memo-display${item.memo ? '' : ' is-empty'}`, item.memo || '메모 없음'));
         if (item.memoImportant) memo.appendChild(createTextElement('span', 'important-memo-label', '★ 중요 메모'));
         content.appendChild(memo);
+        if (item.followUpTask) content.appendChild(createTextElement('p', `history-followup-task${item.followUpTaskDone ? ' is-done' : ''}`, `${item.followUpTaskDone ? '☑' : '□'} 후속 할 일: ${item.followUpTask}`));
         summary.appendChild(content);
 
         const actions = document.createElement('div');
@@ -818,6 +894,13 @@ function renderHistory(history, name) {
         memoInput.value = item.memo || '';
         memoField.appendChild(memoInput);
         editor.appendChild(memoField);
+        const taskField = document.createElement('div'); taskField.className = 'memo-field history-memo-field';
+        taskField.appendChild(createTextElement('span', 'history-memo-label', '후속 할 일'));
+        const taskInput = document.createElement('input'); taskInput.type = 'text'; taskInput.maxLength = 300; taskInput.className = 'form-input history-task-input'; taskInput.value = item.followUpTask || '';
+        taskField.appendChild(taskInput);
+        const taskDone = document.createElement('label'); taskDone.className = 'completed-label';
+        const taskDoneInput = document.createElement('input'); taskDoneInput.type = 'checkbox'; taskDoneInput.className = 'history-task-done'; taskDoneInput.checked = item.followUpTaskDone === true; taskDoneInput.disabled = !item.followUpTask;
+        taskDone.append(taskDoneInput, document.createTextNode(' 할 일 완료')); taskField.appendChild(taskDone); editor.appendChild(taskField);
         
         const editorActions = document.createElement('div');
         editorActions.className = 'history-editor-actions';
@@ -1122,8 +1205,9 @@ async function loadAdminData(showSuccess = false) {
     setButtonBusy(refreshButton, true, '불러오는 중…');
     showMessage('global-message', '');
     try {
-        const [reservationResult, followUpResult, waitlistResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
+        const [reservationResult, overviewResult, followUpResult, waitlistResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
             adminRequest('adminListReservations'),
+            adminRequest('adminGetCounselingOverview'),
             adminRequest('adminListFollowUpStudents'),
             adminRequest('adminListWaitlist'),
             adminRequest('adminListCalendarItems'),
@@ -1133,6 +1217,7 @@ async function loadAdminData(showSuccess = false) {
             adminRequest('adminGetOperationSettings')
         ]);
         reservations = reservationResult.reservations || [];
+        counselingOverview = overviewResult || { today: [], overdue: [], pendingTasks: [], records: [] };
         followUpStudents = followUpResult.students || [];
         waitlists = waitlistResult.waitlists || [];
         calendarItems = calendarResult.items || [];
@@ -1143,6 +1228,8 @@ async function loadAdminData(showSuccess = false) {
         }
         renderAllData();
         renderFollowUpStudents();
+        renderDashboardWorkItems();
+        renderRecordSearch();
         renderWaitlists();
         renderStats(statsResult.stats || {});
         renderIntegrationStatus(integrationResult.status || {});
@@ -1283,6 +1370,26 @@ document.getElementById('operation-status-grid').addEventListener('click', event
     if (!event.target.closest('[data-action="show-followup-students"]')) return;
     showTab('reservations');
     document.getElementById('followup-students-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+['record-search-text', 'record-search-category', 'record-search-status', 'record-search-source'].forEach(id => {
+    document.getElementById(id).addEventListener(id === 'record-search-text' ? 'input' : 'change', renderRecordSearch);
+});
+document.querySelector('.dashboard-work-grid').addEventListener('click', async event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    if (button.dataset.action === 'open-dashboard-history') { await openStudentHistoryFromName(button.dataset.name); return; }
+    if (button.dataset.action === 'open-dashboard-record') {
+        const item = (counselingOverview.records || []).find(record => record.row === Number(button.dataset.row));
+        if (!item) return;
+        showTab('reservations');
+        document.getElementById('reservation-name-filter').value = item.name;
+        document.getElementById('reservation-date-filter').value = formatAdminDate(item.date);
+        if (item.completed) document.getElementById('reservation-include-completed').checked = true;
+        const result = await adminRequest('adminListReservations', { includeCompleted: item.completed });
+        reservations = result.reservations || [];
+        renderReservations();
+        document.getElementById('reservation-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 });
 document.getElementById('reservation-name-filter').addEventListener('input', renderReservations);
 document.getElementById('reservation-date-filter').addEventListener('change', renderReservations);
@@ -1493,6 +1600,8 @@ document.getElementById('reservation-list').addEventListener('click', async even
         const completed = article.querySelector('[data-field="completed"]').checked;
         const memo = article.querySelector('[data-field="memo"]').value;
         const followUpStatus = article.querySelector('[data-field="follow-up-status"]').value;
+        const followUpTask = article.querySelector('[data-field="follow-up-task"]').value;
+        const followUpTaskDone = article.querySelector('[data-field="follow-up-task-done"]').checked;
         if (completed && !item.completed && !followUpStatus) {
             showMessage('global-message', '상담 완료 처리 시 상담 결과(종결 또는 추후 상담 필요)를 선택해 주세요.');
             article.querySelector('[data-field="follow-up-status"]').focus();
@@ -1507,7 +1616,9 @@ document.getElementById('reservation-list').addEventListener('click', async even
                 name: item.name,
                 completed,
                 memo,
-                followUpStatus
+                followUpStatus,
+                followUpTask,
+                followUpTaskDone
             });
             await loadAdminData();
             showMessage('global-message', '상담 완료 상태와 메모를 저장했습니다.', true);
@@ -1547,6 +1658,13 @@ document.getElementById('followup-students-list').addEventListener('click', asyn
     await loadStudentHistory(item.name);
 });
 
+document.getElementById('record-search-list').addEventListener('click', async event => {
+    const button = event.target.closest('button[data-action="show-record-history"]');
+    if (!button) return;
+    const item = (counselingOverview.records || []).find(record => record.row === Number(button.dataset.row));
+    if (item) await openStudentHistoryFromName(item.name);
+});
+
 document.getElementById('reservation-list').addEventListener('change', event => {
     if (event.target.dataset.field !== 'completed') return;
     const article = event.target.closest('.reservation-item');
@@ -1554,6 +1672,12 @@ document.getElementById('reservation-list').addEventListener('change', event => 
     if (!followUpSelect) return;
     followUpSelect.disabled = !event.target.checked;
     if (!event.target.checked) followUpSelect.value = '';
+});
+document.getElementById('reservation-list').addEventListener('input', event => {
+    if (event.target.dataset.field !== 'follow-up-task') return;
+    const article = event.target.closest('.reservation-item');
+    const done = article && article.querySelector('[data-field="follow-up-task-done"]');
+    if (done) { done.disabled = !event.target.value.trim(); if (done.disabled) done.checked = false; }
 });
 
 async function loadStudentHistory(name) {
@@ -1595,12 +1719,14 @@ document.getElementById('history-list').addEventListener('click', async event =>
         const completed = article.dataset.completed === 'true';
         const followUpStatus = article.dataset.followUpStatus || '';
         const memo = article.querySelector('.history-memo-input').value;
+        const followUpTask = article.querySelector('.history-task-input').value;
+        const followUpTaskDone = article.querySelector('.history-task-done').checked;
 
         setButtonBusy(button, true, '저장 중…');
         showMessage('history-message', '');
         try {
-            await adminRequest('adminUpdateConsultation', { row, date, slot, name, completed, memo, followUpStatus });
-            showMessage('history-message', '메모를 수정했습니다.', true);
+            await adminRequest('adminUpdateConsultation', { row, date, slot, name, completed, memo, followUpStatus, followUpTask, followUpTaskDone });
+            showMessage('history-message', '상담 메모와 후속 할 일을 저장했습니다.', true);
             await loadStudentHistory(name);
         } catch (error) {
             if (error.code !== 'AUTH_REQUIRED') showMessage('history-message', errorMessage(error.code));
@@ -1626,6 +1752,11 @@ document.getElementById('history-list').addEventListener('click', async event =>
             setButtonBusy(button, false, '');
         }
     }
+});
+document.getElementById('history-list').addEventListener('input', event => {
+    if (!event.target.classList.contains('history-task-input')) return;
+    const done = event.target.closest('.history-editor')?.querySelector('.history-task-done');
+    if (done) { done.disabled = !event.target.value.trim(); if (done.disabled) done.checked = false; }
 });
 
 document.getElementById('history-form').addEventListener('submit', event => {

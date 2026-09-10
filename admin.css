@@ -132,6 +132,15 @@
 .operation-status-card { min-width: 0; padding: 15px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
 .operation-status-card span { display: block; margin-bottom: 5px; color: var(--color-muted); font-size: 0.8rem; }
 .operation-status-card strong { display: block; overflow-wrap: anywhere; color: var(--color-primary-strong); line-height: 1.42; }
+.dashboard-work-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.dashboard-work-card { min-width: 0; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: rgba(255,255,255,.78); }
+.dashboard-work-card h3 { margin: 0 0 5px; font-size: .96rem; color: var(--color-primary-strong); }
+.dashboard-work-card > p { margin: 0 0 10px; }
+.dashboard-work-list { display: grid; gap: 6px; }
+.dashboard-work-item { width: 100%; padding: 9px 10px; border: 1px solid rgba(126,103,193,.22); border-radius: 10px; background: #fff; color: var(--color-text); font: inherit; font-size: .81rem; font-weight: 680; line-height: 1.45; text-align: left; cursor: pointer; }
+.dashboard-work-item:hover, .dashboard-work-item:focus-visible { border-color: var(--color-primary); background: var(--color-primary-soft); outline: none; }
+.dashboard-work-item.is-complete { color: var(--color-muted); text-decoration: line-through; }
+.dashboard-work-item.is-alert { border-color: rgba(213,132,105,.48); background: #fff7ef; }
 .vacation-period-list { display: grid !important; gap: 10px; }
 .vacation-period-item { display: grid; gap: 2px; }
 .vacation-period-name { margin: 0 !important; color: var(--color-primary-strong) !important; font: inherit !important; font-weight: 780; line-height: 1.25; }
@@ -145,6 +154,13 @@
 .followup-students-section { margin-top: 26px; padding-top: 20px; border-top: 1px dashed rgba(126,103,193,.35); }
 .followup-students-section h4 { margin: 0; color: var(--color-primary-strong); }
 .followup-student-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; color: var(--color-muted); font-size: .84rem; font-weight: 650; }
+.next-reservation-meta { color: #427459; font-weight: 760; }
+.next-reservation-meta.is-empty { color: #9b5c5c; font-weight: 780; }
+.consultation-search-section { margin-top: 26px; padding-top: 20px; border-top: 1px dashed rgba(126,103,193,.35); }
+.consultation-search-section h4 { margin: 0; color: var(--color-primary-strong); }
+.consultation-search-filters { display: grid; grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(130px, .8fr)); gap: 9px; margin-bottom: 10px; }
+.history-followup-task { margin: 12px 0 0; padding: 9px 11px; border-radius: 10px; background: #fff7df; color: #70561c; font-size: .87rem; font-weight: 700; }
+.history-followup-task.is-done { background: #edf5ef; color: #5e7664; text-decoration: line-through; }
 .operation-settings-form,
 .bulk-availability-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 13px; }
 .settings-accordion { grid-column: 1 / -1; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #fff; }
@@ -372,6 +388,8 @@ select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 }
 
 @media (max-width: 520px) {
+    .dashboard-work-grid { grid-template-columns: 1fr; }
+    .consultation-search-filters { grid-template-columns: 1fr; }
     .admin-header h1 { font-size: 1.45rem; }
     .admin-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .admin-tab { min-width: 0; }

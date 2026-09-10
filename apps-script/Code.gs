@@ -27,6 +27,8 @@ const CONSULTATION_CATEGORY_HEADER = "상담 분야";
 const FOLLOW_UP_STATUS_HEADER = "후속 상담 상태";
 const MEMO_IMPORTANT_HEADER = "중요 메모";
 const CONSULTATION_SOURCE_HEADER = "상담 출처";
+const FOLLOW_UP_TASK_HEADER = "후속 할 일";
+const FOLLOW_UP_TASK_DONE_HEADER = "후속 할 일 완료";
 const CONSULTATION_CATEGORIES = ["진로", "학업", "학교생활", "친구관계", "기타"];
 const FOLLOW_UP_STATUSES = ["closed", "follow_up"];
 const SLOT_START_STATE_KEY = "COUNSELING_SLOT_START_STATE";
@@ -1061,7 +1063,9 @@ function getConsultationMetadataColumns(sheet) {
     category: findConsultationMetadataColumn(headers, [CONSULTATION_CATEGORY_HEADER, "상담분야", "consultationCategory"]),
     followUpStatus: findConsultationMetadataColumn(headers, [FOLLOW_UP_STATUS_HEADER, "후속상담상태", "followUpStatus"]),
     memoImportant: findConsultationMetadataColumn(headers, [MEMO_IMPORTANT_HEADER, "isImportant"]),
-    source: findConsultationMetadataColumn(headers, [CONSULTATION_SOURCE_HEADER, "source"])
+    source: findConsultationMetadataColumn(headers, [CONSULTATION_SOURCE_HEADER, "source"]),
+    followUpTask: findConsultationMetadataColumn(headers, [FOLLOW_UP_TASK_HEADER, "followUpTask"]),
+    followUpTaskDone: findConsultationMetadataColumn(headers, [FOLLOW_UP_TASK_DONE_HEADER, "followUpTaskDone"])
   };
 }
 
@@ -1084,6 +1088,14 @@ function ensureConsultationMetadataColumns(sheet) {
   if (!columns.source) {
     columns.source = nextColumn++;
     sheet.getRange(1, columns.source).setValue(CONSULTATION_SOURCE_HEADER);
+  }
+  if (!columns.followUpTask) {
+    columns.followUpTask = nextColumn++;
+    sheet.getRange(1, columns.followUpTask).setValue(FOLLOW_UP_TASK_HEADER);
+  }
+  if (!columns.followUpTaskDone) {
+    columns.followUpTaskDone = nextColumn++;
+    sheet.getRange(1, columns.followUpTaskDone).setValue(FOLLOW_UP_TASK_DONE_HEADER);
   }
   return columns;
 }
@@ -1451,6 +1463,7 @@ function handleAdminAction(data) {
   }
   if (data.action === "adminListReservations") return adminListReservations(data);
   if (data.action === "adminListFollowUpStudents") return adminListFollowUpStudents();
+  if (data.action === "adminGetCounselingOverview") return adminGetCounselingOverview();
   if (data.action === "adminListWaitlist") return adminListWaitlist();
   if (data.action === "adminPromoteWaitlist") return adminPromoteWaitlist(data);
   if (data.action === "adminCancelWaitlist") return adminCancelWaitlist(data);
@@ -1525,6 +1538,8 @@ function adminListReservations(data) {
       followUpStatus: metadataColumns.followUpStatus && rows[i][metadataColumns.followUpStatus - 1] ? normalizeFollowUpStatus(rows[i][metadataColumns.followUpStatus - 1]) : "",
       memoImportant: metadataColumns.memoImportant && rows[i][metadataColumns.memoImportant - 1] ? sheetBoolean(rows[i][metadataColumns.memoImportant - 1]) : false,
       source: metadataColumns.source ? normalizeConsultationSource(rows[i][metadataColumns.source - 1]) : "reservation",
+      followUpTask: metadataColumns.followUpTask && rows[i][metadataColumns.followUpTask - 1] ? rows[i][metadataColumns.followUpTask - 1].toString() : "",
+      followUpTaskDone: metadataColumns.followUpTaskDone ? sheetBoolean(rows[i][metadataColumns.followUpTaskDone - 1]) : false,
       schoolYearConsultationCount: completedCountsByName[rowName] || 0,
       recentCompletedDate: recentCompletedDate,
       recentCompletedDays: recentCompletedDays
@@ -1538,6 +1553,42 @@ function adminListReservations(data) {
   return jsonOutput({ ok: true, reservations: reservations });
 }
 
+function getConsultationSlotSortIndex(slot) {
+  const index = CONSULT_SLOTS.indexOf(slot);
+  return index === -1 ? 99 : index;
+}
+
+// 관리자 대시보드와 기록 검색에 필요한 비민감 요약 정보를 한 번에 반환합니다.
+function adminGetCounselingOverview() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
+  if (!sheet) return jsonOutput({ ok: false, error: "SHEET_NOT_FOUND" });
+  const today = localIsoDate(new Date());
+  const metadataColumns = getConsultationMetadataColumns(sheet);
+  const records = sheet.getDataRange().getValues().slice(1).map((row, index) => {
+    const date = parseKoreanDate(row[0]);
+    if (!date) return null;
+    return {
+      row: index + 2,
+      date: date,
+      slot: row[1] ? row[1].toString().trim() : "",
+      name: row[2] ? row[2].toString().trim() : "",
+      completed: sheetBoolean(row[4]),
+      consultationCategory: metadataColumns.category ? normalizeConsultationCategory(row[metadataColumns.category - 1]) : "",
+      followUpStatus: metadataColumns.followUpStatus ? normalizeFollowUpStatus(row[metadataColumns.followUpStatus - 1]) : "",
+      memoImportant: metadataColumns.memoImportant ? sheetBoolean(row[metadataColumns.memoImportant - 1]) : false,
+      source: metadataColumns.source ? normalizeConsultationSource(row[metadataColumns.source - 1]) : "reservation",
+      followUpTask: metadataColumns.followUpTask && row[metadataColumns.followUpTask - 1] ? row[metadataColumns.followUpTask - 1].toString() : "",
+      followUpTaskDone: metadataColumns.followUpTaskDone ? sheetBoolean(row[metadataColumns.followUpTaskDone - 1]) : false
+    };
+  }).filter(Boolean);
+  const byDateAndSlot = (a, b) => a.date.localeCompare(b.date) || getConsultationSlotSortIndex(a.slot) - getConsultationSlotSortIndex(b.slot) || a.row - b.row;
+  const todayRecords = records.filter(item => item.date === today).sort(byDateAndSlot);
+  const overdueRecords = records.filter(item => item.date < today && !item.completed).sort(byDateAndSlot);
+  const pendingTasks = records.filter(item => item.followUpTask && !item.followUpTaskDone)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.row - b.row);
+  return jsonOutput({ ok: true, today: todayRecords, overdue: overdueRecords, pendingTasks: pendingTasks, records: records });
+}
+
 // 학생별 가장 최근 완료 상담 결과만 사용해 현재 후속 상담 필요 여부를 계산합니다.
 function adminListFollowUpStudents() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSULT_SHEET_NAME);
@@ -1545,11 +1596,20 @@ function adminListFollowUpStudents() {
   const rows = sheet.getDataRange().getValues();
   const metadataColumns = getConsultationMetadataColumns(sheet);
   const schoolYearRange = getSchoolYearRange(getOperationSettings().schoolYear);
+  const today = localIsoDate(new Date());
   const students = {};
+  const nextReservationsByName = {};
   rows.slice(1).forEach((row, index) => {
     const date = parseKoreanDate(row[0]);
     const name = row[2] ? row[2].toString().trim() : "";
-    if (!date || !name || !sheetBoolean(row[4]) || date < schoolYearRange.start || date > schoolYearRange.end) return;
+    const slot = row[1] ? row[1].toString().trim() : "";
+    const completed = sheetBoolean(row[4]);
+    if (date && name && !completed && date >= today && CONSULT_SLOTS.indexOf(slot) !== -1) {
+      const next = { date: date, slot: slot, row: index + 2 };
+      const existing = nextReservationsByName[name];
+      if (!existing || next.date < existing.date || (next.date === existing.date && getConsultationSlotSortIndex(next.slot) < getConsultationSlotSortIndex(existing.slot))) nextReservationsByName[name] = next;
+    }
+    if (!date || !name || !completed || date < schoolYearRange.start || date > schoolYearRange.end) return;
     const record = {
       row: index + 2,
       date: date,
@@ -1565,7 +1625,7 @@ function adminListFollowUpStudents() {
   });
   const followUpStudents = Object.keys(students).map(name => {
     const item = students[name];
-    return Object.assign({}, item.latest, { schoolYearConsultationCount: item.count });
+    return Object.assign({}, item.latest, { schoolYearConsultationCount: item.count, nextReservation: nextReservationsByName[name] || null });
   }).filter(item => item.followUpStatus === "follow_up");
   followUpStudents.sort((a, b) => b.date.localeCompare(a.date) || b.row - a.row);
   return jsonOutput({ ok: true, students: followUpStudents });
@@ -1674,6 +1734,10 @@ function adminUpdateConsultation(data) {
   if (hasFollowUpStatus && data.followUpStatus && !requestedFollowUpStatus) {
     return jsonOutput({ ok: false, error: "INVALID_FOLLOW_UP_STATUS" });
   }
+  const hasFollowUpTask = Object.prototype.hasOwnProperty.call(data, "followUpTask");
+  const requestedFollowUpTask = data.followUpTask === undefined || data.followUpTask === null ? "" : data.followUpTask.toString().trim();
+  if (requestedFollowUpTask.length > 300) return jsonOutput({ ok: false, error: "FOLLOW_UP_TASK_TOO_LONG" });
+  if (data.followUpTaskDone !== undefined && typeof data.followUpTaskDone !== "boolean") return jsonOutput({ ok: false, error: "INVALID_FOLLOW_UP_TASK_DONE" });
 
   const lock = LockService.getScriptLock();
   let calendarEventId = "";
@@ -1682,7 +1746,7 @@ function adminUpdateConsultation(data) {
   try {
     if (rowNumber > sheet.getLastRow()) return jsonOutput({ ok: false, error: "STALE_DATA" });
     const metadataColumns = ensureConsultationMetadataColumns(sheet);
-    const row = sheet.getRange(rowNumber, 1, 1, Math.max(CALENDAR_EVENT_ID_COLUMN, metadataColumns.followUpStatus, metadataColumns.memoImportant)).getValues()[0];
+    const row = sheet.getRange(rowNumber, 1, 1, Math.max(CALENDAR_EVENT_ID_COLUMN, metadataColumns.followUpStatus, metadataColumns.memoImportant, metadataColumns.followUpTask, metadataColumns.followUpTaskDone)).getValues()[0];
     const currentDate = parseKoreanDate(row[0]);
     const currentSlot = row[1] ? row[1].toString().trim() : "";
     const currentName = row[2] ? row[2].toString() : "";
@@ -1694,9 +1758,15 @@ function adminUpdateConsultation(data) {
     const followUpStatus = data.completed ? (hasFollowUpStatus ? requestedFollowUpStatus : storedFollowUpStatus) : "";
     const storedImportant = metadataColumns.memoImportant ? sheetBoolean(row[metadataColumns.memoImportant - 1]) : false;
     const isImportant = data.isImportant === undefined ? storedImportant : data.isImportant;
+    const storedTask = metadataColumns.followUpTask && row[metadataColumns.followUpTask - 1] ? row[metadataColumns.followUpTask - 1].toString() : "";
+    const followUpTask = hasFollowUpTask ? requestedFollowUpTask : storedTask;
+    const storedTaskDone = metadataColumns.followUpTaskDone ? sheetBoolean(row[metadataColumns.followUpTaskDone - 1]) : false;
+    const followUpTaskDone = followUpTask ? (data.followUpTaskDone === undefined ? storedTaskDone : data.followUpTaskDone) : false;
     sheet.getRange(rowNumber, 5, 1, 2).setValues([[data.completed, memo]]);
     sheet.getRange(rowNumber, metadataColumns.followUpStatus).setValue(followUpStatus);
     sheet.getRange(rowNumber, metadataColumns.memoImportant).setValue(isImportant);
+    sheet.getRange(rowNumber, metadataColumns.followUpTask).setValue(followUpTask);
+    sheet.getRange(rowNumber, metadataColumns.followUpTaskDone).setValue(followUpTaskDone);
     calendarEventId = row[CALENDAR_EVENT_ID_COLUMN - 1] ? row[CALENDAR_EVENT_ID_COLUMN - 1].toString().trim() : "";
     reservationName = currentName;
   } finally {
@@ -1762,7 +1832,9 @@ function adminListStudentHistory(data) {
       consultationCategory: metadataColumns.category && rows[i][metadataColumns.category - 1] ? normalizeConsultationCategory(rows[i][metadataColumns.category - 1]) : "",
       followUpStatus: metadataColumns.followUpStatus && rows[i][metadataColumns.followUpStatus - 1] ? normalizeFollowUpStatus(rows[i][metadataColumns.followUpStatus - 1]) : "",
       memoImportant: metadataColumns.memoImportant && rows[i][metadataColumns.memoImportant - 1] ? sheetBoolean(rows[i][metadataColumns.memoImportant - 1]) : false,
-      source: metadataColumns.source ? normalizeConsultationSource(rows[i][metadataColumns.source - 1]) : "reservation"
+      source: metadataColumns.source ? normalizeConsultationSource(rows[i][metadataColumns.source - 1]) : "reservation",
+      followUpTask: metadataColumns.followUpTask && rows[i][metadataColumns.followUpTask - 1] ? rows[i][metadataColumns.followUpTask - 1].toString() : "",
+      followUpTaskDone: metadataColumns.followUpTaskDone ? sheetBoolean(rows[i][metadataColumns.followUpTaskDone - 1]) : false
     });
   }
   history.sort((a, b) => a.date === b.date ? a.slot.localeCompare(b.slot) : (a.date < b.date ? 1 : -1));
