@@ -1207,7 +1207,7 @@ async function loadAdminData(showSuccess = false) {
     try {
         const [reservationResult, overviewResult, followUpResult, waitlistResult, calendarResult, availabilityResult, statsResult, integrationResult, operationResult] = await Promise.all([
             adminRequest('adminListReservations'),
-            adminRequest('adminGetCounselingOverview'),
+            adminRequest('adminGetCounselingOverview').catch(() => ({ today: [], overdue: [], pendingTasks: [], records: [] })),
             adminRequest('adminListFollowUpStudents'),
             adminRequest('adminListWaitlist'),
             adminRequest('adminListCalendarItems'),
